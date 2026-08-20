@@ -1,29 +1,26 @@
 using System;
+using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
+using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Scenes {
     /// <summary>
-    /// A module that wraps <see cref="ISceneService"/> and forwards lifecycle calls
-    /// from the host to the service. Implements <see cref="IUpdateable"/> and <see cref="IDrawable"/>.
+    /// Platform-agnostic module that registers the scene management service.
+    /// Implements <see cref="IModule"/> for automatic discovery and forwards
+    /// lifecycle calls to <see cref="ISceneService"/>.
     /// </summary>
-    public sealed class SceneModule : IUpdateable, IDrawable {
+    public sealed class SceneModule : IModule, IUpdateable, IDrawable {
         private readonly ISceneService _service;
         private readonly int _order;
         private bool _flagEnabled = true;
         private bool _flagVisible = true;
         
         /// <summary>
-        /// Initializes a new instance of the <see cref="SceneModule"/> class.
+        /// Initializes a new instance of the <see cref="SceneModule"/> class. 
         /// </summary>
-        /// <param name="service">The scene service to forward calls to.</param>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="service"/> is null.</exception>
-        public SceneModule(ISceneService service, int order = 0) {
-            if (service == null) {
-                throw new ArgumentNullException(nameof(service));
-            }
-            
-            _service = service;
+        /// <param name="order">Execution order for the module (default 0).</param>
+        public SceneModule(int order = 0) {
             _order = order;
         }
         
@@ -43,8 +40,19 @@ namespace MonoGameLibrary.Extensions.Scenes {
         }
 
         /// <inheritdoc />
+        public void Register(GameBuilder builder) {
+            if (builder == null) {
+                throw new ArgumentNullException(nameof(builder));
+            }
+            
+            _service = new SceneService();
+            builder.RegisterService<ISceneService>(_service);
+            builder.AddModule(this);
+        }
+        
+        /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
-            if (!Enabled) {
+            if (!_flagEnabled || _service == null) {
                 return;
             }
             
@@ -53,7 +61,7 @@ namespace MonoGameLibrary.Extensions.Scenes {
         
         /// <inheritdoc />
         public void Draw(FrameTime timeFrame) {
-            if (!_flagVisible) {
+            if (!_flagVisible || _service == null) {
                 return;
             }
             

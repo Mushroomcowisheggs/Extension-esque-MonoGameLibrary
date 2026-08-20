@@ -24,8 +24,8 @@ namespace MonoGameLibrary.Adapters.Gum {
             Game game, 
             ContentManager managerContent, 
             DefaultVisualsVersion version, 
-            IEnumerable<Keys> tabForwardKeys = null, 
-            IEnumerable<Keys> tabReverseKeys = null
+            IEnumerable<Keys> keysTabForward = null, 
+            IEnumerable<Keys> keysTabReverse = null
         ) {
             if (builder == null) { throw new ArgumentNullException(nameof(builder)); }
             if (game == null) { throw new ArgumentNullException(nameof(game)); }
@@ -35,8 +35,8 @@ namespace MonoGameLibrary.Adapters.Gum {
             var serviceGum = new GumService(
                 game, 
                 version, 
-                tabForwardKeys, 
-                tabReverseKeys
+                keysTabForward, 
+                keysTabReverse
             );
             
             // Register the service so other modules can inject IUserInterfaceService if needed

@@ -25,14 +25,14 @@ namespace MonoGameLibrary.Adapters.Gum {
         /// </summary>
         /// <param name="game">The running MonoGame game instance. </param>
         /// <param name="version">The Gum visual version. </param>
-        /// <param name="tabForwardKeys">Keys to navigate forward (default: Tab).</param>
-        /// <param name="tabReverseKeys">Keys to navigate backward (default: Shift+Tab).</param>
+        /// <param name="keysTabForward">Keys to navigate forward (default: Tab).</param>
+        /// <param name="keysTabReverse">Keys to navigate backward (default: Shift+Tab).</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="game"/> is null. </exception>
         public GumService(
             Game game, 
             DefaultVisualsVersion version, 
-            IEnumerable<Keys> tabForwardKeys = null, 
-            IEnumerable<Keys> tabReverseKeys = null
+            IEnumerable<Keys> keysTabForward = null, 
+            IEnumerable<Keys> keysTabReverse = null
         ) {
             if (game == null) {
                 throw new ArgumentNullException(nameof(game));
@@ -41,13 +41,13 @@ namespace MonoGameLibrary.Adapters.Gum {
             _version = version;
             
             // Apply tab navigation keys if provided
-            if (tabForwardKeys != null) {
-                foreach (var key in tabForwardKeys) {
+            if (keysTabForward != null) {
+                foreach (var key in keysTabForward) {
                     FrameworkElement.TabKeyCombos.Add(new KeyCombo { PushedKey = key });
                 }
             }
-            if (tabReverseKeys != null) {
-                foreach (var key in tabReverseKeys) {
+            if (keysTabReverse != null) {
+                foreach (var key in keysTabReverse) {
                     FrameworkElement.TabReverseKeyCombos.Add(new KeyCombo { PushedKey = key });
                 }
             }

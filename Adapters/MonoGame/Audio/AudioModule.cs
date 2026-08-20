@@ -2,17 +2,20 @@ using System;
 using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Diagnostics;
+using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
+using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Core.Time;
+using MonoGameLibrary.Extensions.Audio;
 
-namespace MonoGameLibrary.Extensions.Audio {
+namespace MonoGameLibrary.Adapters.MonoGame.Audio {
     /// <summary>
-    /// Host-driven module that forwards update calls to <see cref="IAudioService"/>.
-    /// Contains no platform logic.
+    /// Platform-specific module that registers the MonoGame audio service. 
+    /// Implements <see cref="IModule"/> for automatic discovery and <see cref="IUpdateable"/>
+    /// to forward per-frame updates to the audio service. 
     /// </summary>
-    public sealed class AudioModule : IUpdateable, IDisposable {
+    public sealed class AudioModule : IModule, IUpdateable, IDisposable {
         private readonly IAudioService _serviceAudio;
-        private readonly ILogger _logger;
         private readonly object _lock = new object();
         private bool _flagEnabled = true;
         private bool _flagDisposed = false;
@@ -31,24 +34,27 @@ namespace MonoGameLibrary.Extensions.Audio {
         }
         
         /// <summary>
-        /// Creates a new audio module.
+        /// Initializes a new instance of the <see cref="AudioModule"/> class. 
         /// </summary>
-        /// <param name="serviceAudio">The audio service to forward calls to.</param>
-        /// <param name="logger">Optional logger for diagnostics.</param>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceAudio"/> is null.</exception>
-        public AudioModule(IAudioService serviceAudio, Optional<ILogger> logger = default) {
-            if (serviceAudio == null) {
-                throw new ArgumentNullException(nameof(serviceAudio));
+        public AudioModule() {
+        }
+        
+        /// <inheritdoc />
+        public void Register(GameBuilder builder) {
+            if (builder == null) {
+                throw new ArgumentNullException(nameof(builder));
             }
-            _serviceAudio = serviceAudio;
-            _logger = logger.HasValue ? logger.Value : NullLogger.Instance;
+            
+            _serviceAudio = new AudioService();
+            builder.RegisterService<IAudioService>(_serviceAudio);
+            builder.AddModule(this);
         }
         
         /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
             bool flagShouldUpdate;
             lock (_lock) {
-                flagShouldUpdate = _flagEnabled && !_flagDisposed;
+                flagShouldUpdate = _flagEnabled && !_flagDisposed && _serviceAudio != null;
             }
             if (!flagShouldUpdate) {
                 return;

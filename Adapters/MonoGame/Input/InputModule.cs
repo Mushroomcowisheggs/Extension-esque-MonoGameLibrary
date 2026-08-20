@@ -3,21 +3,22 @@ using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Diagnostics;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Time;
+using MonoGameLibrary.Extensions.Input;
 
-namespace MonoGameLibrary.Extensions.Input {
+namespace MonoGameLibrary.Adapters.MonoGame.Input {
     /// <summary>
-    /// Host-driven module that forwards update calls to <see cref="IInputService"/>.
-    /// Contains no platform logic.
+    /// Platform-specific module that registers the MonoGame input service. 
+    /// Implements <see cref="IModule"/> for automatic discovery and <see cref="IUpdateable"/>
+    /// to forward per-frame updates to the input service. 
     /// </summary>
-    public sealed class InputModule : IUpdateable, IDisposable {
-        private readonly IInputService _serviceInput;
-        private readonly ILogger _logger;
+    public sealed class InputModule : IModule, IUpdateable, IDisposable {
+        private IInputService _serviceInput;
         private readonly object _lock = new object();
         private bool _flagEnabled = true;
         private bool _flagDisposed = false;
         
         /// <summary>
-        /// Gets the update order. Input should update before most systems, so default is -100.
+        /// Gets the update order. Input should update before most systems, so default is -64.
         /// </summary>
         public int Order { get; } = -64;
         
@@ -30,24 +31,27 @@ namespace MonoGameLibrary.Extensions.Input {
         }
         
         /// <summary>
-        /// Creates a new input module.
+        /// Initializes a new instance of the <see cref="InputModule"/> class. 
         /// </summary>
-        /// <param name="serviceInput">The input service to forward calls to.</param>
-        /// <param name="logger">Optional logger for diagnostics.</param>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceInput"/> is null.</exception>
-        public InputModule(IInputService serviceInput, Optional<ILogger> logger = default) {
-            if (serviceInput == null) {
-                throw new ArgumentNullException(nameof(serviceInput));
+        public InputModule() {
+        }
+        
+        /// <inheritdoc />
+        public void Register(GameBuilder builder) {
+            if (builder == null) {
+                throw new ArgumentNullException(nameof(builder));
             }
-            _serviceInput = serviceInput;
-            _logger = logger.HasValue ? logger.Value : NullLogger.Instance;
+            
+            _serviceInput = new InputService();
+            builder.RegisterService<IInputService>(_serviceInput);
+            builder.AddModule(this);
         }
         
         /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
             bool flagShouldUpdate;
             lock (_lock) {
-                flagShouldUpdate = _flagEnabled && !_flagDisposed;
+                flagShouldUpdate = _flagEnabled && !_flagDisposed && _serviceInput != null;
             }
             if (!flagShouldUpdate) {
                 return;
@@ -57,7 +61,7 @@ namespace MonoGameLibrary.Extensions.Input {
         }
         
         /// <summary>
-        /// Disposes the module (no unmanaged resources).
+        /// Disposes the module (no unmanaged resources). 
         /// </summary>
         public void Dispose() {
             if (_flagDisposed) {
