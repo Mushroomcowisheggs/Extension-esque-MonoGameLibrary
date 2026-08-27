@@ -844,6 +844,101 @@ SpriteRenderer.Draw(batchSprite, in data, position); // Zero allocation for data
 
 ---
 
+## 14. 资源清理的补偿模式
+
+**物理位置**：`MonoGameLibrary.Utilities`
+
+**设计目标**：仅限游戏应用代码。
+
+### 规则详述
+
+1. **框架模块（实现 IModule 的类）必须使用显式清理**。所有资源释放、事件退订、状态恢复都必须在 Dispose 方法中明确写出。
+2. **游戏应用代码可以使用 CompensationStack** 简化样板清理代码。
+3. **补偿动作按 LIFO 顺序执行**，天然匹配资源分配的反序释放原则。
+4. **不要在框架模块中使用 CompensationStack**。框架模块必须保持可审计和可预测。
+5. **Utilities 项目不引用 Extensions**，确保框架模块无法意外访问便利工具。
+
+### 设计理念
+
+此模式借鉴了动态组合演算中“补偿”的概念，承认并非所有操作都是数学上可逆的。CompensationStack 不要求精确可逆，而是提供一种注册显式补偿动作的机制，使系统达到干净状态。
+
+### 示例：框架模块（显式）
+
+```csharp
+public class AudioModule : IModule, IDisposable {
+    private IAudioService _serviceAudio;
+    private float _volumeBefore;
+    private bool _flagDisposed = false;
+
+    public void Register(GameBuilder builder) {
+        _serviceAudio = new AudioService();
+        builder.RegisterService<IAudioService>(_serviceAudio);
+        _volumeBefore = _serviceAudio.SongVolume;
+        _serviceAudio.SongVolume = 1.0f;
+    }
+
+    public void Dispose() {
+        if (_flagDisposed) {
+            return;
+        }
+        _serviceAudio.SongVolume = _volumeBefore;
+        IDisposable disposable = _serviceAudio as IDisposable;
+        if (disposable != null) {
+            disposable.Dispose();
+        }
+        _serviceAudio = null;
+        _flagDisposed = true;
+        GC.SuppressFinalize(this);
+    }
+}
+```
+
+### 示例：游戏应用（使用 CompensationStack）
+
+```csharp
+public class GameScene : Scene {
+    private readonly CompensationStack _compensation;
+
+    public GameScene() {
+        _compensation = new CompensationStack();
+    }
+
+    public override void LoadContent() {
+        ITexture texture = ContentService.Load<ITexture>("hero");
+        _compensation.CompensateDispose(texture);
+
+        slider.ValueChanged += OnSliderChanged;
+        _compensation.Compensate(delegate() {
+            slider.ValueChanged -= OnSliderChanged;
+        });
+
+        _serviceUI.AddToRoot(panel);
+        _compensation.Compensate(delegate() {
+            _serviceUI.RemoveFromRoot(panel);
+        });
+    }
+
+    protected override void Dispose(bool flagDisposing) {
+        if (flagDisposing) {
+            _compensation.Dispose();
+        }
+        base.Dispose(flagDisposing);
+    }
+}
+```
+
+### 何时不使用 CompensationStack
+
+- 在任何实现 `IModule` 的类中（框架模块必须保持显式）。
+- 在性能关键的路径中，栈的开销不可接受时。
+- 当清理逻辑非常简单，显式的 Dispose 代码更清晰时。
+
+### 验证工具
+
+`ResourceLeakDetector` 和 `CleanupAssert` 为游戏应用开发者在开发和测试阶段提供。框架模块作者依靠显式、可读的 Dispose 实现和代码审查来验证正确性。
+
+---
+
 ## 编写扩展模块的快速检查清单
 
 在编写或集成您的扩展模块之前，请确认以下事项：

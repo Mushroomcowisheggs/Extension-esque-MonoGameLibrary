@@ -1,4 +1,6 @@
 using System;
+using Gum.Forms;
+using Gum.Forms.Controls;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Input;
@@ -12,7 +14,7 @@ namespace MonoGameLibrary.Adapters.Gum {
     /// Implements <see cref="IModule"/> for automatic discovery. 
     /// </summary>
     public sealed class GumModule : IModule {
-        private Gum.Forms.DefaultVisualsVersion _version;
+        private global::Gum.Forms.DefaultVisualsVersion _version;
         private System.Collections.Generic.IEnumerable<Keys> _keysTabForward;
         private System.Collections.Generic.IEnumerable<Keys> _keysTabReverse;
         
@@ -23,7 +25,7 @@ namespace MonoGameLibrary.Adapters.Gum {
         /// <param name="keysTabForward">Keys to navigate forward (default: Tab).</param>
         /// <param name="keysTabReverse">Keys to navigate backward (default: Shift+Tab).</param>
         public GumModule(
-            Gum.Forms.DefaultVisualsVersion version = Gum.Forms.DefaultVisualsVersion.V3,
+            global::Gum.Forms.DefaultVisualsVersion version = global::Gum.Forms.DefaultVisualsVersion.V3,
             System.Collections.Generic.IEnumerable<Keys> keysTabForward = null,
             System.Collections.Generic.IEnumerable<Keys> keysTabReverse = null
         ) {

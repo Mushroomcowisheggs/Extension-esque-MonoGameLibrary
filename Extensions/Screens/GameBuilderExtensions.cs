@@ -18,11 +18,8 @@ namespace MonoGameLibrary.Extensions.Screens {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            var service = new ScreenService();
-            builder.RegisterService<IScreenService>(service);
-            
-            var module = new ScreenModule(service, order);
-            builder.AddModule(module);
+            var module = new ScreenModule(order);
+            module.Register(builder);
             
             return builder;
         }

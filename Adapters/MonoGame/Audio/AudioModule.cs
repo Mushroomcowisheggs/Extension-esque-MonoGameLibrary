@@ -15,7 +15,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
     /// to forward per-frame updates to the audio service. 
     /// </summary>
     public sealed class AudioModule : IModule, IUpdateable, IDisposable {
-        private readonly IAudioService _serviceAudio;
+        private IAudioService _serviceAudio;
         private readonly object _lock = new object();
         private bool _flagEnabled = true;
         private bool _flagDisposed = false;

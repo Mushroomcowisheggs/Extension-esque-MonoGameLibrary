@@ -21,11 +21,8 @@ namespace MonoGameLibrary.Extensions.Scenes {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            var service = new SceneService();
-            builder.RegisterService<ISceneService>(service);
-            
-            var module = new SceneModule(service, order);
-            builder.AddModule(module);
+            var module = new SceneModule(order);
+            module.Register(builder);
             return builder;
         }
     }

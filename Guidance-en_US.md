@@ -844,6 +844,101 @@ SpriteRenderer.Draw(batchSprite, in data, position); // Zero allocation for data
 
 ---
 
+## 14. Compensation Pattern for Resource Cleanup
+
+**Physical Location**: `MonoGameLibrary.Utilities`
+
+**Design Target**: Game application code only.
+
+### Detailed Rules
+
+1. **Framework modules (IModule implementations) must use explicit cleanup in Dispose**. All resource releases, event unsubscriptions, and state restorations must be explicitly written in the Dispose method.
+2. **Game application code may use CompensationStack** to reduce boilerplate cleanup code.
+3. **Compensation actions are executed in LIFO order**, matching the reverse order of resource allocation.
+4. **Do not use CompensationStack in framework modules**. Framework modules must remain auditable and predictable.
+5. **Utilities project does not reference Extensions**. This ensures framework modules cannot accidentally access convenience tools.
+
+### Rationale
+
+This pattern is adapted from the concept of "Compensation" in dynamic composition calculus. It acknowledges that not all operations are mathematically reversible. Instead of requiring exact reversibility, CompensationStack provides a mechanism for registering explicit compensation actions that bring the system to a clean state.
+
+### Example: Framework Module (Explicit)
+
+```csharp
+public class AudioModule : IModule, IDisposable {
+    private IAudioService _serviceAudio;
+    private float _volumeBefore;
+    private bool _flagDisposed = false;
+
+    public void Register(GameBuilder builder) {
+        _serviceAudio = new AudioService();
+        builder.RegisterService<IAudioService>(_serviceAudio);
+        _volumeBefore = _serviceAudio.SongVolume;
+        _serviceAudio.SongVolume = 1.0f;
+    }
+
+    public void Dispose() {
+        if (_flagDisposed) {
+            return;
+        }
+        _serviceAudio.SongVolume = _volumeBefore;
+        IDisposable disposable = _serviceAudio as IDisposable;
+        if (disposable != null) {
+            disposable.Dispose();
+        }
+        _serviceAudio = null;
+        _flagDisposed = true;
+        GC.SuppressFinalize(this);
+    }
+}
+```
+
+### Example: Game Application (Using CompensationStack)
+
+```csharp
+public class GameScene : Scene {
+    private readonly CompensationStack _compensation;
+
+    public GameScene() n{
+        _compensation = new CompensationStack();
+    }
+
+    public override void LoadContent() {
+        ITexture texture = ContentService.Load<ITexture>("hero");
+        _compensation.CompensateDispose(texture);
+
+        slider.ValueChanged += OnSliderChanged;
+        _compensation.Compensate(delegate() {
+            slider.ValueChanged -= OnSliderChanged;
+        });
+
+        _serviceUI.AddToRoot(panel);
+        _compensation.Compensate(delegate() {
+            _serviceUI.RemoveFromRoot(panel);
+        });
+    }
+
+    protected override void Dispose(bool flagDisposing) {
+        if (flagDisposing) {
+            _compensation.Dispose();
+        }
+        base.Dispose(flagDisposing);
+    }
+}
+```
+
+### When Not to Use CompensationStack
+
+- In any class that implements `IModule` (framework modules must remain explicit).
+- In performance-critical paths where stack overhead is unacceptable.
+- When cleanup logic is simple enough that explicit Dispose code is clearer.
+
+### Verification Utilities
+
+`ResourceLeakDetector` and `CleanupAssert` are provided for game application developers during development and testing. Framework module authors rely on explicit, readable Dispose implementations and code review to verify correctness.
+
+---
+
 ## Quick Checklist for Writing an Extension Module
 
 Before writing or integrating your extension module, confirm the following:

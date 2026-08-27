@@ -60,16 +60,16 @@ namespace MonoGameLibrary.Core.Modularity {
                             IModule module = (IModule)Activator.CreateInstance(type);
                             module.Register(builder);
                             loggerResolved.Info($"ModuleLoader: Successfully registered module '{type.FullName}'.");
-                        } catch (Exception ex) {
-                            loggerResolved.Error($"ModuleLoader: Failed to register module '{type.FullName}'", ex);
+                        } catch (Exception exception) {
+                            loggerResolved.Error($"ModuleLoader: Failed to register module '{type.FullName}'", exception);
                         }
                     }
                     
                     if (!flagAnyModuleFound) {
                         loggerResolved.Debug($"ModuleLoader: No IModule implementations found in '{dllPath}'.");
                     }
-                } catch (Exception ex) {
-                    loggerResolved.Error($"ModuleLoader: Failed to load assembly '{dllPath}'", ex);
+                } catch (Exception exception) {
+                    loggerResolved.Error($"ModuleLoader: Failed to load assembly '{dllPath}'", exception);
                 }
             }
             

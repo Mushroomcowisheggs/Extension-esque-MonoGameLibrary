@@ -20,9 +20,8 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            var serviceAudio = new AudioService();
-            builder.RegisterService<IAudioService>(serviceAudio);
-            builder.AddModule(new AudioModule(serviceAudio));
+            var module = new AudioModule();
+            module.Register(builder);
             return builder;
         }
     }

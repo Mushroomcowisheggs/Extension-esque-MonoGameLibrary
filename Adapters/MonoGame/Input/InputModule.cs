@@ -1,7 +1,9 @@
 using System;
 using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Diagnostics;
+using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
+using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.Input;
 

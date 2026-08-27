@@ -6,12 +6,12 @@ using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Scenes {
     /// <summary>
-    /// Platform-agnostic module that registers the scene management service.
+    /// Module that registers the scene management service.
     /// Implements <see cref="IModule"/> for automatic discovery and forwards
     /// lifecycle calls to <see cref="ISceneService"/>.
     /// </summary>
     public sealed class SceneModule : IModule, IUpdateable, IDrawable {
-        private readonly ISceneService _service;
+        private ISceneService _service;
         private readonly int _order;
         private bool _flagEnabled = true;
         private bool _flagVisible = true;
@@ -38,7 +38,7 @@ namespace MonoGameLibrary.Extensions.Scenes {
             get { return _flagVisible; }
             set { _flagVisible = value; }
         }
-
+        
         /// <inheritdoc />
         public void Register(GameBuilder builder) {
             if (builder == null) {

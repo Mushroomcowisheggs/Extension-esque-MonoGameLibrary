@@ -18,9 +18,8 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            var serviceInput = new InputService();
-            builder.RegisterService<IInputService>(serviceInput);
-            builder.AddModule(new InputModule(serviceInput));
+            var module = new InputModule();
+            module.Register(builder);
             return builder;
         }
         
