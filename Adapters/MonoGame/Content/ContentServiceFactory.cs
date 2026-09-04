@@ -10,9 +10,10 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
     /// backed by a fresh <see cref="ContentManager"/>. 
     /// </summary>
     public sealed class ContentServiceFactory : IContentServiceFactory {
+        private readonly ContentService _template;
         private readonly IServiceProvider _providerService;
         private readonly string _directoryRoot;
-
+        
         /// <summary>
         /// Initializes a new factory instance. 
         /// </summary>
@@ -20,7 +21,14 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         /// <param name="rootDirectory">The root directory for content (e.g., "Content"). </param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceProvider"/> is null. </exception>
         /// <exception cref="ArgumentException">Thrown if <paramref name="rootDirectory"/> is null or whitespace. </exception>
-        public ContentServiceFactory(IServiceProvider providerService, string directoryRoot) {
+        public ContentServiceFactory(
+            ContentService template,
+            IServiceProvider providerService,
+            string directoryRoot
+        ) {
+            if (template == null) {
+                throw new ArgumentNullException(nameof(template));
+            }
             if (providerService == null) {
                 throw new ArgumentNullException(nameof(providerService));
             }
@@ -28,6 +36,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
                 throw new ArgumentException("Root directory cannot be empty.", nameof(directoryRoot));
             }
             
+            _template = template;
             _providerService = providerService;
             _directoryRoot = directoryRoot;
         }
@@ -37,7 +46,9 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
             var managerContent = new ContentManager(_providerService) {
                 RootDirectory = _directoryRoot
             };
-            return new ContentService(managerContent);
+            ContentService serviceContent = new ContentService(managerContent);
+            _template.CopyLoadersTo(serviceContent);
+            return serviceContent;
         }
     }
 }

@@ -29,5 +29,8 @@ namespace MonoGameLibrary.Extensions.Screens {
         
         /// <summary>Updates the screen logic each frame. </summary>
         void Update(FrameTime timeFrame);
+        
+        /// <summary>Draws the screen each frame.</summary>
+        void Draw(FrameTime timeFrame);
     }
 }

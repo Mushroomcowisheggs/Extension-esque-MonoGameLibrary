@@ -47,5 +47,10 @@ namespace MonoGameLibrary.Extensions.UserInterface {
         /// <param name="flagEnableKeyboard">Whether keyboard input should be enabled. Default true. </param>
         /// <param name="flagEnableGamepad">Whether gamepad input should be enabled. Default true. </param>
         void ConfigureInput(bool flagEnableKeyboard = true, bool flagEnableGamepad = true);
+        
+        void AddNavigationForwardKey(NavigationKey key);
+        void AddNavigationReverseKey(NavigationKey key);
+        void RemoveNavigationForwardKey(NavigationKey key);
+        void RemoveNavigationReverseKey(NavigationKey key);
     }
 }

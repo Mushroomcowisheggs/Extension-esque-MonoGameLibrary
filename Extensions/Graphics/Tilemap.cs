@@ -2,16 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
-using Microsoft.Xna.Framework.Graphics;
 using MonoGameLibrary.Core.Content;
-using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Primitives;
-using MonoGameLibrary.Adapters.MonoGame;
-using MonoGameLibrary.Extensions.Graphics;
 
-namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
+namespace MonoGameLibrary.Extensions.Graphics {
     /// <summary>
     /// Represents a tilemap drawn from a texture atlas.
     /// Loaded from an XML stream using the format:
@@ -24,7 +18,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
     /// </Tilemap>
     /// Supports multiple layers, but only the first layer is used (ignores extra layers).
     /// </summary>
-    public sealed class Tilemap : IDisposable {
+    public sealed class Tilemap : IAsset, IDisposable {
         private readonly TextureAtlas _atlas;
         private readonly List<int[,]> _layers; // each layer: [rows, columns]
         private readonly int _columns;
@@ -55,11 +49,11 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
         public int LayerCount { get { return _layers.Count; } }
         
         /// <summary>Gets or sets the draw scale.</summary>
-        public Vector2 Scale { get; set; } = Vector2.One;
+        public TwoDimensionalVector Scale { get; set; } = TwoDimensionalVector.One;
         /// <summary>Gets or sets the color tint.</summary>
-        public Microsoft.Xna.Framework.Color TintColor { get; set; } = Microsoft.Xna.Framework.Color.White;
+        public Color TintColor { get; set; } = Color.White;
         /// <summary>Gets or sets a drawing offset for scrolling.</summary>
-        public Vector2 Offset { get; set; } = Vector2.Zero;
+        public TwoDimensionalVector Offset { get; set; } = TwoDimensionalVector.Zero;
         
         private Tilemap(TextureAtlas atlas, int columns, int rows, int widthTile, int heightTile) {
             if (atlas == null) { throw new ArgumentNullException(nameof(atlas)); }
@@ -153,7 +147,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
             for (int i = 0; i < tilesTotal; i += 1) {
                 int tileX = texX + (i % tilesPerRow) * widthTile;
                 int tileY = texY + (i / tilesPerRow) * heightTile;
-                TextureRegion regionTile = new TextureRegion(textureAsset, new Microsoft.Xna.Framework.Rectangle(tileX, tileY, widthTile, heightTile));
+                TextureRegion regionTile = new TextureRegion(textureAsset, new Rectangle(tileX, tileY, widthTile, heightTile));
                 regionsTile[i] = regionTile;
             }
             
@@ -268,33 +262,20 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
                     TextureRegion region = GetTileRegion(indexTile);
                     if (region == null) { continue; }
                     
-                    Vector2 position = new Vector2(
+                    TwoDimensionalVector position = new TwoDimensionalVector(
                         column * _widthTile * Scale.X + Offset.X,
                         row * _heightTile * Scale.Y + Offset.Y
                     );
                     
-                    var color = new Core.Primitives.Color(
-                        TintColor.R, TintColor.G, TintColor.B, TintColor.A
-                    );
-                    
-                    var vectorScale = new TwoDimensionalVector(Scale.X, Scale.Y);
-                    
-                    var rectangleSource = new Core.Primitives.Rectangle(
-                        region.SourceRectangle.X,
-                        region.SourceRectangle.Y,
-                        region.SourceRectangle.Width,
-                        region.SourceRectangle.Height
-                    );
-                    
                     region.Texture.DrawInto(
                         contextRender,
-                        new TwoDimensionalVector(position.X, position.Y),
-                        new OptionalValue<Core.Primitives.Rectangle>(rectangleSource), // specify source rectangle
-                        color,
+                        position,
+                        new OptionalValue<Rectangle>(region.SourceRectangle),
+                        TintColor,
                         0f, // rotation
                         TwoDimensionalVector.Zero, // origin
-                        vectorScale,
-                        MonoGameLibrary.Extensions.Graphics.SpriteEffects.None,
+                        Scale,
+                        SpriteEffects.None,
                         0f // layer depth
                     );
                 }

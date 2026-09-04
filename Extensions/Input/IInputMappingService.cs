@@ -1,5 +1,5 @@
 using System;
-using System.Numerics;
+using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Input {
@@ -43,7 +43,7 @@ namespace MonoGameLibrary.Extensions.Input {
         /// <param name="left">Action for left direction.</param>
         /// <param name="right">Action for right direction.</param>
         /// <returns>A normalized direction vector based on held actions.</returns>
-        Vector2 GetActionDirection<T>(T up, T down, T left, T right) where T : Enum;
+        TwoDimensionalVector GetActionDirection<T>(T up, T down, T left, T right) where T : Enum;
         
         /// <summary>
         /// Updates the mapping service state. Called once per frame by the input module.

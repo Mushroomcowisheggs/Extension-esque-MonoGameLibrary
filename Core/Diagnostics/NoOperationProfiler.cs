@@ -20,6 +20,7 @@ namespace MonoGameLibrary.Core.Diagnostics {
         
         private sealed class NoOperationMeasure : IDisposable {
             public void Dispose() {
+                GC.SuppressFinalize(this);
             }
         }
     }

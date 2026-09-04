@@ -48,6 +48,10 @@ namespace MonoGameLibrary.Extensions.Scenes {
         /// <param name="timeFrame">Timing information for the current frame. </param>
         public virtual void Update(FrameTime timeFrame) {
         }
+
+        /// <inheritdoc />
+        public virtual void Draw(FrameTime timeFrame) {
+        }
         
         /// <summary>
         /// Override to release managed resources. 

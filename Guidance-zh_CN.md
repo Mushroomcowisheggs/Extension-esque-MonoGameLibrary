@@ -64,6 +64,14 @@ Extensions → Core                      （Extensions 绝不指向 Adapters）
 
 此规则保证业务层（Extensions）完全不知晓基础设施（Adapters），从而实现轻松的后端替换和可测试性。
 
+**层内功能组件隔离（强制）**：
+
+- `Extensions/<Feature>` 下的源文件不得引用任何同级 `MonoGameLibrary.Extensions.<OtherFeature>` 命名空间。每个功能组件拥有自己的词汇与生命周期契约。真正共享的抽象应放入 Core；跨适配器握手契约应放入自包含的 `Extensions/Bridge` 锚点，并通过泛型参数表达，不得引用其他 Extension 所拥有的类型。
+- `Adapters/<Backend>/<Capability>` 下的源文件不得引用同级 Adapter 能力或其他 Adapter 项目。每个能力仅通过 Extension/Core 契约独立实现；组件间协作通过注册到 `GameBuilder` 的接口完成，不得引用同级具体类。
+- Game Application 是组合根，可以解析并连接多个 Extension 与 Adapter 能力；跨功能编排应位于此处。
+
+这些命名空间级规则比项目引用方向更严格。即使多个组件位于同一程序集，也不代表允许同级功能耦合。
+
 ### 示例
 
 ```csharp

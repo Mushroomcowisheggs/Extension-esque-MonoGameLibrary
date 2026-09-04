@@ -20,7 +20,7 @@ namespace MonoGameLibrary.Extensions.UserInterface {
         /// <param name="serviceUserInterface">The UI service to forward calls to.</param>
         /// <param name="order">Execution order (default 0).</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceUserInterface"/> is null.</exception>
-        public UserInterfaceModule(IUserInterfaceService serviceUserInterface, int order = 0) {
+        public UserInterfaceModule(IUserInterfaceService serviceUserInterface, int order = 100) {
             if (serviceUserInterface == null) {
                 throw new ArgumentNullException(nameof(serviceUserInterface));
             }
@@ -68,6 +68,7 @@ namespace MonoGameLibrary.Extensions.UserInterface {
             if (_flagDisposed) {
                 return;
             }
+            _serviceUserInterface.Dispose();
             _flagDisposed = true;
             GC.SuppressFinalize(this);
         }

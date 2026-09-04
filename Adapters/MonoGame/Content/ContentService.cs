@@ -1,21 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Audio;
-using Microsoft.Xna.Framework.Media;
 using MonoGameLibrary.Core.Content;
-using MonoGameLibrary.Core.Hosting;
-using MonoGameLibrary.Core.Primitives;
-using MonoGameLibrary.Extensions.Audio;
-using MonoGameLibrary.Extensions.Graphics;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Content {
     /// <summary>
     /// A MonoGame implementation of <see cref="IContentService"/>. 
     /// </summary>
-    public sealed class ContentService : IContentService {
+    public sealed class ContentService : IContentBackend {
         private readonly ContentManager _managerContent;
+        private readonly bool _flagOwnsContentManager;
         private readonly Dictionary<Type, object> _loaders;
         private bool _flagDisposed;
         
@@ -24,9 +20,10 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         /// </summary>
         /// <param name="managerContent">The MonoGame ContentManager to use for loading raw assets.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="managerContent"/> is null.</exception>
-        public ContentService(ContentManager managerContent) {
+        public ContentService(ContentManager managerContent, bool flagOwnsContentManager = true) {
             if (managerContent == null) { throw new ArgumentNullException(nameof(managerContent)); }
             _managerContent = managerContent;
+            _flagOwnsContentManager = flagOwnsContentManager;
             _loaders = new Dictionary<Type, object>();
         }
         
@@ -40,6 +37,15 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         /// <inheritdoc />
         public void Register<T>(Func<string, T> loader) where T : class, IAsset {
             if (loader == null) { throw new ArgumentNullException(nameof(loader)); }
+            RegisterScoped<T>(delegate(IContentBackend backend, string name) {
+                return loader(name);
+            });
+        }
+        
+        /// <inheritdoc />
+        public void RegisterScoped<T>(Func<IContentBackend, string, T> loader)
+        where T : class, IAsset {
+            if (loader == null) { throw new ArgumentNullException(nameof(loader)); }
             _loaders.Add(typeof(T), loader);
         }
         
@@ -47,14 +53,40 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         public T Load<T>(string nameAsset) where T : class, IAsset {
             if (nameAsset == null) { throw new ArgumentNullException(nameof(nameAsset)); }
             if (_loaders.TryGetValue(typeof(T), out var stored)) {
-                if (stored is Func<string, T> typedLoader) {
-                    return typedLoader(nameAsset);
+                if (stored is Func<IContentBackend, string, T> typedLoader) {
+                    return typedLoader(this, nameAsset);
                 }
             }
             throw new NotSupportedException(
                 $"Asset type {typeof(T)} is not registered. " +
                 "Call Register<T> before attempting to load assets of this type."
             );
+        }
+        
+        /// <inheritdoc />
+        public TNative LoadNative<TNative>(string nameAsset) where TNative : class {
+            if (string.IsNullOrWhiteSpace(nameAsset)) {
+                throw new ArgumentException("Asset name cannot be empty.", nameof(nameAsset));
+            }
+            return _managerContent.Load<TNative>(nameAsset);
+        }
+        
+        /// <inheritdoc />
+        public Stream OpenStream(string pathFile) {
+            if (string.IsNullOrWhiteSpace(pathFile)) {
+                throw new ArgumentException("File path cannot be empty.", nameof(pathFile));
+            }
+            string pathFull = Path.Combine(_managerContent.RootDirectory, pathFile);
+            return TitleContainer.OpenStream(pathFull);
+        }
+        
+        internal void CopyLoadersTo(ContentService target) {
+            if (target == null) {
+                throw new ArgumentNullException(nameof(target));
+            }
+            foreach (KeyValuePair<Type, object> pair in _loaders) {
+                target._loaders.Add(pair.Key, pair.Value);
+            }
         }
         
         /// <inheritdoc />
@@ -69,10 +101,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
             }
             
             _flagDisposed = true;
-            try {
-                Unload();
-            } finally {
-                _managerContent.Dispose();
+            if (_flagOwnsContentManager) {
+                try {
+                    Unload();
+                } finally {
+                    _managerContent.Dispose();
+                }
             }
             GC.SuppressFinalize(this);
         }

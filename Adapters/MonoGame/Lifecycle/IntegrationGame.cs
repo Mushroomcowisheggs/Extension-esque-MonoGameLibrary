@@ -1,81 +1,84 @@
 using System;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGameLibrary.Core.Content;
 using MonoGameLibrary.Core.Hosting;
+using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Time;
-using MonoGameLibrary.Extensions.Graphics;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Lifecycle {
-    /// <summary>
-    /// Internal Game subclass that bridges MonoGame's Game loop to
-    /// MonoGameLibrary's IGameHost lifecycle.
-    /// </summary>
+    /// <summary>Creates platform services before configuring and building the host.</summary>
     internal sealed class IntegrationGame : Game {
-        private readonly IGameHost _host;
-        private GraphicsDeviceManager _graphics;
-        private bool _flagIsInitialized;
+        private readonly GameApplicationOptions _options;
+        private readonly Action<GameBuilder> _actionConfigure;
+        private readonly GraphicsDeviceManager _managerGraphics;
+        private IGameHost _host;
+        private IContentService _serviceContent;
+        private bool _flagHostInitialized;
+        private bool _flagDisposed;
         
-        /// <summary>
-        /// Initializes a new instance and stores the host reference.
-        /// </summary>
-        /// <param name="host">The game host to drive.</param>
-        /// <exception cref="ArgumentNullException">Thrown if host is null.</exception>
-        public IntegrationGame(IGameHost host) {
-            if (host == null) {
-                throw new ArgumentNullException(nameof(host));
+        public IntegrationGame(GameApplicationOptions options, Action<GameBuilder> actionConfigure) {
+            if (options == null) {
+                throw new ArgumentNullException(nameof(options));
             }
-            
-            _host = host;
-            _graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
-        }
-        
-        protected override void Initialize() {
-            base.Initialize();
+            if (actionConfigure == null) {
+                throw new ArgumentNullException(nameof(actionConfigure));
+            }
+            options.Validate();
+            _options = options;
+            _actionConfigure = actionConfigure;
+            _managerGraphics = new GraphicsDeviceManager(this);
+            _managerGraphics.PreferredBackBufferWidth = options.Width;
+            _managerGraphics.PreferredBackBufferHeight = options.Height;
+            _managerGraphics.IsFullScreen = options.IsFullScreen;
+            _managerGraphics.SynchronizeWithVerticalRetrace = options.IsVerticalSyncEnabled;
+            Content.RootDirectory = options.ContentRootDirectory;
+            Window.Title = options.Title;
+            IsMouseVisible = options.IsMouseVisible;
+            IsFixedTimeStep = options.IsFixedTimeStep;
         }
         
         protected override void LoadContent() {
-            base.LoadContent();
+            GameBuilder builder = new GameBuilder();
+            builder.RegisterService<Game>(this);
+            builder.RegisterService<ContentManager>(Content);
+            builder.RegisterService<IGameApplicationService>(new GameApplicationService(this));
             
-            // Retrieve IContentService from host's service registry (must be registered by user)
-            if (!_host.Services.TryGet(out IContentService serviceContent)) {
+            _actionConfigure.Invoke(builder);
+            _serviceContent = builder.GetService<IContentService>();
+            if (_serviceContent == null) {
                 throw new InvalidOperationException(
-                    "IContentService must be registered via GameBuilder.RegisterService before building the host."
+                    "No content service was registered. Load a content adapter module before building the game."
                 );
             }
-            
-            _host.Initialize(serviceContent);
-            _flagIsInitialized = true;
+            _host = builder.Build();
+            _host.Initialize(_serviceContent);
+            _flagHostInitialized = true;
+            base.LoadContent();
         }
         
         protected override void Update(GameTime timeGame) {
-            base.Update(timeGame);
-            
-            if (!_flagIsInitialized) {
-                return;
+            if (_flagHostInitialized) {
+                _host.Update(new FrameTime(timeGame.TotalGameTime, timeGame.ElapsedGameTime));
             }
-            
-            FrameTime timeFrame = new FrameTime(timeGame.TotalGameTime, timeGame.ElapsedGameTime);
-            _host.Update(timeFrame);
+            base.Update(timeGame);
         }
         
         protected override void Draw(GameTime timeGame) {
-            base.Draw(timeGame);
-            
-            if (!_flagIsInitialized) {
-                return;
+            if (_flagHostInitialized) {
+                _host.Draw(new FrameTime(timeGame.TotalGameTime, timeGame.ElapsedGameTime));
             }
-            
-            FrameTime timeFrame = new FrameTime(timeGame.TotalGameTime, timeGame.ElapsedGameTime);
-            _host.Draw(timeFrame);
+            base.Draw(timeGame);
         }
         
         protected override void Dispose(bool flagDisposing) {
-            if (flagDisposing) {
-                _host.Dispose();
+            if (flagDisposing && !_flagDisposed) {
+                _flagDisposed = true;
+                if (_host != null) {
+                    _host.Dispose();
+                }
             }
-            
             base.Dispose(flagDisposing);
         }
     }

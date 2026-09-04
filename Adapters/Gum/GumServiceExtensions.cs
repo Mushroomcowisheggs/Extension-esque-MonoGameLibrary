@@ -1,48 +1,34 @@
-using System;
-using Microsoft.Xna.Framework.Input;
 using MonoGameLibrary.Extensions.UserInterface;
 
 namespace MonoGameLibrary.Adapters.Gum {
+    /// <summary>Compatibility names for Gum tab navigation configuration.</summary>
     public static class GumServiceExtensions {
-        public static void AddTabForwardKey(this IUserInterfaceService serviceUserInterface, Keys key) {
-            if (serviceUserInterface is GumService serviceGum) {
-                serviceGum.AddTabForwardKey(key);
-            } else {
-                throw new InvalidOperationException(
-                    "This method requires a GumService implementation. " +
-                    "Make sure you called builder.UseGum() during host configuration."
-                );
-            }
+        public static void AddTabForwardKey(
+            this IUserInterfaceService serviceUserInterface,
+            NavigationKey key
+        ) {
+            serviceUserInterface.AddNavigationForwardKey(key);
         }
         
-        public static void AddTabReverseKey(this IUserInterfaceService serviceUserInterface, Keys key) {
-            if (serviceUserInterface is GumService serviceGum) {
-                serviceGum.AddTabReverseKey(key);
-            } else {
-                throw new InvalidOperationException(
-                    "This method requires a GumService implementation."
-                );
-            }
+        public static void AddTabReverseKey(
+            this IUserInterfaceService serviceUserInterface,
+            NavigationKey key
+        ) {
+            serviceUserInterface.AddNavigationReverseKey(key);
         }
         
-        public static void RemoveTabForwardKey(this IUserInterfaceService serviceUserInterface, Keys key) {
-            if (serviceUserInterface is GumService serviceGum) {
-                serviceGum.RemoveTabForwardKey(key);
-            } else {
-                throw new InvalidOperationException(
-                    "This method requires a GumService implementation."
-                );
-            }
+        public static void RemoveTabForwardKey(
+            this IUserInterfaceService serviceUserInterface,
+            NavigationKey key
+        ) {
+            serviceUserInterface.RemoveNavigationForwardKey(key);
         }
         
-        public static void RemoveTabReverseKey(this IUserInterfaceService serviceUserInterface, Keys key) {
-            if (serviceUserInterface is GumService serviceGum) {
-                serviceGum.RemoveTabReverseKey(key);
-            } else {
-                throw new InvalidOperationException(
-                    "This method requires a GumService implementation."
-                );
-            }
+        public static void RemoveTabReverseKey(
+            this IUserInterfaceService serviceUserInterface,
+            NavigationKey key
+        ) {
+            serviceUserInterface.RemoveNavigationReverseKey(key);
         }
     }
 }

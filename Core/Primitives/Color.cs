@@ -34,6 +34,12 @@ namespace MonoGameLibrary.Core.Primitives {
         /// <summary>Opaque black.</summary>
         public static Color Black { get { return new Color(0, 0, 0); } }
         
+        /// <summary>Opaque gray.</summary>
+        public static Color Gray { get { return new Color(128, 128, 128); } }
+        
+        /// <summary>Opaque dark slate gray.</summary>
+        public static Color DarkSlateGray { get { return new Color(47, 79, 79); } }
+        
         /// <summary>Cornflower blue (classic Xna/MonoGame clear color).</summary>
         public static Color CornflowerBlue { get { return new Color(100, 149, 237); } }
         

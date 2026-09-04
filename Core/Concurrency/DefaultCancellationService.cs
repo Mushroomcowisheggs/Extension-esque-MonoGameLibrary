@@ -15,7 +15,7 @@ namespace MonoGameLibrary.Core.Concurrency {
             if (string.IsNullOrWhiteSpace(idOperation)) {
                 throw new ArgumentException("Operation id cannot be empty.", nameof(idOperation));
             }
-
+            
             return _sources.GetOrAdd(idOperation, delegate(string key) {
                 return new CancellationTokenSource();
             }).Token;
@@ -67,6 +67,7 @@ namespace MonoGameLibrary.Core.Concurrency {
                 source.Dispose();
             }
             _sources.Clear();
+            GC.SuppressFinalize(this);
         }
     }
 }

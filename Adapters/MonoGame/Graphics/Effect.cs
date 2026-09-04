@@ -2,6 +2,7 @@ using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGameLibrary.Extensions.Graphics;
+using MonoGameLibrary.Core.Primitives;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
     /// <summary>
@@ -31,6 +32,14 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
             
             if (typeof(T) == typeof(float)) {
                 parameter.SetValue((float)(object)value);
+            } else if (value is TwoDimensionalVector vector) {
+                parameter.SetValue(new Vector2(vector.X, vector.Y));
+            } else if (value is ITwoDimensionalTexture texture) {
+                TwoDimensionalTexture textureConcrete = texture as TwoDimensionalTexture;
+                if (textureConcrete == null) {
+                    throw new NotSupportedException("Unsupported texture adapter.");
+                }
+                parameter.SetValue(textureConcrete.GetNativeTexture());
             } else if (typeof(T) == typeof(Vector2)) {
                 parameter.SetValue((Vector2)(object)value);
             } else if (typeof(T) == typeof(Vector3)) {
@@ -40,17 +49,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
             } else if (typeof(T) == typeof(Matrix)) {
                 parameter.SetValue((Matrix)(object)value);
             } else if (typeof(T) == typeof(Texture2D)) {
-                // If the game transmits ITwoDimensionalTexture, the texture needs to be extracted. 
-                if (value is ITwoDimensionalTexture texture) {
-                    var textureConcrete = texture as TwoDimensionalTexture;
-                    if (textureConcrete != null) {
-                        parameter.SetValue(textureConcrete.Texture);
-                    } else {
-                        throw new NotSupportedException("Unsupported texture type.");
-                    }
-                } else {
-                    parameter.SetValue((Texture2D)(object)value);
-                }
+                parameter.SetValue((Texture2D)(object)value);
             } else {
                 throw new NotSupportedException($"Parameter type {typeof(T).FullName} is not supported by Effect.SetParameter.");
             }

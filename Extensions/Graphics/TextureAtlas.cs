@@ -2,14 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using MonoGameLibrary.Core.Content;
-using MonoGameLibrary.Core.Hosting;
-using MonoGameLibrary.Adapters.MonoGame;
-using MonoGameLibrary.Extensions.Graphics;
+using MonoGameLibrary.Core.Primitives;
 
-namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
+namespace MonoGameLibrary.Extensions.Graphics {
     /// <summary>
     /// Represents a texture atlas containing named regions and animations.
     /// Loaded from an XML stream using the format:
@@ -25,7 +21,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
     ///   </Animations>
     /// </TextureAtlas>
     /// </summary>
-    public sealed class TextureAtlas : IDisposable {
+    public sealed class TextureAtlas : IAsset, IDisposable {
         private readonly Dictionary<string, TextureRegion> _regions;
         private readonly Dictionary<string, Animation> _animations;
         private bool _flagDisposed;

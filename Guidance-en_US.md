@@ -64,6 +64,14 @@ To maintain a clean extension‑centric architecture, the following project‑re
 
 This rule guarantees that the business layer (Extensions) remains completely unaware of the infrastructure (Adapters), enabling easy backend swapping and testability.
 
+**Functional component isolation (mandatory inside each layer)**:
+
+- A source file under `Extensions/<Feature>` must not reference any sibling `MonoGameLibrary.Extensions.<OtherFeature>` namespace. A feature owns its vocabulary and lifecycle contract. Truly shared abstractions belong in Core. Cross-adapter handshakes belong in the self-contained `Extensions/Bridge` anchor and must use generic parameters rather than types owned by another Extension.
+- A source file under `Adapters/<Backend>/<Capability>` must not reference a sibling Adapter capability or another Adapter project. Each capability implements Extension/Core contracts independently. Coordination occurs through interfaces registered in `GameBuilder`, never through sibling concrete classes.
+- The Game Application is the composition root and may resolve and wire several Extension and Adapter capabilities. Cross-feature orchestration belongs there.
+
+These namespace-level rules are stricter than project-reference direction alone. Sharing an assembly does not grant permission for sibling feature coupling.
+
 ### Example
 
 ```csharp

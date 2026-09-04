@@ -1,6 +1,5 @@
 using System;
 using Microsoft.Xna.Framework.Audio;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Media;
 using MonoGameLibrary.Core.Content;
 using MonoGameLibrary.Extensions.Audio;
@@ -11,12 +10,16 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         /// Creates a loader for the specified audio asset type.
         /// Supported types: IClipAudio, ITrackAudio.
         /// </summary>
-        public static Func<string, IAsset> CreateLoader<T>(ContentManager managerContent) where T : class, IAsset {
+        public static T Load<T>(IContentBackend content, string nameAsset)
+            where T : class, IAsset {
+            if (content == null) {
+                throw new ArgumentNullException(nameof(content));
+            }
             if (typeof(T) == typeof(IClipAudio)) {
-                return delegate(string name) { return new ClipAudio(managerContent.Load<SoundEffect>(name)); };
+                return new ClipAudio(content.LoadNative<SoundEffect>(nameAsset)) as T;
             }
             if (typeof(T) == typeof(ITrackAudio)) {
-                return delegate(string name) { return new TrackAudio(managerContent.Load<Song>(name)); };
+                return new TrackAudio(content.LoadNative<Song>(nameAsset)) as T;
             }
             throw new NotSupportedException($"Audio loader does not support asset type {typeof(T).FullName}.");
         }

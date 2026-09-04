@@ -1,25 +1,149 @@
 using System;
 using System.Collections.Generic;
-using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Screens {
-    /// <summary>
-    /// Default implementation of <see cref="IScreenService"/>.
-    /// </summary>
+    /// <summary>Owns and drives a stack of game screens.</summary>
     public sealed class ScreenService : IScreenService {
         private readonly List<Screen> _screens = new List<Screen>();
-        private bool _flagIsProcessing;
         private readonly Queue<Action> _queueOperation = new Queue<Action>();
+        private bool _flagIsProcessing;
+        private bool _flagDisposed;
         
-        /// <summary>
-        /// Raised each frame to request drawing of the active scene.
-        /// The game layer subscribes and provides the actual rendering.
-        /// </summary>
-        public event Action<FrameTime> DrawRequested;
+        public ScreenService() {
+        }
         
-        /// <inheritdoc />
-        public Screen CurrentScreen { get { return _screens.Count > 0 ? _screens[_screens.Count - 1] : null; } }
+        public Screen CurrentScreen {
+            get { return _screens.Count > 0 ? _screens[_screens.Count - 1] : null; }
+        }
+        
+        public void Push(Screen screen) {
+            if (screen == null) {
+                throw new ArgumentNullException(nameof(screen));
+            }
+            ThrowIfDisposed();
+            QueueOrExecute(delegate {
+                PrepareScreen(screen);
+                if (_screens.Count > 0) {
+                    _screens[_screens.Count - 1].Exit();
+                }
+                _screens.Add(screen);
+                screen.Enter();
+            });
+        }
+        
+        public void Pop() {
+            ThrowIfDisposed();
+            QueueOrExecute(delegate {
+                if (_screens.Count > 0) {
+                    Screen top = _screens[_screens.Count - 1];
+                    UnsubscribeScreen(top);
+                    top.Exit();
+                    _screens.RemoveAt(_screens.Count - 1);
+                    top.Dispose();
+                }
+                if (_screens.Count > 0) {
+                    _screens[_screens.Count - 1].Enter();
+                }
+            });
+        }
+        
+        public void Change(Screen screen) {
+            if (screen == null) {
+                throw new ArgumentNullException(nameof(screen));
+            }
+            ThrowIfDisposed();
+            QueueOrExecute(delegate {
+                PrepareScreen(screen);
+                while (_screens.Count > 0) {
+                    Screen top = _screens[_screens.Count - 1];
+                    UnsubscribeScreen(top);
+                    top.Exit();
+                    _screens.RemoveAt(_screens.Count - 1);
+                    top.Dispose();
+                }
+                _screens.Add(screen);
+                screen.Enter();
+            });
+        }
+        
+        public void Update(FrameTime timeFrame) {
+            if (_flagDisposed) {
+                return;
+            }
+            _flagIsProcessing = true;
+            try {
+                for (int index = _screens.Count - 1; index >= 0; index -= 1) {
+                    Screen screen = _screens[index];
+                    if (screen.InputAction != null) {
+                        screen.InputAction.Invoke(timeFrame);
+                    }
+                    screen.Update(timeFrame);
+                    if (screen.IsBlocking) {
+                        break;
+                    }
+                }
+            }
+            finally {
+                _flagIsProcessing = false;
+                while (_queueOperation.Count > 0 && !_flagDisposed) {
+                    _queueOperation.Dequeue().Invoke();
+                }
+            }
+        }
+        
+        public void Draw(FrameTime timeFrame) {
+            if (_flagDisposed || _screens.Count == 0) {
+                return;
+            }
+            int indexFirst = 0;
+            for (int index = _screens.Count - 1; index >= 0; index -= 1) {
+                if (!_screens[index].IsTransparent) {
+                    indexFirst = index;
+                    break;
+                }
+            }
+            for (int index = indexFirst; index < _screens.Count; index += 1) {
+                _screens[index].Draw(timeFrame);
+            }
+        }
+        
+        public void Dispose() {
+            if (_flagDisposed) {
+                return;
+            }
+            _flagDisposed = true;
+            _queueOperation.Clear();
+            for (int index = _screens.Count - 1; index >= 0; index -= 1) {
+                Screen screen = _screens[index];
+                UnsubscribeScreen(screen);
+                screen.Exit();
+                screen.Dispose();
+            }
+            _screens.Clear();
+            GC.SuppressFinalize(this);
+        }
+        
+        private void PrepareScreen(Screen screen) {
+            try {
+                screen.LoadContent();
+                screen.Initialize();
+                SubscribeScreen(screen);
+            }
+            catch {
+                screen.Dispose();
+                throw;
+            }
+        }
+        
+        private void QueueOrExecute(Action operation) {
+            if (_flagIsProcessing) {
+                _queueOperation.Enqueue(operation);
+            }
+            else {
+                operation.Invoke();
+            }
+        }
         
         private void SubscribeScreen(Screen screen) {
             screen.ScreenChangeRequested += OnScreenChangeRequested;
@@ -30,99 +154,20 @@ namespace MonoGameLibrary.Extensions.Screens {
         }
         
         private void OnScreenChangeRequested(object sender, ScreenChangeEventArguments arguments) {
-            switch (arguments.ChangeType) {
-                case ScreenChangeType.Push:
+            if (arguments.ChangeType == ScreenChangeType.Push) {
                 Push(arguments.NewScreen);
-                break;
-                case ScreenChangeType.Pop:
+            }
+            else if (arguments.ChangeType == ScreenChangeType.Pop) {
                 Pop();
-                break;
-                case ScreenChangeType.Change:
+            }
+            else if (arguments.ChangeType == ScreenChangeType.Change) {
                 Change(arguments.NewScreen);
-                break;
             }
         }
         
-        /// <inheritdoc />
-        public void Push(Screen screen) {
-            Action operation = delegate () {
-                if (_screens.Count > 0)
-                    _screens[_screens.Count - 1].Exit();
-                SubscribeScreen(screen);
-                _screens.Add(screen);
-                screen.Enter();
-            };
-            QueueOrExecute(operation);
-        }
-        
-        /// <inheritdoc />
-        public void Pop() {
-            Action operation = delegate () {
-                if (_screens.Count > 0) {
-                    var top = _screens[_screens.Count - 1];
-                    UnsubscribeScreen(top);
-                    top.Exit();
-                    _screens.RemoveAt(_screens.Count - 1);
-                }
-                if (_screens.Count > 0) {
-                    _screens[_screens.Count - 1].Enter();
-                }
-            };
-            QueueOrExecute(operation);
-        }
-        
-        /// <inheritdoc />
-        public void Change(Screen screen) {
-            Action operation = delegate () {
-                while (_screens.Count > 0) {
-                    var top = _screens[_screens.Count - 1];
-                    UnsubscribeScreen(top);
-                    top.Exit();
-                    _screens.RemoveAt(_screens.Count - 1);
-                }
-                SubscribeScreen(screen);
-                _screens.Add(screen);
-                screen.Enter();
-            };
-            QueueOrExecute(operation);
-        }
-        
-        private void QueueOrExecute(Action operation) {
-            if (_flagIsProcessing) {
-                _queueOperation.Enqueue(operation);
-            }
-            else {
-                operation();
-            }
-        }
-        
-        /// <inheritdoc />
-        public void Update(FrameTime timeFrame) {
-            _flagIsProcessing = true;
-            while (_queueOperation.Count > 0) {
-                var op = _queueOperation.Dequeue();
-                if (op != null) {
-                    op.Invoke();
-                }
-            }
-            
-            for (int i = _screens.Count - 1; i >= 0; i -= 1) {
-                var screen = _screens[i];
-                if (screen.InputAction != null) {
-                    screen.InputAction.Invoke(timeFrame);
-                }
-                screen.Update(timeFrame);
-                if (screen.IsBlocking) {
-                    break;
-                }
-            }
-            _flagIsProcessing = false;
-        }
-        
-        /// <inheritdoc />
-        public void Draw(FrameTime timeFrame) {
-            if (DrawRequested != null) {
-                DrawRequested.Invoke(timeFrame);
+        private void ThrowIfDisposed() {
+            if (_flagDisposed) {
+                throw new ObjectDisposedException(nameof(ScreenService));
             }
         }
     }

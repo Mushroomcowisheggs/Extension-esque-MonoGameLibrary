@@ -2,30 +2,30 @@ using System;
 using MonoGameLibrary.Core.Hosting;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Lifecycle {
-    /// <summary>
-    /// Provides a convenient way to bootstrap a game application with a custom game loop.
-    /// </summary>
+    /// <summary>Bootstraps a fully integrated MonoGame application.</summary>
     public static class GameApplication {
-        /// <summary>
-        /// Creates a configured IGameHost via the builder, wraps it in a MonoGame integration,
-        /// and starts the game loop. This call blocks until the game exits.
-        /// </summary>
-        /// <param name="actionConfigureServices">Callback to register services and modules.</param>
-        /// <returns>The initialized and running IGameHost.</returns>
-        /// <exception cref="ArgumentNullException">Thrown if actionConfigureServices is null.</exception>
-        public static IGameHost Start(Action<GameBuilder> actionConfigureServices) {
+        public static void Run(Action<GameBuilder> actionConfigureServices) {
+            Run(new GameApplicationOptions(), actionConfigureServices);
+        }
+        
+        public static void Run(
+            GameApplicationOptions options,
+            Action<GameBuilder> actionConfigureServices
+        ) {
+            if (options == null) {
+                throw new ArgumentNullException(nameof(options));
+            }
             if (actionConfigureServices == null) {
                 throw new ArgumentNullException(nameof(actionConfigureServices));
             }
-            
-            var builder = new GameBuilder();
-            actionConfigureServices(builder);
-            IGameHost host = builder.Build();
-            
-            var gameMonoGame = new IntegrationGame(host);
-            gameMonoGame.Run();
-            
-            return host;
+            using (IntegrationGame game = new IntegrationGame(options, actionConfigureServices)) {
+                game.Run();
+            }
+        }
+        
+        [Obsolete("Use GameApplication.Run instead.")]
+        public static void Start(Action<GameBuilder> actionConfigureServices) {
+            Run(actionConfigureServices);
         }
     }
 }

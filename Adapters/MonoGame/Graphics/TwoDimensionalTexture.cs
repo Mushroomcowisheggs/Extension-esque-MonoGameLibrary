@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGameLibrary.Core.Primitives;
+using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Graphics;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
@@ -9,15 +10,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
     /// Wraps a <see cref="Texture2D"/> and implements <see cref="ITwoDimensionalTexture.DrawInto"/> 
     /// by creating a visitor that delegates to <see cref="RenderContext.DrawTextureInternal"/>. 
     /// </summary>
-    internal sealed class TwoDimensionalTexture : ITwoDimensionalTexture {
+    public sealed class TwoDimensionalTexture :
+        ITwoDimensionalTexture,
+        INativeTextureProvider<Texture2D> {
         /// <summary>The underlying MonoGame texture. </summary>
         private readonly Texture2D _texture;
         
         /// <summary>
-        /// Gets the underlying MonoGame Texture2D. 
-        /// Accessible only within the adapter assembly. 
+        /// Returns the native MonoGame texture for integrations implemented
+        /// inside this adapter assembly.
         /// </summary>
-        internal Texture2D Texture { get { return _texture; } }
+        public Texture2D GetNativeTexture() {
+            return _texture;
+        }
         
         /// <inheritdoc/>
         public int Width { get { return _texture.Width; } }

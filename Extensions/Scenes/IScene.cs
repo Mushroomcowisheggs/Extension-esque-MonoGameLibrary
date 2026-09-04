@@ -23,5 +23,8 @@ namespace MonoGameLibrary.Extensions.Scenes {
         
         /// <summary>Updates the scene logic each frame. </summary>
         void Update(FrameTime timeFrame);
+        
+        /// <summary>Draws the scene each frame.</summary>
+        void Draw(FrameTime timeFrame);
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using System.Numerics;
 
 namespace MonoGameLibrary.Core.Primitives {
     /// <summary>
@@ -14,7 +13,7 @@ namespace MonoGameLibrary.Core.Primitives {
         
         /// <summary>Gets the radius. </summary>
         public int Radius { get; }
-
+        
         /// <summary>
         /// Initializes a new circle with the given center and radius.
         /// </summary>

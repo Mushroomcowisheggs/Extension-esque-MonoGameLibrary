@@ -121,16 +121,14 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
         }
         
         private static Microsoft.Xna.Framework.Graphics.SpriteEffects ConvertSpriteEffects(MonoGameLibrary.Extensions.Graphics.SpriteEffects effectsSprite) {
-            if (effectsSprite == MonoGameLibrary.Extensions.Graphics.SpriteEffects.None) {
-                return Microsoft.Xna.Framework.Graphics.SpriteEffects.None;
+            Microsoft.Xna.Framework.Graphics.SpriteEffects result = Microsoft.Xna.Framework.Graphics.SpriteEffects.None;
+            if ((effectsSprite & MonoGameLibrary.Extensions.Graphics.SpriteEffects.FlipHorizontally) != 0) {
+                result |= Microsoft.Xna.Framework.Graphics.SpriteEffects.FlipHorizontally;
             }
-            if (effectsSprite == MonoGameLibrary.Extensions.Graphics.SpriteEffects.FlipHorizontally) {
-                return Microsoft.Xna.Framework.Graphics.SpriteEffects.FlipHorizontally;
+            if ((effectsSprite & MonoGameLibrary.Extensions.Graphics.SpriteEffects.FlipVertically) != 0) {
+                result |= Microsoft.Xna.Framework.Graphics.SpriteEffects.FlipVertically;
             }
-            if (effectsSprite == MonoGameLibrary.Extensions.Graphics.SpriteEffects.FlipVertically) {
-                return Microsoft.Xna.Framework.Graphics.SpriteEffects.FlipVertically;
-            }
-            return Microsoft.Xna.Framework.Graphics.SpriteEffects.None;
+            return result;
         }
         
         /// <inheritdoc />
@@ -191,6 +189,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
             if (_flagDisposed) { return; }
             _flagDisposed = true;
             // SpriteBatch is managed externally; do not dispose it.
+            GC.SuppressFinalize(this);
         }
     }
 }

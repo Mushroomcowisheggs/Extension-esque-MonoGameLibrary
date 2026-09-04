@@ -165,6 +165,7 @@ namespace MonoGameLibrary.Core.Concurrency {
         /// <inheritdoc />
         public void Dispose() {
             Shutdown(false);
+            GC.SuppressFinalize(this);
         }
     }
 }

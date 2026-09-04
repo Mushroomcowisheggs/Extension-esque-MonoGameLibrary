@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Numerics;
+using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.Input;
 
@@ -79,8 +79,8 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
             return false;
         }
         
-        public Vector2 GetActionDirection<T>(T up, T down, T left, T right) where T : Enum {
-            Vector2 direction = Vector2.Zero;
+        public TwoDimensionalVector GetActionDirection<T>(T up, T down, T left, T right) where T : Enum {
+            TwoDimensionalVector direction = TwoDimensionalVector.Zero;
             if (IsActionHeld(up)) {
                 direction.Y -= 1f;
             }
@@ -94,7 +94,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 direction.X += 1f;
             }
             if (direction.LengthSquared() > 0f) {
-                direction = Vector2.Normalize(direction);
+                direction = TwoDimensionalVector.Normalize(direction);
             }
             return direction;
         }

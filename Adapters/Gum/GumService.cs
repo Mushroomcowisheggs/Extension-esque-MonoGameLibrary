@@ -2,11 +2,16 @@ using System;
 using System.Collections.Generic;
 using Gum.Forms;
 using Gum.Forms.Controls;
+using Gum.Graphics.Animation;
 using Gum.Wireframe;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using MonoGameGum;
+using MonoGameGum.GueDeriving;
 using MonoGameLibrary.Core.Time;
+using MonoGameLibrary.Extensions.Bridge;
+using MonoGameLibrary.Extensions.Graphics;
+using MonoGameLibrary.Extensions.Input;
 using MonoGameLibrary.Extensions.UserInterface;
 
 namespace MonoGameLibrary.Adapters.Gum {
@@ -16,6 +21,7 @@ namespace MonoGameLibrary.Adapters.Gum {
     public sealed class GumService : IUserInterfaceService, IDisposable {
         private readonly Game _game;
         private readonly DefaultVisualsVersion _version;
+        private readonly GumBridgesService _serviceBridges;
         private readonly object _lock = new object();
         private bool _flagInitialized;
         private bool _flagDisposed;
@@ -30,15 +36,31 @@ namespace MonoGameLibrary.Adapters.Gum {
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="game"/> is null. </exception>
         public GumService(
             Game game, 
-            DefaultVisualsVersion version, 
+            DefaultVisualsVersion version,
+            IGumTextureBridge<
+                NineSliceRuntime,
+                ColoredRectangleRuntime,
+                TextRuntime,
+                ITwoDimensionalTexture,
+                TextureRegion,
+                AnimationFrame
+            > bridgeTexture,
+            IGumInputBridge<KeyEventArgs, KeyCode> bridgeInput,
             IEnumerable<Keys> keysTabForward = null, 
             IEnumerable<Keys> keysTabReverse = null
         ) {
             if (game == null) {
                 throw new ArgumentNullException(nameof(game));
             }
+            if (bridgeTexture == null) {
+                throw new ArgumentNullException(nameof(bridgeTexture));
+            }
+            if (bridgeInput == null) {
+                throw new ArgumentNullException(nameof(bridgeInput));
+            }
             _game = game;
             _version = version;
+            _serviceBridges = new GumBridgesService(bridgeTexture, bridgeInput);
             
             // Apply tab navigation keys if provided
             if (keysTabForward != null) {
@@ -51,6 +73,10 @@ namespace MonoGameLibrary.Adapters.Gum {
                     FrameworkElement.TabReverseKeyCombos.Add(new KeyCombo { PushedKey = key });
                 }
             }
+        }
+        
+        public GumBridgesService Bridges {
+            get { return _serviceBridges; }
         }
         
         /// <inheritdoc />
@@ -115,6 +141,46 @@ namespace MonoGameLibrary.Adapters.Gum {
             }
             if (flagEnableGamepad) {
                 FrameworkElement.GamePadsForUiControl.AddRange(global::MonoGameGum.GumService.Default.Gamepads);
+            }
+        }
+        
+        public void AddNavigationForwardKey(NavigationKey key) {
+            FrameworkElement.TabKeyCombos.Add(
+                new KeyCombo { PushedKey = ToMonoGameKey(key) }
+            );
+        }
+        
+        public void AddNavigationReverseKey(NavigationKey key) {
+            FrameworkElement.TabReverseKeyCombos.Add(
+                new KeyCombo { PushedKey = ToMonoGameKey(key) }
+            );
+        }
+        
+        public void RemoveNavigationForwardKey(NavigationKey key) {
+            Keys keyMonoGame = ToMonoGameKey(key);
+            FrameworkElement.TabKeyCombos.RemoveAll(delegate(KeyCombo combo) {
+                return combo.PushedKey == keyMonoGame;
+            });
+        }
+        
+        public void RemoveNavigationReverseKey(NavigationKey key) {
+            Keys keyMonoGame = ToMonoGameKey(key);
+            FrameworkElement.TabReverseKeyCombos.RemoveAll(delegate(KeyCombo combo) {
+                return combo.PushedKey == keyMonoGame;
+            });
+        }
+        
+        private static Keys ToMonoGameKey(NavigationKey key) {
+            switch (key) {
+                case NavigationKey.Tab: return Keys.Tab;
+                case NavigationKey.Up: return Keys.Up;
+                case NavigationKey.Down: return Keys.Down;
+                case NavigationKey.Left: return Keys.Left;
+                case NavigationKey.Right: return Keys.Right;
+                case NavigationKey.Enter: return Keys.Enter;
+                case NavigationKey.Escape: return Keys.Escape;
+                case NavigationKey.Space: return Keys.Space;
+                default: return Keys.None;
             }
         }
         

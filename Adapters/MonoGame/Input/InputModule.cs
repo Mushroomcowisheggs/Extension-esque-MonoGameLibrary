@@ -13,6 +13,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
     /// Implements <see cref="IModule"/> for automatic discovery and <see cref="IUpdateable"/>
     /// to forward per-frame updates to the input service. 
     /// </summary>
+    [ModuleRegistration(-200)]
     public sealed class InputModule : IModule, IUpdateable, IDisposable {
         private IInputService _serviceInput;
         private readonly object _lock = new object();

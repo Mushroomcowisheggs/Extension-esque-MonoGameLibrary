@@ -74,6 +74,10 @@ namespace MonoGameLibrary.Extensions.Screens {
         /// <inheritdoc />
         public abstract void Update(FrameTime timeFrame);
         
+        /// <inheritdoc />
+        public virtual void Draw(FrameTime timeFrame) {
+        }
+        
         /// <summary>
         /// Override to release managed resources. 
         /// </summary>

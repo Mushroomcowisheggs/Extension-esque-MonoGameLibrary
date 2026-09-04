@@ -1,6 +1,7 @@
 using System;
 using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Concurrency;
+using MonoGameLibrary.Core.Content;
 using MonoGameLibrary.Core.Diagnostics;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
@@ -14,6 +15,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
     /// Implements <see cref="IModule"/> for automatic discovery and <see cref="IUpdateable"/>
     /// to forward per-frame updates to the audio service. 
     /// </summary>
+    [ModuleRegistration(-200)]
     public sealed class AudioModule : IModule, IUpdateable, IDisposable {
         private IAudioService _serviceAudio;
         private readonly object _lock = new object();
@@ -45,6 +47,13 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
                 throw new ArgumentNullException(nameof(builder));
             }
             
+            IContentBackend content = builder.GetService<IContentBackend>();
+            if (content == null) {
+                throw new InvalidOperationException("Content backend service is not registered.");
+            }
+            content.RegisterScoped<IClipAudio>(AudioLoaders.Load<IClipAudio>);
+            content.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
+            
             _serviceAudio = new AudioService();
             builder.RegisterService<IAudioService>(_serviceAudio);
             builder.AddModule(this);
@@ -69,6 +78,10 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         public void Dispose() {
             if (_flagDisposed) {
                 return;
+            }
+            IDisposable disposable = _serviceAudio as IDisposable;
+            if (disposable != null) {
+                disposable.Dispose();
             }
             _flagDisposed = true;
             GC.SuppressFinalize(this);
