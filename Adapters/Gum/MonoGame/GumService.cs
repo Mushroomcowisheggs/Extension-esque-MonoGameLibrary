@@ -14,7 +14,7 @@ using MonoGameLibrary.Extensions.Graphics;
 using MonoGameLibrary.Extensions.Input;
 using MonoGameLibrary.Extensions.UserInterface;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>
     /// Gum implementation of <see cref="IUserInterfaceService"/>.
     /// </summary>

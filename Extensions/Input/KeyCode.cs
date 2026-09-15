@@ -59,7 +59,7 @@ namespace MonoGameLibrary.Extensions.Input {
         Y,
         /// <summary>Z key.</summary>
         Z,
-
+        
         /// <summary>Space bar.</summary>
         Space,
         /// <summary>Enter/Return key.</summary>
@@ -70,7 +70,7 @@ namespace MonoGameLibrary.Extensions.Input {
         Tab,
         /// <summary>Backspace key.</summary>
         Backspace,
-
+        
         /// <summary>Up arrow.</summary>
         Up,
         /// <summary>Down arrow.</summary>
@@ -79,7 +79,7 @@ namespace MonoGameLibrary.Extensions.Input {
         Left,
         /// <summary>Right arrow.</summary>
         Right,
-
+        
         /// <summary>F1 function key.</summary>
         F1,
         /// <summary>F2 function key.</summary>
@@ -103,6 +103,82 @@ namespace MonoGameLibrary.Extensions.Input {
         /// <summary>F11 function key.</summary>
         F11,
         /// <summary>F12 function key.</summary>
-        F12
+        F12,
+        
+        /// <summary>Left Shift key.</summary>
+        LeftShift,
+        /// <summary>Right Shift key.</summary>
+        RightShift,
+        /// <summary>Left Control key.</summary>
+        LeftControl,
+        /// <summary>Right Control key.</summary>
+        RightControl,
+        /// <summary>Left Alt key.</summary>
+        LeftAlt,
+        /// <summary>Right Alt key.</summary>
+        RightAlt,
+        /// <summary>Left system key (Windows key, Command key, or Super key).</summary>
+        LeftSystem,
+        /// <summary>Right system key (Windows key, Command key, or Super key).</summary>
+        RightSystem,
+        /// <summary>Caps Lock key.</summary>
+        CapsLock,
+        
+        /// <summary>Top row digit 0.</summary>
+        Number0,
+        /// <summary>Top row digit 1.</summary>
+        Number1,
+        /// <summary>Top row digit 2.</summary>
+        Number2,
+        /// <summary>Top row digit 3.</summary>
+        Number3,
+        /// <summary>Top row digit 4.</summary>
+        Number4,
+        /// <summary>Top row digit 5.</summary>
+        Number5,
+        /// <summary>Top row digit 6.</summary>
+        Number6,
+        /// <summary>Top row digit 7.</summary>
+        Number7,
+        /// <summary>Top row digit 8.</summary>
+        Number8,
+        /// <summary>Top row digit 9.</summary>
+        Number9,
+        
+        /// <summary>Insert key.</summary>
+        Insert,
+        /// <summary>Delete key.</summary>
+        Delete,
+        /// <summary>Home key.</summary>
+        Home,
+        /// <summary>End key.</summary>
+        End,
+        /// <summary>Page Up key.</summary>
+        PageUp,
+        /// <summary>Page Down key.</summary>
+        PageDown,
+        
+        /// <summary>Minus key.</summary>
+        Minus,
+        /// <summary>Equals key.</summary>
+        Equals,
+        /// <summary>Left square bracket key.</summary>
+        LeftBracket,
+        /// <summary>Right square bracket key.</summary>
+        RightBracket,
+        /// <summary>Backslash key.</summary>
+        Backslash,
+        /// <summary>Semicolon key.</summary>
+        Semicolon,
+        /// <summary>Apostrophe key.</summary>
+        Apostrophe,
+        /// <summary>Grave accent key.</summary>
+        Grave,
+        /// <summary>Comma key.</summary>
+        Comma,
+        /// <summary>Period key.</summary>
+        Period,
+        /// <summary>Slash key.</summary>
+        Slash
     }
 }

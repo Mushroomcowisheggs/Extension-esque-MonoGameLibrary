@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Input;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Extensions.UserInterface;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     public static class GameBuilderExtensions {
         /// <summary>
         /// Configures Gum UI framework as the implementation of <see cref="IUserInterfaceService"/>. 

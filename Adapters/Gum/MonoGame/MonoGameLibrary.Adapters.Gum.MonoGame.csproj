@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      These packages are intentionally flow-through. The adapter exposes types implemented
+      in terms of them, so a game project that references only the library must still receive
+      the runtime assemblies at build, publish and run time. Marking them PrivateAssets=All
+      previously produced projects that compiled but failed to start.
+    -->
+    <PackageReference Include="Gum.MonoGame" Version="2026.5.8.1" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\MonoGameLibrary.Core.csproj" />
+    <ProjectReference Include="..\..\..\Extensions\MonoGameLibrary.Extensions.csproj" />
+  </ItemGroup>
+</Project>

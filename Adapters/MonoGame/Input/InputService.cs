@@ -16,6 +16,8 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         private readonly Dictionary<Microsoft.Xna.Framework.PlayerIndex, GamePadState> _dictionaryPreviousGamePadStates;
         private int _countFrame;
         private bool _flagDisposed = false;
+        private readonly Game _game;
+        private bool _flagFocused;
         private KeyboardState _stateKeyboardCurrent;
         private KeyboardState _stateKeyboardPrevious;
         private Vector2 _directionLeftThumbstickPrevious;
@@ -27,7 +29,16 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// <summary>
         /// Initializes a new instance of the <see cref="InputService"/> class.
         /// </summary>
-        public InputService() {
+        public InputService() : this(null) {
+        }
+        
+        /// <summary>
+        /// Initializes a new instance of the <see cref="InputService"/> class that observes
+        /// window focus so that a key held across a focus change cannot stay latched.
+        /// </summary>
+        /// <param name="game">The running game, or null to keep every key accepted.</param>
+        public InputService(Game game) {
+            _game = game;
             _dictionaryCurrentGamePadStates = new Dictionary<Microsoft.Xna.Framework.PlayerIndex, GamePadState>();
             _dictionaryPreviousGamePadStates = new Dictionary<Microsoft.Xna.Framework.PlayerIndex, GamePadState>();
             
@@ -55,8 +66,24 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// </summary>
         /// <param name="timeFrame">Timing information for the current frame. </param>
         public void Update(FrameTime timeFrame) {
-            _stateKeyboardPrevious = _stateKeyboardCurrent;
-            _stateKeyboardCurrent = Keyboard.GetState();
+            bool flagFocused = true;
+            if (_game != null) {
+                flagFocused = _game.IsActive;
+            }
+            if (!flagFocused || !_flagFocused) {
+                // Losing focus must not leave a key latched down, and the frame that regains
+                // focus only re-baselines, so neither a press nor a release edge is reported.
+                _stateKeyboardPrevious = default;
+                _stateKeyboardCurrent = default;
+                if (flagFocused) {
+                    _stateKeyboardCurrent = Keyboard.GetState();
+                    _stateKeyboardPrevious = _stateKeyboardCurrent;
+                }
+            } else {
+                _stateKeyboardPrevious = _stateKeyboardCurrent;
+                _stateKeyboardCurrent = Keyboard.GetState();
+            }
+            _flagFocused = flagFocused;
             _directionLeftThumbstickPrevious = _directionLeftThumbstickCurrent;
             _directionRightThumbstickPrevious = _directionRightThumbstickCurrent;
             _directionLeftThumbstickCurrent = GetLeftThumbstick(Microsoft.Xna.Framework.PlayerIndex.One);

@@ -2,9 +2,6 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Media;
-using MonoGameLibrary.Core;
-using MonoGameLibrary.Core.Diagnostics;
-using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.Audio;
 
@@ -12,6 +9,8 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
     /// <summary>
     /// MonoGame implementation of <see cref="IAudioService"/>. 
     /// Manages playback of <see cref="ClipAudio"/> and <see cref="TrackAudio"/>. 
+    /// Device failures are translated into <see cref="AudioDeviceException"/> so that
+    /// game code can degrade gracefully without referencing the platform library.
     /// </summary>
     public sealed class AudioService : IAudioService, IDisposable {
         private readonly object _lock = new object();
@@ -100,14 +99,33 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
                 throw new ArgumentException("Clip must be a ClipAudio.", nameof(audioClip));
             }
             
-            SoundEffectInstance instance = audioMonoGameClip.SoundEffect.CreateInstance();
-            instance.Volume = Math.Clamp(volume, 0f, 1f);
-            instance.Pitch = Math.Clamp(pitch, -1f, 1f);
-            instance.Pan = Math.Clamp(pan, -1f, 1f);
-            instance.IsLooped = flagLoop;
-            instance.Play();
+            SoundEffectInstance instance;
+            try {
+                instance = audioMonoGameClip.SoundEffect.CreateInstance();
+            } catch (Exception exception) when (AudioFailure.IsDeviceFailure(exception)) {
+                throw new AudioDeviceException("The audio device could not create a playback instance.", exception);
+            }
+            try {
+                instance.Volume = Math.Clamp(volume, 0f, 1f);
+                instance.Pitch = Math.Clamp(pitch, -1f, 1f);
+                instance.Pan = Math.Clamp(pan, -1f, 1f);
+                instance.IsLooped = flagLoop;
+                instance.Play();
+            } catch (Exception exception) {
+                // The instance never reached the tracking list, so it must be released
+                // here. A device failure is translated; anything else is rethrown as is.
+                instance.Dispose();
+                if (AudioFailure.IsDeviceFailure(exception)) {
+                    throw new AudioDeviceException("The audio device could not play a sound effect.", exception);
+                }
+                throw;
+            }
             
             lock (_lock) {
+                if (_flagDisposed) {
+                    instance.Dispose();
+                    return;
+                }
                 _listActiveSoundEffectInstances.Add(instance);
             }
         }
@@ -117,15 +135,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
             if (audioTrack == null) {
                 throw new ArgumentNullException(nameof(audioTrack));
             }
-
+            
             TrackAudio trackMonoGameAudio = audioTrack as TrackAudio;
             if (trackMonoGameAudio == null) {
                 throw new ArgumentException("Track must be a TrackAudio.", nameof(audioTrack));
             }
-
-            MediaPlayer.Stop();
-            MediaPlayer.Play(trackMonoGameAudio.Song);
-            MediaPlayer.IsRepeating = flagRepeat;
+            
+            try {
+                MediaPlayer.Stop();
+                MediaPlayer.Play(trackMonoGameAudio.Song);
+                MediaPlayer.IsRepeating = flagRepeat;
+            } catch (Exception exception) when (AudioFailure.IsDeviceFailure(exception)) {
+                throw new AudioDeviceException("The audio device could not play a music track.", exception);
+            }
         }
         
         /// <inheritdoc />

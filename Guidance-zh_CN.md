@@ -3,7 +3,7 @@
 本文档为基于 `MonoGameLibrary.Core` 构建**扩展模块**和**游戏应用**的开发者提供全面指导。首先明确四个层次：
 
 - **Core**：基础库 (`MonoGameLibrary.Core`) —— 提供平台无关的工具、计时、日志和通用数据结构的**宿主基础设施**。不包含任何业务逻辑，不包含任何辅助工具，也不包含任何平台特定代码。
-- **Adapters**：适配层 (`MonoGameLibrary.Adapters.MonoGame`、`MonoGameLibrary.Adapters.Gum` 等) —— 封装外部平台或第三方库，将其原生 API 转换为 **Extensions 定义的接口**。这是**唯一**允许与 MonoGame、Gum 或其他外部依赖紧耦合的层。
+- **Adapters**：适配层 (`MonoGameLibrary.Adapters.MonoGame`、`MonoGameLibrary.Adapters.Gum.MonoGame` 等) —— 封装外部平台或第三方库，将其原生 API 转换为 **Extensions 定义的接口**。这是**唯一**允许与 MonoGame、Gum 或其他外部依赖紧耦合的层。
 - **Extensions**：可选功能模块（Audio、Scenes、Input、Networking、UI 等）—— **必须**遵循本规范的所有原则。Extensions 定义所有业务接口（契约），并包含平台无关的领域逻辑。它们可以包含不依赖任何外部平台或库的纯 C# 实现。若实现依赖于外部库（如 MonoGame.Extended），则该实现必须放置在 Adapters 层，而接口保留在 Extensions 中。
 - **Game Application**：最终游戏项目（如 `Game1.cs`）——负责组合根、服务注册和生命周期驱动。它引用 Extensions（编程接口）和所需的 Adapters（运行时注入）。
 

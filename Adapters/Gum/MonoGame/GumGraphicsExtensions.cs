@@ -4,7 +4,7 @@ using MonoGameGum.GueDeriving;
 using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Extensions.Graphics;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>Bridges platform-neutral graphics values into Gum visuals.</summary>
     public static class GumGraphicsExtensions {
         public static void SetTexture(

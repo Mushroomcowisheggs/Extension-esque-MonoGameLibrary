@@ -14,6 +14,14 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// <summary>Opaque (no blending). </summary>
         public static BlendState Opaque { get { return OpaqueState.Instance; } }
         
+        /// <summary>
+        /// Straight alpha blending for textures whose color channels are not
+        /// premultiplied by their alpha channel. Use this to reproduce source art
+        /// exactly; <see cref="AlphaBlend"/> assumes premultiplied input and will
+        /// darken soft edges of straight alpha art.
+        /// </summary>
+        public static BlendState NonPremultiplied { get { return NonPremultipliedState.Instance; } }
+        
         /// <summary>Standard alpha blending. </summary>
         public sealed class AlphaBlendState : BlendState {
             internal static readonly AlphaBlendState Instance = new AlphaBlendState();
@@ -30,6 +38,12 @@ namespace MonoGameLibrary.Extensions.Graphics {
         public sealed class OpaqueState : BlendState {
             internal static readonly OpaqueState Instance = new OpaqueState();
             private OpaqueState() { }
+        }
+        
+        /// <summary>Straight alpha blending. </summary>
+        public sealed class NonPremultipliedState : BlendState {
+            internal static readonly NonPremultipliedState Instance = new NonPremultipliedState();
+            private NonPremultipliedState() { }
         }
     }
 }

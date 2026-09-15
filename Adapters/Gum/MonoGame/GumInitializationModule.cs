@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Content;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Extensions.UserInterface;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>
     /// Module that initializes Gum during the content loading phase.
     /// </summary>

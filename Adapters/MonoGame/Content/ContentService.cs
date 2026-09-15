@@ -68,7 +68,24 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
             if (string.IsNullOrWhiteSpace(nameAsset)) {
                 throw new ArgumentException("Asset name cannot be empty.", nameof(nameAsset));
             }
-            return _managerContent.Load<TNative>(nameAsset);
+            try {
+                return _managerContent.Load<TNative>(nameAsset);
+            } catch (Exception exception) when (IsLoadFailure(exception)) {
+                throw new MonoGameLibrary.Core.Content.ContentLoadException(
+                    $"Asset '{nameAsset}' of type {typeof(TNative).FullName} could not be loaded.", exception
+                );
+            }
+        }
+        
+        /// <summary>
+        /// Recognizes the backend failures that mean "this asset could not be loaded".
+        /// Programming errors such as an unregistered reader are intentionally not wrapped.
+        /// </summary>
+        private static bool IsLoadFailure(Exception exception) {
+            if (exception is Microsoft.Xna.Framework.Content.ContentLoadException) { return true; }
+            if (exception is FileNotFoundException) { return true; }
+            if (exception is DirectoryNotFoundException) { return true; }
+            return false;
         }
         
         /// <inheritdoc />

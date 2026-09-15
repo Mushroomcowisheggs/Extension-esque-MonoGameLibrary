@@ -79,7 +79,7 @@ MonoGameLibrary/
 ├── Core/                 # Platform-agnostic interfaces and base classes
 ├── Adapters/             # MonoGame-specific implementations
 │   ├── MonoGame/         # Content, Input, Audio, Render context
-│   ├── Gum/              # Gum UI integration
+│   ├── Gum/MonoGame/     # Gum UI integration hosted by MonoGame
 │   └── ...
 ├── Extensions/           # Optional modules
 │   ├── Audio/

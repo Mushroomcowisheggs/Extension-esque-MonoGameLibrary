@@ -1,6 +1,6 @@
 using MonoGameLibrary.Extensions.UserInterface;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>Compatibility names for Gum tab navigation configuration.</summary>
     public static class GumServiceExtensions {
         public static void AddTabForwardKey(

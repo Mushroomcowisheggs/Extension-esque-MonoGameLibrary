@@ -53,5 +53,65 @@ namespace MonoGameLibrary.Extensions.Input {
             }
             return service.WasButtonJustPressed(indexPlayer, button);
         }
+        
+        /// <summary>
+        /// Returns true when either Control key is held down.
+        /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <returns>True when the left or right Control key is down.</returns>
+        public static bool IsControlHeld(this IInputService service) {
+            if (service == null) {
+                throw new ArgumentNullException(nameof(service));
+            }
+            if (service.IsKeyDown(KeyCode.LeftControl)) {
+                return true;
+            }
+            return service.IsKeyDown(KeyCode.RightControl);
+        }
+        
+        /// <summary>
+        /// Returns true when either Shift key is held down.
+        /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <returns>True when the left or right Shift key is down.</returns>
+        public static bool IsShiftHeld(this IInputService service) {
+            if (service == null) {
+                throw new ArgumentNullException(nameof(service));
+            }
+            if (service.IsKeyDown(KeyCode.LeftShift)) {
+                return true;
+            }
+            return service.IsKeyDown(KeyCode.RightShift);
+        }
+        
+        /// <summary>
+        /// Returns true when either Alt key is held down.
+        /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <returns>True when the left or right Alt key is down.</returns>
+        public static bool IsAltHeld(this IInputService service) {
+            if (service == null) {
+                throw new ArgumentNullException(nameof(service));
+            }
+            if (service.IsKeyDown(KeyCode.LeftAlt)) {
+                return true;
+            }
+            return service.IsKeyDown(KeyCode.RightAlt);
+        }
+        
+        /// <summary>
+        /// Returns true when either system key (Windows, Command, or Super) is held down.
+        /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <returns>True when the left or right system key is down.</returns>
+        public static bool IsSystemHeld(this IInputService service) {
+            if (service == null) {
+                throw new ArgumentNullException(nameof(service));
+            }
+            if (service.IsKeyDown(KeyCode.LeftSystem)) {
+                return true;
+            }
+            return service.IsKeyDown(KeyCode.RightSystem);
+        }
     }
 }

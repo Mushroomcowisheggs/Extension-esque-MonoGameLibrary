@@ -2,7 +2,7 @@ using System;
 using Gum.Forms.Controls;
 using MonoGameLibrary.Extensions.Input;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>Bridges platform-neutral key codes into Gum event arguments.</summary>
     public static class GumInputExtensions {
         public static bool IsKey(

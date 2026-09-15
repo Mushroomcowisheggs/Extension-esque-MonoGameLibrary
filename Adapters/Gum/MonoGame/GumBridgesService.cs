@@ -6,7 +6,7 @@ using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Graphics;
 using MonoGameLibrary.Extensions.Input;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>
     /// Holds the backend bridges used by the Gum adapter and its consumers.
     /// </summary>

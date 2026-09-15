@@ -13,7 +13,7 @@ using MonoGameLibrary.Extensions.Graphics;
 using MonoGameLibrary.Extensions.Input;
 using MonoGameLibrary.Extensions.UserInterface;
 
-namespace MonoGameLibrary.Adapters.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>
     /// Platform-specific module that registers the Gum UI service. 
     /// Implements <see cref="IModule"/> for automatic discovery. 

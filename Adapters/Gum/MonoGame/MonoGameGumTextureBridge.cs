@@ -6,7 +6,7 @@ using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Graphics;
 
-namespace MonoGameLibrary.Adapters.MonoGame.Gum {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>
     /// Applies platform-neutral graphics values to Gum's MonoGame runtime types.
     /// </summary>

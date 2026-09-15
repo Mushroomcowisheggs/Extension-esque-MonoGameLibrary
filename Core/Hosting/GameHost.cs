@@ -396,8 +396,11 @@ namespace MonoGameLibrary.Core.Hosting {
             
             // Dispose all modules that implement IDisposable.
             if (flagDisposing) {
-                // Step 1: Dispose all modules first (they may hold references to content resources)
-                foreach (object module in _listAllModules) {
+                // Step 1: Dispose all modules first (they may hold references to content resources).
+                // Modules are released in reverse registration order so that a module registered
+                // early, such as the content module, outlives everything that uses it.
+                for (int indexModule = _listAllModules.Count - 1; indexModule >= 0; indexModule -= 1) {
+                    object module = _listAllModules[indexModule];
                     if (module is IDisposable disposable) {
                         try {
                             disposable.Dispose();

@@ -1,8 +1,6 @@
 using System;
 using MonoGameLibrary.Core;
-using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
-using MonoGameLibrary.Core.Diagnostics;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Modularity;
@@ -11,13 +9,15 @@ using MonoGameLibrary.Extensions.Audio;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Audio {
     /// <summary>
-    /// Platform-specific module that registers the MonoGame audio service. 
+    /// Platform-specific module that registers the MonoGame audio services. 
     /// Implements <see cref="IModule"/> for automatic discovery and <see cref="IUpdateable"/>
-    /// to forward per-frame updates to the audio service. 
+    /// to forward per-frame updates to the clip service and to advance the starvation
+    /// counters of every streaming PCM output. 
     /// </summary>
     [ModuleRegistration(-200)]
     public sealed class AudioModule : IModule, IUpdateable, IDisposable {
         private IAudioService _serviceAudio;
+        private PcmAudioOutputFactory _factoryPcm;
         private readonly object _lock = new object();
         private bool _flagEnabled = true;
         private bool _flagDisposed = false;
@@ -55,7 +55,9 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
             content.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
             
             _serviceAudio = new AudioService();
+            _factoryPcm = new PcmAudioOutputFactory();
             builder.RegisterService<IAudioService>(_serviceAudio);
+            builder.RegisterService<IPcmAudioOutputFactory>(_factoryPcm);
             builder.AddModule(this);
         }
         
@@ -70,20 +72,30 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
             }
             
             _serviceAudio.Update(timeFrame);
+            if (_factoryPcm != null) {
+                _factoryPcm.UpdateUnderruns();
+            }
         }
         
         /// <summary>
-        /// Disposes the module (no unmanaged resources). 
+        /// Disposes the services it created, including any streaming output the game did not release. 
         /// </summary>
         public void Dispose() {
-            if (_flagDisposed) {
-                return;
+            lock (_lock) {
+                if (_flagDisposed) {
+                    return;
+                }
+                _flagDisposed = true;
+            }
+            if (_factoryPcm != null) {
+                _factoryPcm.Dispose();
+                _factoryPcm = null;
             }
             IDisposable disposable = _serviceAudio as IDisposable;
             if (disposable != null) {
                 disposable.Dispose();
             }
-            _flagDisposed = true;
+            _serviceAudio = null;
             GC.SuppressFinalize(this);
         }
     }
