@@ -17,7 +17,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
     /// All three services are sampled at the same instant so that a frame never mixes
     /// pointer state from one instant with keyboard state from another.
     /// </summary>
-    [ModuleRegistration(-200)]
+    [ModuleRegistration(-430)]
     public sealed class InputModule : IModule, IUpdateable, IDisposable {
         private IInputService _serviceInput;
         private IPointerInputService _servicePointer;

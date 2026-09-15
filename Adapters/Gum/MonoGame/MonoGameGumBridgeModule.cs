@@ -43,10 +43,10 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             
             IGumInputBridge<KeyEventArgs, KeyCode> bridgeInput;
             if (!builder.TryGetService(out bridgeInput)) {
-                INativeKeyProvider<Keys> providerKey = builder.GetService<INativeKeyProvider<Keys>>();
-                if (providerKey == null) {
+                INativeKeyProvider<Keys> providerKey;
+                if (!builder.TryGetService(out providerKey)) {
                     throw new InvalidOperationException(
-                        "No MonoGame key translation table is registered. Register the MonoGame input module before the Gum bridge module."
+                        "No MonoGame key translation table is registered. The MonoGame input module must be registered before the Gum bridge module."
                     );
                 }
                 bridgeInput = new MonoGameGumInputBridge(providerKey);
