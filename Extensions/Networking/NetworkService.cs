@@ -1511,7 +1511,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             _peersKnown.Clear();
             _sequencePeer = 0;
             
-            aitForTask(_taskSession, ShutdownWaitMilliseconds);
+            WaitForTask(_taskSession, ShutdownWaitMilliseconds);
             WaitForTask(_taskWatchdog, ShutdownWaitMilliseconds);
             lock (_lock) {
                 _taskSession = null;
