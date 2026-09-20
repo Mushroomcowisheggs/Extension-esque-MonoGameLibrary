@@ -39,6 +39,13 @@ namespace MonoGameLibrary.Adapters.MonoGame.Lifecycle {
             IsFixedTimeStep = options.IsFixedTimeStep;
         }
         
+        protected override void Initialize() {
+            base.Initialize();
+            // The window exists by now, so the title can be placed on it through the platform's Unicode entry
+            // point instead of the code-page conversion MonoGame's SDL path performs.
+            WindowTitle.Apply(Window, _options.Title);
+        }
+        
         protected override void LoadContent() {
             GameBuilder builder = new GameBuilder();
             builder.RegisterService<Game>(this);
