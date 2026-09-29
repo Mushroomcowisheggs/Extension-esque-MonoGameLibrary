@@ -1,7 +1,12 @@
 using System;
 
 namespace MonoGameLibrary.Core.Modularity {
-    /// <summary>Specifies deterministic automatic registration order for a module.</summary>
+    /// <summary>
+    /// Marks a module for automatic discovery and registration by <see cref="ModuleLoader"/>,
+    /// and specifies its deterministic registration order. A module without this attribute is
+    /// never created by the loader: it is registered explicitly, for example by the builder
+    /// extension that also builds the services the module depends on.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public sealed class ModuleRegistrationAttribute : Attribute {
         /// <summary>Gets the registration order. Lower values register first.</summary>
