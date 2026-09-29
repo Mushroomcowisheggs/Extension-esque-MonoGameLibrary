@@ -145,7 +145,7 @@ namespace MonoGameLibrary.Core.Hosting {
             if (loadableToLoad != null) {
                 try {
                     SafeExecute("LoadContent", loadableToLoad, loadableToLoad.LoadContent);
-                } catch {
+                } catch (Exception) {
                     // A failed late admission must not leave an unloaded module behind.
                     RemoveModuleCore(module);
                     throw;
@@ -215,7 +215,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     lock (_lock) {
                         _flagIsInitialized = true;
                     }
-                } catch {
+                } catch (Exception) {
                     // Fault the host on any failure.
                     lock (_lock) {
                         _flagIsFaulted = true;
@@ -456,7 +456,7 @@ namespace MonoGameLibrary.Core.Hosting {
                             string context = $"{GetType().Name}.Dispose (Module: {module.GetType().Name})";
                             try {
                                 OnError(exception, context);
-                            } catch { }
+                            } catch (Exception) { }
                         }
                     }
                 }
@@ -468,7 +468,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     } catch (Exception exception) {
                         try {
                             OnError(exception, $"{GetType().Name}.Dispose (Content.Unload)");
-                        } catch { }
+                        } catch (Exception) { }
                     }
                 }
                 
@@ -479,7 +479,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     } catch (Exception exception) {
                         try {
                             OnError(exception, $"{GetType().Name}.Dispose (Content.Dispose)");
-                        } catch { }
+                        } catch (Exception) { }
                     }
                 }
             }

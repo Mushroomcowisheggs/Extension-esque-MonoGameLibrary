@@ -46,7 +46,7 @@ namespace MonoGameLibrary.Extensions.Scenes {
                     sceneToActivate.LoadContent();
                     sceneToActivate.Initialize();
                 }
-                catch {
+                catch (Exception) {
                     sceneToActivate.Dispose();
                     throw;
                 }

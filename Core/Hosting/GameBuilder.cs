@@ -132,8 +132,8 @@ namespace MonoGameLibrary.Core.Hosting {
                 
                 lock (_lockBuilder) { _flagIsBuilt = true; }
                 return host;
-            } catch {
-                try { host.Dispose(); } catch { }
+            } catch (Exception) {
+                try { host.Dispose(); } catch (Exception) { }
                 lock (_lockBuilder) {
                     _registryService.Clear();
                     _flagIsBuilding = false;

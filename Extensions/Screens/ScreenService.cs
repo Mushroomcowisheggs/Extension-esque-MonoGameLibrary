@@ -151,7 +151,7 @@ namespace MonoGameLibrary.Extensions.Screens {
                 screen.Initialize();
                 SubscribeScreen(screen);
             }
-            catch {
+            catch (Exception) {
                 screen.Dispose();
                 throw;
             }
