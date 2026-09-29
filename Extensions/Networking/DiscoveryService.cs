@@ -406,7 +406,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     Buffer.BlockCopy(buffer, 0, payload, 0, result.ReceivedBytes);
                     await HandleDatagramAsync(payload, result.RemoteEndPoint as IPEndPoint, socket, token).ConfigureAwait(false);
                 }
-            } catch (OperationCanceledException exception) {
+            } catch (OperationCanceledException) {
                 // The socket was closed.
                 _logger.Debug("The operation was cancelled, so it stops here.");
                 return;

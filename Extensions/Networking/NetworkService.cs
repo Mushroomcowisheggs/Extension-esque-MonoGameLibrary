@@ -504,7 +504,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     // AcceptPeerAsync reports its own failures, so the returned task cannot fault unobserved.
                     Task taskAccepted = AcceptPeerAsync(channel, token);
                 }
-            } catch (OperationCanceledException exception) {
+            } catch (OperationCanceledException) {
                 // The session was closed.
                 _logger.Debug("The operation was cancelled, so it stops here.");
                 return;
@@ -531,7 +531,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             NetworkConnection connection = null;
             try {
                 connection = await RunAcceptedPeerAsync(channel, token).ConfigureAwait(false);
-            } catch (OperationCanceledException exception) {
+            } catch (OperationCanceledException) {
                 // The session was closed while the player was joining.
                 _logger.Debug("The operation was cancelled, so it stops here.");
                 return;
@@ -855,7 +855,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                         }
                     }
                 }
-            } catch (OperationCanceledException exception) {
+            } catch (OperationCanceledException) {
                 // The session was closed.
                 _logger.Debug("The operation was cancelled, so it stops here.");
                 return;
@@ -891,7 +891,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     }
                     HandleMessage(connection, kindRead, message);
                 }
-            } catch (OperationCanceledException exception) {
+            } catch (OperationCanceledException) {
                 // The link was closed.
                 _logger.Debug("The operation was cancelled, so it stops here.");
                 return;
@@ -930,7 +930,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     }
                     connection.MarkQueueDrained();
                 }
-            } catch (OperationCanceledException exception) {
+            } catch (OperationCanceledException) {
                 // The link was closed.
                 _logger.Debug("The operation was cancelled, so it stops here.");
                 return;
