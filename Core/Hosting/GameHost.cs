@@ -30,6 +30,7 @@ namespace MonoGameLibrary.Core.Hosting {
         
         // Lifecycle state flags
         private bool _flagIsInitialized = false;
+        private bool _flagIsLoading = false;
         private bool _flagIsFaulted = false;
         private bool _flagDisposing = false;
         private bool _flagDisposed = false;
@@ -92,6 +93,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 throw new ArgumentNullException(nameof(module));
             }
             
+            ILoadable loadableToLoad = null;
             lock (_lock) {
                 if (_flagDisposed) {
                     throw new ObjectDisposedException(
@@ -123,6 +125,12 @@ namespace MonoGameLibrary.Core.Hosting {
                 // Categorize module according to implemented interfaces
                 if (module is ILoadable loadable) {
                     _listLoadableModules.Add(loadable);
+                    // Post-initialization admission: once Initialize's loading loop has run (or is
+                    // running on another thread), nothing else will load this module, so it must
+                    // load here before Update/Draw pick it up.
+                    if (_flagIsInitialized || _flagIsLoading) {
+                        loadableToLoad = loadable;
+                    }
                 }
                 if (module is IUpdateable updateable) {
                     _listUpdateableModules.Add(updateable);
@@ -131,6 +139,41 @@ namespace MonoGameLibrary.Core.Hosting {
                 if (module is IDrawable drawable) {
                     _listDrawableModules.Add(drawable);
                     _flagDrawOrderDirty = true;
+                }
+            }
+            
+            if (loadableToLoad != null) {
+                try {
+                    SafeExecute("LoadContent", loadableToLoad, loadableToLoad.LoadContent);
+                } catch {
+                    // A failed late admission must not leave an unloaded module behind.
+                    RemoveModuleCore(module);
+                    throw;
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Removes a module from the host and every category list. Used to roll back a failed 
+        /// post-initialization admission. 
+        /// </summary>
+        /// <param name="module">The module to remove. </param>
+        private void RemoveModuleCore(object module) {
+            lock (_lock) {
+                _setModule.Remove(module);
+                _listAllModules.Remove(module);
+                if (module is ILoadable loadable) {
+                    _listLoadableModules.Remove(loadable);
+                }
+                if (module is IUpdateable updateable) {
+                    if (_listUpdateableModules.Remove(updateable)) {
+                        _flagUpdateOrderDirty = true;
+                    }
+                }
+                if (module is IDrawable drawable) {
+                    if (_listDrawableModules.Remove(drawable)) {
+                        _flagDrawOrderDirty = true;
+                    }
                 }
             }
         }
@@ -158,6 +201,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     }
                     
                     _serviceContent = new Optional<IContentService>(serviceContent);
+                    _flagIsLoading = true;
                     // Snapshot to allow concurrent AddModule calls during loading.
                     modulesToLoad = new List<ILoadable>(_listLoadableModules);
                 }
@@ -183,6 +227,10 @@ namespace MonoGameLibrary.Core.Hosting {
                         _serviceContent = default;
                     }
                     throw;
+                } finally {
+                    lock (_lock) {
+                        _flagIsLoading = false;
+                    }
                 }
             } finally {
                 ExitOperation();

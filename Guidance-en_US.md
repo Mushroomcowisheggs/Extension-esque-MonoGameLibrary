@@ -11,6 +11,8 @@ This document provides comprehensive guidance for developers building **extensio
 
 **Important distinction**: If a feature implementation does **not** depend on any external platform or library (i.e., it is pure C#), it must reside in the `Extensions` layer as an optional module, and its interface is also defined there. The `Adapters` layer is **not** a place for "default" or "native" implementations – its sole purpose is to **adapt** external dependencies. For example, a self‑contained ECS implementation belongs in `Extensions`, while a wrapper for MonoGame.Extended's ECS belongs in `Adapters/MonoGame/ECS`.
 
+**BCL exemption (explicit)**: The cross‑platform .NET Base Class Library (`System.Net`, `System.Net.Sockets`, `System.Net.NetworkInformation`, `System.Threading`, `System.IO`, …) is **not** an "external platform or library" for the purposes of the rules above. An implementation that depends only on the BCL is still "pure C#" and therefore belongs in `Extensions`. Example: the Networking extension's TCP transport and UDP discovery use `System.Net.Sockets` directly **by design**; `INetworkTransport` stays the swap point for transports that would need a non‑BCL or platform‑specific backend (which would then live in `Adapters`). Only platform‑specific or third‑party APIs (MonoGame, Gum, Flecs.NET, OS‑specific calls, …) must be wrapped in `Adapters`.
+
 **Physical dependency rule (enforced at project level)**:
 ```
 Game → Extensions → Core
@@ -332,6 +334,20 @@ public class AsyncWorker : IUpdateable {
 3. **Avoid blocking waits in `Update`/`Draw`** (e.g., `Thread.Sleep`, `WaitHandle.WaitOne`). This will stall the main loop.
 4. **If a module exposes mutable properties (e.g., `Volume`), ensure their implementations are thread-safe** (using `Interlocked` or locks).
 5. **Design for reentrancy**: for instance, `Update` might fire an event whose handler invokes another method on the same module.
+
+### Service thread ownership
+
+The built-in services carry their synchronization guarantees in their own XML documentation; the table below is the authoritative summary. Unless a row says otherwise, a service is safe to call from any thread.
+
+| Service | Guarantee |
+| --- | --- |
+| `GameHost` | Fully thread-safe; `Initialize`, `Update`, `Draw`, `AddModule` and `Dispose` may be called from different threads. |
+| `ScreenService`, `StateService` | Thread-safe; one lock serializes all calls. Screen/state lifecycle callbacks (`Enter`/`Exit`/`Update`/`Draw`) run while that lock is held, so a callback must not block on another thread that calls the same service. |
+| `InputService` | Thread-safe; `Update` publishes one consistent input snapshot and every query reads that snapshot under the same lock. |
+| `AudioService` | Thread-safe; playback tracking, the mute flag and the MonoGame global volume state (`MediaPlayer.Volume`, `SoundEffect.MasterVolume`) share one lock. |
+| `SceneService`, `TextInputService`, `PointerInputService`, `WindowService`, `NetworkService`, `DiscoveryService`, `JsonNetworkSerializer`, `PcmAudioOutputFactory` | Thread-safe (internal locks). |
+| `DefaultThreadPool`, `DefaultCancellationService`, `DefaultObjectPoolFactory` pools | Thread-safe. |
+| `ContentService` (`IContentService`) | **Not thread-safe**: call from a single thread (normally the loading/initialization thread), because MonoGame's `ContentManager` is single-threaded. |
 
 ### Example
 

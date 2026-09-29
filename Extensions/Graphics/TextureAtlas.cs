@@ -21,10 +21,19 @@ namespace MonoGameLibrary.Extensions.Graphics {
     ///   </Animations>
     /// </TextureAtlas>
     /// </summary>
+    /// <remarks>
+    /// Ownership: the atlas does not own its texture by default. The texture is owned by whoever
+    /// created it — the content service for content-loaded textures (which share one cached
+    /// instance), or the caller for factory-created ones — and <see cref="Dispose"/> only releases
+    /// atlas metadata (regions and animations). Use <see cref="TextureAtlas(ITwoDimensionalTexture, bool)"/>
+    /// with <c>flagOwnsTexture = true</c> to transfer texture ownership to the atlas; disposal then
+    /// disposes the texture as well. 
+    /// </remarks>
     public sealed class TextureAtlas : IAsset, IDisposable {
         private readonly Dictionary<string, TextureRegion> _regions;
         private readonly Dictionary<string, Animation> _animations;
         private bool _flagDisposed;
+        private bool _flagOwnsTexture;
         
         /// <summary>Gets the texture containing all regions. </summary>
         public ITwoDimensionalTexture Texture { get; private set; }
@@ -34,11 +43,27 @@ namespace MonoGameLibrary.Extensions.Graphics {
             _animations = new Dictionary<string, Animation>();
         }
         
-        public TextureAtlas(ITwoDimensionalTexture texture) {
+        /// <summary>
+        /// Creates an atlas over an existing texture the caller (or content service) keeps owning. 
+        /// </summary>
+        /// <param name="texture">The texture containing all regions. </param>
+        public TextureAtlas(ITwoDimensionalTexture texture) : this(texture, false) {
+        }
+        
+        /// <summary>
+        /// Creates an atlas over an existing texture with explicit ownership. 
+        /// </summary>
+        /// <param name="texture">The texture containing all regions. </param>
+        /// <param name="flagOwnsTexture">
+        /// If <c>true</c>, the atlas owns the texture and <see cref="Dispose"/> disposes it;
+        /// if <c>false</c>, the texture outlives the atlas. 
+        /// </param>
+        public TextureAtlas(ITwoDimensionalTexture texture, bool flagOwnsTexture) {
             if (texture == null) {
                 throw new ArgumentNullException(nameof(texture));
             }
             Texture = texture;
+            _flagOwnsTexture = flagOwnsTexture;
             _regions = new Dictionary<string, TextureRegion>();
             _animations = new Dictionary<string, Animation>();
         }
@@ -247,12 +272,19 @@ namespace MonoGameLibrary.Extensions.Graphics {
         }
         
         /// <summary>
-        /// Disposes the underlying texture.
+        /// Releases the atlas metadata (all regions and animations). 
+        /// The underlying texture is disposed only when the atlas owns it (constructed with 
+        /// <c>flagOwnsTexture = true</c>); otherwise the texture is owned by the content service 
+        /// or the caller and must not be released here, because content-loaded textures are 
+        /// shared between atlases. 
         /// </summary>
         public void Dispose() {
             if (_flagDisposed) { return; }
             _regions.Clear();
             _animations.Clear();
+            if (_flagOwnsTexture && Texture != null) {
+                Texture.Dispose();
+            }
             _flagDisposed = true;
             GC.SuppressFinalize(this);
         }

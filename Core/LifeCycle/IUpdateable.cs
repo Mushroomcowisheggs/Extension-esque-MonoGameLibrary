@@ -10,15 +10,17 @@ namespace MonoGameLibrary.Core.Lifecycle {
         /// </summary>
         /// <param name="timeFrame">Timing information for the current frame.</param>
         void Update(FrameTime timeFrame);
-
+        
         /// <summary>
         /// Gets the update order. Lower values update first.
         /// </summary>
         int Order { get; }
-
+        
         /// <summary>
-        /// Gets whether the module is enabled for updating. If <c>false</c>, <see cref="Update"/> is skipped.
+        /// Gets or sets whether the module is enabled for updating. If <c>false</c>, <see cref="Update"/> is skipped.
+        /// The host only reads this flag; modules and the game layer are expected to change it at runtime
+        /// (for example to pause a subsystem), so the contract exposes a setter.
         /// </summary>
-        bool Enabled { get; }
+        bool Enabled { get; set; }
     }
 }

@@ -17,8 +17,10 @@ namespace MonoGameLibrary.Core.Lifecycle {
         int Order { get; }
         
         /// <summary>
-        /// Gets whether the module is visible. If <c>false</c>, <see cref="Draw"/> is skipped.
+        /// Gets or sets whether the module is visible. If <c>false</c>, <see cref="Draw"/> is skipped.
+        /// The host only reads this flag; modules and the game layer are expected to change it at runtime
+        /// (for example during screen transitions), so the contract exposes a setter.
         /// </summary>
-        bool Visible { get; }
+        bool Visible { get; set; }
     }
 }

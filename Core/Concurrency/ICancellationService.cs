@@ -3,6 +3,9 @@ using System.Threading;
 namespace MonoGameLibrary.Core.Concurrency {
     /// <summary>
     /// Provides cancellation tokens for named operations and supports cancellation control. 
+    /// Implementations that also implement <see cref="System.IDisposable"/> must document their 
+    /// post-disposal behavior; see <see cref="DefaultCancellationService"/> for the reference 
+    /// contract (token acquisition throws after disposal, cancellation requests become no-ops). 
     /// </summary>
     public interface ICancellationService {
         /// <summary>

@@ -10,6 +10,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
     /// <summary>
     /// MonoGame implementation of <see cref="IInputService"/>. 
     /// </summary>
+    /// <remarks>
+    /// Thread safety: <see cref="Update"/> samples the hardware and publishes one consistent
+    /// input snapshot; every query reads that snapshot under the same lock, so queries may run
+    /// on a different thread than <see cref="Update"/> (for example from a concurrent Draw)
+    /// without seeing torn keyboard, gamepad or thumbstick state.
+    /// </remarks>
     public sealed class InputService : IInputService, IDisposable {
         private readonly object _lock = new object();
         private readonly Dictionary<Microsoft.Xna.Framework.PlayerIndex, GamePadState> _dictionaryCurrentGamePadStates;
@@ -66,35 +72,35 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// </summary>
         /// <param name="timeFrame">Timing information for the current frame. </param>
         public void Update(FrameTime timeFrame) {
-            bool flagFocused = true;
-            if (_game != null) {
-                flagFocused = _game.IsActive;
-            }
-            if (!flagFocused || !_flagFocused) {
-                // Losing focus must not leave a key latched down, and the frame that regains
-                // focus only re-baselines, so neither a press nor a release edge is reported.
-                _stateKeyboardPrevious = default;
-                _stateKeyboardCurrent = default;
-                if (flagFocused) {
-                    _stateKeyboardCurrent = Keyboard.GetState();
-                    _stateKeyboardPrevious = _stateKeyboardCurrent;
-                }
-            } else {
-                _stateKeyboardPrevious = _stateKeyboardCurrent;
-                _stateKeyboardCurrent = Keyboard.GetState();
-            }
-            _flagFocused = flagFocused;
-            _directionLeftThumbstickPrevious = _directionLeftThumbstickCurrent;
-            _directionRightThumbstickPrevious = _directionRightThumbstickCurrent;
-            _directionLeftThumbstickCurrent = GetLeftThumbstick(Microsoft.Xna.Framework.PlayerIndex.One);
-            _directionRightThumbstickCurrent = GetRightThumbstick(Microsoft.Xna.Framework.PlayerIndex.One);
-            
-            foreach (Microsoft.Xna.Framework.PlayerIndex indexPlayer in Enum.GetValues(typeof(Microsoft.Xna.Framework.PlayerIndex))) {
-                _dictionaryPreviousGamePadStates[indexPlayer] = _dictionaryCurrentGamePadStates[indexPlayer];
-                _dictionaryCurrentGamePadStates[indexPlayer] = GamePad.GetState(indexPlayer);
-            }
-            
             lock (_lock) {
+                bool flagFocused = true;
+                if (_game != null) {
+                    flagFocused = _game.IsActive;
+                }
+                if (!flagFocused || !_flagFocused) {
+                    // Losing focus must not leave a key latched down, and the frame that regains
+                    // focus only re-baselines, so neither a press nor a release edge is reported.
+                    _stateKeyboardPrevious = default;
+                    _stateKeyboardCurrent = default;
+                    if (flagFocused) {
+                        _stateKeyboardCurrent = Keyboard.GetState();
+                        _stateKeyboardPrevious = _stateKeyboardCurrent;
+                    }
+                } else {
+                    _stateKeyboardPrevious = _stateKeyboardCurrent;
+                    _stateKeyboardCurrent = Keyboard.GetState();
+                }
+                _flagFocused = flagFocused;
+                _directionLeftThumbstickPrevious = _directionLeftThumbstickCurrent;
+                _directionRightThumbstickPrevious = _directionRightThumbstickCurrent;
+                _directionLeftThumbstickCurrent = GetLeftThumbstick(Microsoft.Xna.Framework.PlayerIndex.One);
+                _directionRightThumbstickCurrent = GetRightThumbstick(Microsoft.Xna.Framework.PlayerIndex.One);
+                
+                foreach (Microsoft.Xna.Framework.PlayerIndex indexPlayer in Enum.GetValues(typeof(Microsoft.Xna.Framework.PlayerIndex))) {
+                    _dictionaryPreviousGamePadStates[indexPlayer] = _dictionaryCurrentGamePadStates[indexPlayer];
+                    _dictionaryCurrentGamePadStates[indexPlayer] = GamePad.GetState(indexPlayer);
+                }
+                
                 _countFrame += 1;
             }
         }
@@ -102,25 +108,33 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// <inheritdoc />
         public bool IsKeyDown(KeyCode codeKey) {
             Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
-            return _stateKeyboardCurrent.IsKeyDown(key);
+            lock (_lock) {
+                return _stateKeyboardCurrent.IsKeyDown(key);
+            }
         }
         
         /// <inheritdoc />
         public bool IsKeyUp(KeyCode codeKey) {
             Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
-            return _stateKeyboardCurrent.IsKeyUp(key);
+            lock (_lock) {
+                return _stateKeyboardCurrent.IsKeyUp(key);
+            }
         }
         
         /// <inheritdoc />
         public bool WasKeyJustPressed(KeyCode codeKey) {
             Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
-            return _stateKeyboardCurrent.IsKeyDown(key) && _stateKeyboardPrevious.IsKeyUp(key);
+            lock (_lock) {
+                return _stateKeyboardCurrent.IsKeyDown(key) && _stateKeyboardPrevious.IsKeyUp(key);
+            }
         }
         
         /// <inheritdoc />
         public bool WasKeyJustReleased(KeyCode codeKey) {
             Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
-            return _stateKeyboardCurrent.IsKeyUp(key) && _stateKeyboardPrevious.IsKeyDown(key);
+            lock (_lock) {
+                return _stateKeyboardCurrent.IsKeyUp(key) && _stateKeyboardPrevious.IsKeyDown(key);
+            }
         }
         
         /// <summary>
@@ -167,58 +181,62 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         public bool IsButtonDown(MonoGameLibrary.Extensions.Input.PlayerIndex indexPlayer, GamePadButton button) {
             Buttons buttonMono = ConvertButton(button);
             Microsoft.Xna.Framework.PlayerIndex indexMono = ConvertPlayerIndex(indexPlayer);
-            GamePadState state = GetGamePadState(indexMono);
-            return state.IsButtonDown(buttonMono);
+            lock (_lock) {
+                GamePadState state = GetGamePadState(indexMono);
+                return state.IsButtonDown(buttonMono);
+            }
         }
         
         /// <inheritdoc />
         public bool WasButtonJustPressed(MonoGameLibrary.Extensions.Input.PlayerIndex indexPlayer, GamePadButton button) {
             Buttons buttonMono = ConvertButton(button);
             Microsoft.Xna.Framework.PlayerIndex indexMono = ConvertPlayerIndex(indexPlayer);
-            GamePadState stateCurrent = GetGamePadState(indexMono);
-            
-            GamePadState statePrevious;
-            if (!_dictionaryPreviousGamePadStates.TryGetValue(indexMono, out statePrevious)) {
-                statePrevious = stateCurrent;
-            }
-            
-            switch (button) {
-                case GamePadButton.A:
-                case GamePadButton.B:
-                case GamePadButton.X:
-                case GamePadButton.Y:
-                case GamePadButton.Start:
-                case GamePadButton.Back:
-                case GamePadButton.LeftStick:
-                case GamePadButton.RightStick:
-                case GamePadButton.LeftShoulder:
-                case GamePadButton.RightShoulder:
-                case GamePadButton.DPadUp:
-                case GamePadButton.DPadDown:
-                case GamePadButton.DPadLeft:
-                case GamePadButton.DPadRight:
-                return stateCurrent.IsButtonDown(buttonMono) && statePrevious.IsButtonUp(buttonMono);
+            lock (_lock) {
+                GamePadState stateCurrent = GetGamePadState(indexMono);
                 
-                case GamePadButton.LeftThumbstickUp:
-                return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Up);
-                case GamePadButton.LeftThumbstickDown:
-                return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Down);
-                case GamePadButton.LeftThumbstickLeft:
-                return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Left);
-                case GamePadButton.LeftThumbstickRight:
-                return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Right);
+                GamePadState statePrevious;
+                if (!_dictionaryPreviousGamePadStates.TryGetValue(indexMono, out statePrevious)) {
+                    statePrevious = stateCurrent;
+                }
                 
-                case GamePadButton.RightThumbstickUp:
-                return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Up);
-                case GamePadButton.RightThumbstickDown:
-                return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Down);
-                case GamePadButton.RightThumbstickLeft:
-                return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Left);
-                case GamePadButton.RightThumbstickRight:
-                return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Right);
-                
-                default:
-                return false;
+                switch (button) {
+                    case GamePadButton.A:
+                    case GamePadButton.B:
+                    case GamePadButton.X:
+                    case GamePadButton.Y:
+                    case GamePadButton.Start:
+                    case GamePadButton.Back:
+                    case GamePadButton.LeftStick:
+                    case GamePadButton.RightStick:
+                    case GamePadButton.LeftShoulder:
+                    case GamePadButton.RightShoulder:
+                    case GamePadButton.DPadUp:
+                    case GamePadButton.DPadDown:
+                    case GamePadButton.DPadLeft:
+                    case GamePadButton.DPadRight:
+                    return stateCurrent.IsButtonDown(buttonMono) && statePrevious.IsButtonUp(buttonMono);
+                    
+                    case GamePadButton.LeftThumbstickUp:
+                    return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Up);
+                    case GamePadButton.LeftThumbstickDown:
+                    return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Down);
+                    case GamePadButton.LeftThumbstickLeft:
+                    return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Left);
+                    case GamePadButton.LeftThumbstickRight:
+                    return WasThumbstickDirectionJustPressed(_directionLeftThumbstickPrevious, _directionLeftThumbstickCurrent, DEAD_ZONE, AxisDirection.Right);
+                    
+                    case GamePadButton.RightThumbstickUp:
+                    return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Up);
+                    case GamePadButton.RightThumbstickDown:
+                    return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Down);
+                    case GamePadButton.RightThumbstickLeft:
+                    return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Left);
+                    case GamePadButton.RightThumbstickRight:
+                    return WasThumbstickDirectionJustPressed(_directionRightThumbstickPrevious, _directionRightThumbstickCurrent, DEAD_ZONE, AxisDirection.Right);
+                    
+                    default:
+                    return false;
+                }
             }
         }
         
@@ -226,14 +244,16 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         public bool WasButtonJustReleased(MonoGameLibrary.Extensions.Input.PlayerIndex indexPlayer, GamePadButton button) {
             Buttons buttonMono = ConvertButton(button);
             Microsoft.Xna.Framework.PlayerIndex indexMono = ConvertPlayerIndex(indexPlayer);
-            GamePadState stateCurrent = GetGamePadState(indexMono);
-            
-            GamePadState statePrevious;
-            if (!_dictionaryPreviousGamePadStates.TryGetValue(indexMono, out statePrevious)) {
-                statePrevious = stateCurrent;
+            lock (_lock) {
+                GamePadState stateCurrent = GetGamePadState(indexMono);
+                
+                GamePadState statePrevious;
+                if (!_dictionaryPreviousGamePadStates.TryGetValue(indexMono, out statePrevious)) {
+                    statePrevious = stateCurrent;
+                }
+                
+                return stateCurrent.IsButtonUp(buttonMono) && statePrevious.IsButtonDown(buttonMono);
             }
-            
-            return stateCurrent.IsButtonUp(buttonMono) && statePrevious.IsButtonDown(buttonMono);
         }
         
         /// <summary>
@@ -288,10 +308,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// Disposes the service (no unmanaged resources).
         /// </summary>
         public void Dispose() {
-            if (_flagDisposed) {
-                return;
+            lock (_lock) {
+                if (_flagDisposed) {
+                    return;
+                }
+                _flagDisposed = true;
             }
-            _flagDisposed = true;
             GC.SuppressFinalize(this);
         }
     }

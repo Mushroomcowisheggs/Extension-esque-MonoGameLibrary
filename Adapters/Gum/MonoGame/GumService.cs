@@ -18,6 +18,13 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>
     /// Gum implementation of <see cref="IUserInterfaceService"/>.
     /// </summary>
+    /// <remarks>
+    /// Lifetime: this service wraps the process-wide <c>MonoGameGum.GumService.Default</c> 
+    /// singleton and does not own it. <see cref="Dispose"/> only retires the wrapper; the global 
+    /// Gum service and its root hierarchy survive for the lifetime of the process, so at most one 
+    /// host may use this service per process (a second host would share the same global root). 
+    /// After <see cref="Dispose"/> every member throws <see cref="ObjectDisposedException"/>. 
+    /// </remarks>
     public sealed class GumService : IUserInterfaceService, IDisposable {
         private readonly Game _game;
         private readonly DefaultVisualsVersion _version;
@@ -185,20 +192,29 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         }
         
         private void EnsureInitialized() {
+            if (_flagDisposed) {
+                throw new ObjectDisposedException(
+                    nameof(GumService), 
+                    "The GumService has been disposed. "
+                );
+            }
             if (!_flagInitialized) {
                 throw new InvalidOperationException("GumService must be initialized before use.");
             }
         }
         
         /// <summary>
-        /// Disposes the service (no unmanaged resources to release).
+        /// Disposes the service wrapper (no unmanaged resources to release).
+        /// The process-wide <c>MonoGameGum.GumService.Default</c> singleton is not disposed — it 
+        /// is owned by Gum and shared across the process — only this wrapper retires. Subsequent 
+        /// calls throw <see cref="ObjectDisposedException"/>. 
         /// </summary>
         public void Dispose() {
             if (_flagDisposed) {
                 return;
             }
-            // If the global GumService supports IDisposable, dispose it here.
-            // Otherwise, simply clear references.
+            // The global MonoGameGum.GumService.Default is process-wide state owned by Gum and is
+            // deliberately left untouched; only the wrapper is retired here.
             _flagDisposed = true;
             GC.SuppressFinalize(this);
         }

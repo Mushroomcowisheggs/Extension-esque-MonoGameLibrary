@@ -26,7 +26,7 @@ namespace MonoGameLibrary.Core.Pooling {
         
         private sealed class DefaultObjectPool<T> : IObjectPool<T> where T : class {
             private readonly Func<T> _factory;
-            private readonly ConcurrentStack<T> _available = new ConcurrentStack<T>();
+            private readonly ConcurrentStack<T> _stackAvailable = new ConcurrentStack<T>();
             private int _inUse;
             private readonly int _capacityMax;
             
@@ -35,13 +35,13 @@ namespace MonoGameLibrary.Core.Pooling {
                 _capacityMax = capacityMax;
                 
                 for (int i = 0; i < capacityInitial; i += 1) {
-                    _available.Push(factory());
+                    _stackAvailable.Push(factory());
                 }
             }
             
             /// <inheritdoc />
             public T Get() {
-                if (_available.TryPop(out var item)) {
+                if (_stackAvailable.TryPop(out var item)) {
                     Interlocked.Increment(ref _inUse);
                     return item;
                 }
@@ -52,7 +52,7 @@ namespace MonoGameLibrary.Core.Pooling {
             
             /// <inheritdoc />
             public bool TryGet(out T item) {
-                if (_available.TryPop(out item)) {
+                if (_stackAvailable.TryPop(out item)) {
                     Interlocked.Increment(ref _inUse);
                     return true;
                 }
@@ -72,20 +72,22 @@ namespace MonoGameLibrary.Core.Pooling {
                     return;
                 }
                 
-                _available.Push(item);
+                _stackAvailable.Push(item);
                 Interlocked.Decrement(ref _inUse);
             }
             
             /// <inheritdoc />
-            public int CountInUse { get { return _inUse; } }
+            public int CountInUse { get { return Volatile.Read(ref _inUse); } }
             
             /// <inheritdoc />
-            public int CountAvailable { get { return _available.Count; } }
+            public int CountAvailable { get { return _stackAvailable.Count; } }
             
             /// <inheritdoc />
             public void Clear() {
-                _available.Clear();
-                _inUse = 0;
+                // Drops idle objects only. In-use accounting is deliberately preserved so that
+                // outstanding leases stay visible in CountInUse; a later Return() simply pools
+                // the object again (or drops it when the capacity is reached).
+                _stackAvailable.Clear();
             }
         }
     }

@@ -12,6 +12,9 @@ namespace MonoGameLibrary.Extensions {
     public static class GameBuilderExtensions {
         /// <summary>
         /// Registers a default set of services (logger, profiler, thread pool, cancellation, loading progress, object pool) if they are not already registered. 
+        /// This helper is idempotent: an existing registration is always kept (whether it was made by an 
+        /// earlier call to this method or by an explicit <c>UseLogger</c>/<c>RegisterService</c> call), 
+        /// and no exception is thrown for a duplicate. 
         /// </summary>
         /// <param name="builder">The game builder instance.</param>
         /// <param name="logger">Optional logger implementation. If null, <see cref="ConsoleLogger"/> is used. </param>
@@ -38,13 +41,25 @@ namespace MonoGameLibrary.Extensions {
             ILoadingProgress progressResolvedLoading = progressLoading.HasValue ? progressLoading.Value : new DefaultLoadingProgress();
             IObjectPoolFactory factoryResolvedObjectPool = factoryObjectPool.HasValue ? factoryObjectPool.Value : new DefaultObjectPoolFactory();
             
-            builder.RegisterService<ILogger>(loggerResolved, flagOverwrite: false);
-            builder.RegisterService<IProfiler>(profilerResolved, flagOverwrite: false);
-            builder.RegisterService<IThreadPool>(poolResolvedThread, flagOverwrite: false);
-            builder.RegisterService<ICancellationService>(serviceResolvedCancellation, flagOverwrite: false);
-            builder.RegisterService<ILoadingProgress>(progressResolvedLoading, flagOverwrite: false);
-            builder.RegisterService<IObjectPoolFactory>(factoryResolvedObjectPool, flagOverwrite: false);
+            RegisterIfAbsent<ILogger>(builder, loggerResolved);
+            RegisterIfAbsent<IProfiler>(builder, profilerResolved);
+            RegisterIfAbsent<IThreadPool>(builder, poolResolvedThread);
+            RegisterIfAbsent<ICancellationService>(builder, serviceResolvedCancellation);
+            RegisterIfAbsent<ILoadingProgress>(builder, progressResolvedLoading);
+            RegisterIfAbsent<IObjectPoolFactory>(builder, factoryResolvedObjectPool);
             return builder;
+        }
+        
+        /// <summary>
+        /// Registers the instance only when no service of that type is registered yet, keeping any 
+        /// existing registration. Unlike <see cref="GameBuilder.RegisterService{TService}"/>, a 
+        /// duplicate is silently ignored instead of throwing. 
+        /// </summary>
+        private static void RegisterIfAbsent<TService>(GameBuilder builder, TService instance) where TService : class {
+            TService serviceExisting;
+            if (!builder.TryGetService<TService>(out serviceExisting)) {
+                builder.RegisterService<TService>(instance, flagOverwrite: false);
+            }
         }
     }
 }

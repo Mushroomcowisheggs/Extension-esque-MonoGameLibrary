@@ -12,6 +12,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
     /// Device failures are translated into <see cref="AudioDeviceException"/> so that
     /// game code can degrade gracefully without referencing the platform library.
     /// </summary>
+    /// <remarks>
+    /// Thread safety: playback tracking, the mute flag and the MonoGame global volume state
+    /// (<c>MediaPlayer.Volume</c>, <c>SoundEffect.MasterVolume</c>) are all guarded by one lock,
+    /// so volume access, <see cref="ToggleMute"/> and <see cref="Update"/> are safe to call from
+    /// different threads.
+    /// </remarks>
     public sealed class AudioService : IAudioService, IDisposable {
         private readonly object _lock = new object();
         private readonly List<SoundEffectInstance> _listActiveSoundEffectInstances;
@@ -33,15 +39,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         /// </summary>
         public float SongVolume {
             get {
-                if (IsMuted) {
-                    return 0f;
+                lock (_lock) {
+                    if (IsMuted) {
+                        return 0f;
+                    }
+                    return MediaPlayer.Volume;
                 }
-                return MediaPlayer.Volume;
             } set {
-                if (IsMuted) {
-                    return;
+                lock (_lock) {
+                    if (IsMuted) {
+                        return;
+                    }
+                    MediaPlayer.Volume = Math.Clamp(value, 0f, 1f);
                 }
-                MediaPlayer.Volume = Math.Clamp(value, 0f, 1f);
             }
         }
         
@@ -51,15 +61,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         /// </summary>
         public float SoundEffectVolume {
             get {
-                if (IsMuted) {
-                    return 0f;
+                lock (_lock) {
+                    if (IsMuted) {
+                        return 0f;
+                    }
+                    return SoundEffect.MasterVolume;
                 }
-                return SoundEffect.MasterVolume;
             } set {
-                if (IsMuted) {
-                    return;
+                lock (_lock) {
+                    if (IsMuted) {
+                        return;
+                    }
+                    SoundEffect.MasterVolume = Math.Clamp(value, 0f, 1f);
                 }
-                SoundEffect.MasterVolume = Math.Clamp(value, 0f, 1f);
             }
         }
         

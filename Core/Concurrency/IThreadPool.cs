@@ -58,10 +58,15 @@ namespace MonoGameLibrary.Core.Concurrency {
         
         /// <summary>
         /// Shuts down the thread pool, optionally waiting for all pending work to complete.
+        /// Shutdown only prevents new work from being queued: subsequent 
+        /// <see cref="QueueWorkItem(Action, string)"/>/<c>RunAsync</c> calls throw 
+        /// <see cref="ObjectDisposedException"/>. Work that is already queued or running is 
+        /// never cancelled or discarded and will still execute. 
         /// </summary>
         /// <param name="flagWaitForCompletion">
         /// If <c>true</c>, blocks until all queued work items have finished execution;
-        /// if <c>false</c>, returns immediately and discards any remaining work.
+        /// if <c>false</c>, returns immediately while already queued work items continue
+        /// to run to completion in the background.
         /// </param>
         void Shutdown(bool flagWaitForCompletion);
     }

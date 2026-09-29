@@ -4,7 +4,16 @@ using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Screens {
     /// <summary>Owns and drives a stack of game screens.</summary>
+    /// <remarks>
+    /// Thread safety: every member is guarded by a single lock, so screens may be pushed, popped
+    /// and changed from any thread while <see cref="Update"/>/<see cref="Draw"/> run on another.
+    /// Screen lifecycle callbacks (<c>Enter</c>, <c>Exit</c>, <c>Update</c>, <c>Draw</c>, disposal)
+    /// run while that lock is held, so a callback must not block waiting on a thread that calls
+    /// this service. Mutations requested during <see cref="Update"/> are deferred to the end of the
+    /// call and applied in order, exactly as in earlier versions.
+    /// </remarks>
     public sealed class ScreenService : IScreenService {
+        private readonly object _lock = new object();
         private readonly List<Screen> _screens = new List<Screen>();
         private readonly Queue<Action> _queueOperation = new Queue<Action>();
         private bool _flagIsProcessing;
@@ -14,113 +23,125 @@ namespace MonoGameLibrary.Extensions.Screens {
         }
         
         public Screen CurrentScreen {
-            get { return _screens.Count > 0 ? _screens[_screens.Count - 1] : null; }
+            get { lock (_lock) { return _screens.Count > 0 ? _screens[_screens.Count - 1] : null; } }
         }
         
         public void Push(Screen screen) {
             if (screen == null) {
                 throw new ArgumentNullException(nameof(screen));
             }
-            ThrowIfDisposed();
-            QueueOrExecute(delegate {
-                PrepareScreen(screen);
-                if (_screens.Count > 0) {
-                    _screens[_screens.Count - 1].Exit();
-                }
-                _screens.Add(screen);
-                screen.Enter();
-            });
+            lock (_lock) {
+                ThrowIfDisposed();
+                QueueOrExecute(delegate {
+                    PrepareScreen(screen);
+                    if (_screens.Count > 0) {
+                        _screens[_screens.Count - 1].Exit();
+                    }
+                    _screens.Add(screen);
+                    screen.Enter();
+                });
+            }
         }
         
         public void Pop() {
-            ThrowIfDisposed();
-            QueueOrExecute(delegate {
-                if (_screens.Count > 0) {
-                    Screen top = _screens[_screens.Count - 1];
-                    UnsubscribeScreen(top);
-                    top.Exit();
-                    _screens.RemoveAt(_screens.Count - 1);
-                    top.Dispose();
-                }
-                if (_screens.Count > 0) {
-                    _screens[_screens.Count - 1].Enter();
-                }
-            });
+            lock (_lock) {
+                ThrowIfDisposed();
+                QueueOrExecute(delegate {
+                    if (_screens.Count > 0) {
+                        Screen screenTop = _screens[_screens.Count - 1];
+                        UnsubscribeScreen(screenTop);
+                        screenTop.Exit();
+                        _screens.RemoveAt(_screens.Count - 1);
+                        screenTop.Dispose();
+                    }
+                    if (_screens.Count > 0) {
+                        _screens[_screens.Count - 1].Enter();
+                    }
+                });
+            }
         }
         
         public void Change(Screen screen) {
             if (screen == null) {
                 throw new ArgumentNullException(nameof(screen));
             }
-            ThrowIfDisposed();
-            QueueOrExecute(delegate {
-                PrepareScreen(screen);
-                while (_screens.Count > 0) {
-                    Screen top = _screens[_screens.Count - 1];
-                    UnsubscribeScreen(top);
-                    top.Exit();
-                    _screens.RemoveAt(_screens.Count - 1);
-                    top.Dispose();
-                }
-                _screens.Add(screen);
-                screen.Enter();
-            });
+            lock (_lock) {
+                ThrowIfDisposed();
+                QueueOrExecute(delegate {
+                    PrepareScreen(screen);
+                    while (_screens.Count > 0) {
+                        Screen screenTop = _screens[_screens.Count - 1];
+                        UnsubscribeScreen(screenTop);
+                        screenTop.Exit();
+                        _screens.RemoveAt(_screens.Count - 1);
+                        screenTop.Dispose();
+                    }
+                    _screens.Add(screen);
+                    screen.Enter();
+                });
+            }
         }
         
         public void Update(FrameTime timeFrame) {
-            if (_flagDisposed) {
-                return;
-            }
-            _flagIsProcessing = true;
-            try {
-                for (int index = _screens.Count - 1; index >= 0; index -= 1) {
-                    Screen screen = _screens[index];
-                    if (screen.InputAction != null) {
-                        screen.InputAction.Invoke(timeFrame);
-                    }
-                    screen.Update(timeFrame);
-                    if (screen.IsBlocking) {
-                        break;
+            lock (_lock) {
+                if (_flagDisposed) {
+                    return;
+                }
+                _flagIsProcessing = true;
+                try {
+                    for (int index = _screens.Count - 1; index >= 0; index -= 1) {
+                        Screen screen = _screens[index];
+                        if (screen.InputAction != null) {
+                            screen.InputAction.Invoke(timeFrame);
+                        }
+                        screen.Update(timeFrame);
+                        if (screen.IsBlocking) {
+                            break;
+                        }
                     }
                 }
-            }
-            finally {
-                _flagIsProcessing = false;
-                while (_queueOperation.Count > 0 && !_flagDisposed) {
-                    _queueOperation.Dequeue().Invoke();
+                finally {
+                    _flagIsProcessing = false;
+                    while (_queueOperation.Count > 0 && !_flagDisposed) {
+                        _queueOperation.Dequeue().Invoke();
+                    }
                 }
             }
         }
         
         public void Draw(FrameTime timeFrame) {
-            if (_flagDisposed || _screens.Count == 0) {
-                return;
-            }
-            int indexFirst = 0;
-            for (int index = _screens.Count - 1; index >= 0; index -= 1) {
-                if (!_screens[index].IsTransparent) {
-                    indexFirst = index;
-                    break;
+            lock (_lock) {
+                if (_flagDisposed || _screens.Count == 0) {
+                    return;
                 }
-            }
-            for (int index = indexFirst; index < _screens.Count; index += 1) {
-                _screens[index].Draw(timeFrame);
+                int indexFirst = 0;
+                for (int index = _screens.Count - 1; index >= 0; index -= 1) {
+                    if (!_screens[index].IsTransparent) {
+                        indexFirst = index;
+                        break;
+                    }
+                }
+                for (int index = indexFirst; index < _screens.Count; index += 1) {
+                    _screens[index].Draw(timeFrame);
+                }
             }
         }
         
         public void Dispose() {
-            if (_flagDisposed) {
-                return;
+            lock (_lock) {
+                if (_flagDisposed) {
+                    return;
+                }
+                _flagDisposed = true;
+                _queueOperation.Clear();
+                for (int index = _screens.Count - 1; index >= 0; index -= 1) {
+                    Screen screen = _screens[index];
+                    UnsubscribeScreen(screen);
+                    screen.Exit();
+                    screen.Dispose();
+                }
+                _screens.Clear();
             }
-            _flagDisposed = true;
-            _queueOperation.Clear();
-            for (int index = _screens.Count - 1; index >= 0; index -= 1) {
-                Screen screen = _screens[index];
-                UnsubscribeScreen(screen);
-                screen.Exit();
-                screen.Dispose();
-            }
-            _screens.Clear();
             GC.SuppressFinalize(this);
         }
         

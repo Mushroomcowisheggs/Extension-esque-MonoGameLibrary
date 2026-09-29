@@ -8,17 +8,27 @@ namespace MonoGameLibrary.Extensions.Audio {
     /// Every buffer submitted to one output must contain the same number of frames,
     /// which is what lets the queued length be reported in frames as well as in buffers.
     /// After <see cref="IDisposable.Dispose"/> every member is a safe no-op and the
-    /// telemetry properties report zero or false, because audio calls routinely race
-    /// with shutdown and must not turn a teardown into an exception.
+    /// telemetry properties (<see cref="PendingBufferCount"/>, <see cref="PendingFrameCount"/>,
+    /// <see cref="UnderrunCount"/>, <see cref="IsPlaying"/>) report zero or false, because audio
+    /// calls routinely race with shutdown and must not turn a teardown into an exception. The
+    /// creation-format properties (<see cref="SampleRate"/>, <see cref="ChannelCount"/>,
+    /// <see cref="Format"/>) are static configuration rather than telemetry and keep the values
+    /// the output was created with, even after disposal.
     /// </summary>
     public interface IPcmAudioOutput : IDisposable {
-        /// <summary>Gets the sample rate in hertz the output was created with.</summary>
+        /// <summary>
+        /// Gets the sample rate in hertz the output was created with. Unchanged after disposal.
+        /// </summary>
         int SampleRate { get; }
         
-        /// <summary>Gets the number of interleaved channels the output was created with.</summary>
+        /// <summary>
+        /// Gets the number of interleaved channels the output was created with. Unchanged after disposal.
+        /// </summary>
         int ChannelCount { get; }
         
-        /// <summary>Gets the sample format the output expects.</summary>
+        /// <summary>
+        /// Gets the sample format the output expects. Unchanged after disposal.
+        /// </summary>
         PcmSampleFormat Format { get; }
         
         /// <summary>Gets the number of submitted buffers the device has not consumed yet.</summary>

@@ -16,7 +16,10 @@ namespace MonoGameLibrary.Extensions.Graphics {
     ///     03 04 05 ...
     ///   </Tiles>
     /// </Tilemap>
-    /// Supports multiple layers, but only the first layer is used (ignores extra layers).
+    /// The parser reads a single &lt;Tiles&gt; element and produces exactly one layer; the 
+    /// multi-layer surface (<see cref="LayerCount"/>, the <c>indexLayer</c> overloads and the 
+    /// all-layers <see cref="Draw(IRenderContext)"/>) is reserved for a future parser and 
+    /// currently always operates on that single layer. 
     /// </summary>
     public sealed class Tilemap : IAsset, IDisposable {
         private readonly TextureAtlas _atlas;
@@ -45,7 +48,10 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// This is equivalent to <see cref="TileHeight"/> multiplied by <see cref="Scale.Y"/>.
         /// </summary>
         public float ScaledTileHeight { get { return TileHeight * Scale.Y; } }
-        /// <summary>Gets the number of layers (only first is populated).</summary>
+        /// <summary>
+        /// Gets the number of layers. Currently always 1: the parser reads a single &lt;Tiles&gt; 
+        /// element and populates exactly one layer. 
+        /// </summary>
         public int LayerCount { get { return _layers.Count; } }
         
         /// <summary>Gets or sets the draw scale.</summary>
@@ -216,6 +222,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
         
         /// <summary>
         /// Gets the tile index at the specified position and layer.
+        /// Only layer 0 exists today; any other <paramref name="indexLayer"/> returns -1.
         /// </summary>
         public int GetTileIndex(int indexLayer, int column, int row) {
             if (indexLayer < 0 || indexLayer >= _layers.Count) { return -1; }
@@ -232,6 +239,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
         
         /// <summary>
         /// Sets the tile index for a specific layer.
+        /// Only layer 0 exists today; any other <paramref name="indexLayer"/> is ignored.
         /// </summary>
         public void SetTileIndex(int indexLayer, int column, int row, int indexTile) {
             if (indexLayer < 0 || indexLayer >= _layers.Count) { return; }
@@ -240,7 +248,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
         }
         
         /// <summary>
-        /// Draws all layers.
+        /// Draws all layers (currently exactly one) back to front.
         /// </summary>
         /// <param name="contextRender">The render context to draw with.</param>
         /// <exception cref="ArgumentNullException">Thrown if batchSprite is null.</exception>
@@ -290,7 +298,9 @@ namespace MonoGameLibrary.Extensions.Graphics {
         }
         
         /// <summary>
-        /// Disposes the tilemap (does not dispose the atlas, as it may be shared).
+        /// Disposes the tilemap and the atlas metadata wrapper it created during parsing. 
+        /// The underlying texture is owned by the content service (or the atlas creator) and is 
+        /// not disposed here; the atlas wrapper only ever releases region metadata. 
         /// </summary>
         public void Dispose() {
             if (_flagDisposed) { return; }

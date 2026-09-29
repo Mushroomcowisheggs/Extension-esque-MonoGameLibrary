@@ -11,6 +11,8 @@
 
 **重要区别**：如果某个功能实现**不依赖**任何外部平台或库（即纯 C#），则它应当作为可选模块放在 `Extensions` 层，其接口也定义在该层。`Adapters` 层**并非**用于存放“默认”或“本地”实现——其唯一目的是**适配**外部依赖。例如，自包含的 ECS 实现应放在 `Extensions`，而 MonoGame.Extended 的 ECS 封装应放在 `Adapters/MonoGame/ECS`。
 
+**BCL 豁免（明确约定）**：对于上述规则，跨平台的 .NET 基类库（`System.Net`、`System.Net.Sockets`、`System.Net.NetworkInformation`、`System.Threading`、`System.IO` 等）**不算**“外部平台或库”。仅依赖 BCL 的实现仍属“纯 C#”，因此应放在 `Extensions`。示例：Networking 扩展的 TCP 传输与 UDP 发现**有意**直接使用 `System.Net.Sockets`；`INetworkTransport` 仍是替换点——需要非 BCL 或平台专属后端的传输实现才应放到 `Adapters`。只有平台专属或第三方 API（MonoGame、Gum、Flecs.NET、OS 专属调用等）才必须封装进 `Adapters`。
+
 **物理依赖规则（项目级别强制）**：
 ```
 Game → Extensions → Core
@@ -332,6 +334,20 @@ public class AsyncWorker : IUpdateable {
 3. **避免在 `Update`/`Draw` 中阻塞等待**（如 `Thread.Sleep`、`WaitHandle.WaitOne`）。这会拖慢主循环。
 4. **如果模块公开了可变的属性（如 `Volume`），确保其实现是线程安全的**（使用 `Interlocked` 或锁）。
 5. **设计时考虑重入**：例如，`Update` 中可能触发事件，而事件处理器可能再次调用模块的方法。
+
+### 服务线程归属
+
+内置服务的同步保证记录在各自的 XML 文档中；下表为权威摘要。除非某行另有说明，服务可从任意线程调用。
+
+| 服务 | 保证 |
+| --- | --- |
+| `GameHost` | 完全线程安全；`Initialize`、`Update`、`Draw`、`AddModule`、`Dispose` 可在不同线程调用。 |
+| `ScreenService`、`StateService` | 线程安全；单锁串行化所有调用。屏幕/状态生命周期回调（`Enter`/`Exit`/`Update`/`Draw`）在持锁期间运行，回调内不得阻塞等待另一个调用同一服务的线程。 |
+| `InputService` | 线程安全；`Update` 发布一致的输入快照，所有查询在同一把锁下读取该快照。 |
+| `AudioService` | 线程安全；播放跟踪、静音标志与 MonoGame 全局音量状态（`MediaPlayer.Volume`、`SoundEffect.MasterVolume`）共用一把锁。 |
+| `SceneService`、`TextInputService`、`PointerInputService`、`WindowService`、`NetworkService`、`DiscoveryService`、`JsonNetworkSerializer`、`PcmAudioOutputFactory` | 线程安全（内部加锁）。 |
+| `DefaultThreadPool`、`DefaultCancellationService`、`DefaultObjectPoolFactory` 池 | 线程安全。 |
+| `ContentService`（`IContentService`） | **非线程安全**：仅从单一线程（通常是加载/初始化线程）调用，因为 MonoGame 的 `ContentManager` 是单线程的。 |
 
 ### 示例
 
