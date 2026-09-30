@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
+using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Content;
 using MonoGameLibrary.Core.Primitives;
 

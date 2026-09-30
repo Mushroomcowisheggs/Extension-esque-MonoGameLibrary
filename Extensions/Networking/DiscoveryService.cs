@@ -850,6 +850,9 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <summary>
         /// Waits for a background task without letting a fault or a hang escape.
+        /// The wait is bounded by <paramref name="milliseconds"/> and deliberately opts out of
+        /// cancellation: it runs while the service is being torn down, so cancelling the token
+        /// would defeat the purpose of observing the loop's final state.
         /// </summary>
         /// <param name="task">The task to wait for, or null.</param>
         /// <param name="milliseconds">The time budget.</param>
@@ -858,7 +861,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 return;
             }
             try {
-                task.Wait(milliseconds);
+                task.Wait(milliseconds, CancellationToken.None);
             } catch (AggregateException exception) {
                 _logger.Warning($"A background discovery loop ended with an error: {exception.Message}");
             } catch (ObjectDisposedException exceptionReleased) {

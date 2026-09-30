@@ -58,8 +58,64 @@ namespace MonoGameLibrary.Core.Primitives {
             return start + (end - start) * amount;
         }
         
-        /// <inheritdoc />
-        public bool Equals(TwoDimensionalVector other) { return X == other.X && Y == other.Y; }
+        /// <summary>
+        /// Compares two vectors for exact equality.
+        /// This is the equality operation required by <see cref="IEquatable{T}"/> and by
+        /// <see cref="GetHashCode"/>, so it is reflexive, symmetric, transitive and free of any
+        /// assumed precision.
+        /// </summary>
+        /// <param name="other">The vector to compare against.</param>
+        /// <returns>True when both components are bit-for-bit identical.</returns>
+        /// <remarks>
+        /// A tolerance is deliberately not applied here. Floating point numbers have a precision
+        /// that scales with their magnitude, so no single tolerance is correct: any fixed epsilon is
+        /// too coarse for small components, too fine for large ones, and the subtraction used to
+        /// measure the difference has already lost precision by the time it is compared. A tolerance
+        /// would also break transitivity and contradict <see cref="GetHashCode"/>.
+        /// Use <see cref="IsNearlyEqual"/> when an approximate comparison is what the caller means.
+        /// </remarks>
+        public bool Equals(TwoDimensionalVector other) {
+            return X.Equals(other.X) && Y.Equals(other.Y);
+        }
+        
+        /// <summary>
+        /// Compares two vectors for approximate equality, using a tolerance that scales with the
+        /// magnitude of the compared components.
+        /// </summary>
+        /// <param name="other">The vector to compare against.</param>
+        /// <param name="relativeTolerance">
+        /// The accepted difference, expressed as a fraction of the compared magnitude
+        /// (for example 0.0001 accepts a difference of one ten-thousandth). Must be zero or greater.
+        /// </param>
+        /// <returns>True when both components are equal or differ by less than the tolerance.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="relativeTolerance"/> is negative or not a number.
+        /// </exception>
+        public bool IsNearlyEqual(TwoDimensionalVector other, float relativeTolerance) {
+            if (float.IsNaN(relativeTolerance) || relativeTolerance < 0f) {
+                throw new ArgumentOutOfRangeException(nameof(relativeTolerance),
+                "The relative tolerance must be zero or greater.");
+            }
+            return IsComponentNearlyEqual(X, other.X, relativeTolerance)
+            && IsComponentNearlyEqual(Y, other.Y, relativeTolerance);
+        }
+        
+        private static bool IsComponentNearlyEqual(float left, float right, float relativeTolerance) {
+            if (left.Equals(right)) {
+                // Covers the exact case, including values near zero where a relative test is
+                // meaningless.
+                return true;
+            }
+            if (float.IsNaN(left) || float.IsNaN(right)) {
+                return false;
+            }
+            if (float.IsInfinity(left) || float.IsInfinity(right)) {
+                return false;
+            }
+            float difference = Math.Abs(left - right);
+            float magnitude = Math.Max(Math.Abs(left), Math.Abs(right));
+            return difference <= relativeTolerance * magnitude;
+        }
         
         /// <inheritdoc />
         public override bool Equals(object value) {

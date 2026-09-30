@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Microsoft.Xna.Framework.Graphics;
+using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Graphics;

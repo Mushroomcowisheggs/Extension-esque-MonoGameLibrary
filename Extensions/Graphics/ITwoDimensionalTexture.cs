@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Primitives;
 
 namespace MonoGameLibrary.Extensions.Graphics {

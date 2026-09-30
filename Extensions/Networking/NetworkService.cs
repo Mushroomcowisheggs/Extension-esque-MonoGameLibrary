@@ -1536,6 +1536,9 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <summary>
         /// Waits for a background task without letting a fault or a hang escape.
+        /// The wait is bounded by <paramref name="milliseconds"/> and deliberately opts out of
+        /// cancellation: it runs while the service is being torn down, so cancelling the token
+        /// would defeat the purpose of observing the loop's final state.
         /// </summary>
         /// <param name="task">The task to wait for, or null.</param>
         /// <param name="milliseconds">The time budget.</param>
@@ -1544,7 +1547,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 return;
             }
             try {
-                task.Wait(milliseconds);
+                task.Wait(milliseconds, CancellationToken.None);
             } catch (AggregateException exception) {
                 _logger.Warning($"A background network loop ended with an error: {exception.Message}");
             } catch (ObjectDisposedException exceptionReleased) {
@@ -1555,11 +1558,13 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <summary>
         /// Gives queued farewell messages a moment to leave, then closes the session.
+        /// The delay deliberately opts out of cancellation: it is the fixed grace period itself,
+        /// so cancelling it early would cut the farewell short and close the session prematurely.
         /// </summary>
         /// <param name="reason">The reason reported to the game.</param>
         private async Task CloseSessionAfterFlushAsync(string reason) {
             try {
-                await Task.Delay(DisconnectFlushMilliseconds).ConfigureAwait(false);
+                await Task.Delay(DisconnectFlushMilliseconds, CancellationToken.None).ConfigureAwait(false);
                 CloseSession(reason, NetworkStatus.Disconnected);
             } catch (Exception exception) {
                 // Nothing observes this task, so it reports its own failure instead of faulting.
