@@ -1,11 +1,9 @@
-using MonoGameLibrary.Extensions.Input;
-
-namespace MonoGameLibrary.Extensions.Bridge {
+namespace MonoGameLibrary.Extensions.Input {
     /// <summary>
-    /// Exposes the key type of a backend through the neutral cross-adapter contract anchor
-    /// without naming that backend in Extensions. Adapters that need to translate a
-    /// platform-independent key code, such as the Gum integration hosted by MonoGame,
-    /// depend on this contract instead of on the adapter that owns the translation table.
+    /// Exposes a backend's key type through an Input-owned contract, so an adapter that needs
+    /// to translate a platform-independent key code, such as the Gum integration hosted by
+    /// MonoGame, depends on this contract instead of on the adapter that owns the translation
+    /// table. The translation table stays the single responsibility of the backend adapter.
     /// </summary>
     /// <typeparam name="TKey">The backend key type.</typeparam>
     public interface INativeKeyProvider<out TKey> {

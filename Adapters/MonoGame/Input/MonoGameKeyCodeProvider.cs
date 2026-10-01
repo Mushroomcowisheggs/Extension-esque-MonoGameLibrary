@@ -1,5 +1,4 @@
 using Microsoft.Xna.Framework.Input;
-using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Input;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Input {

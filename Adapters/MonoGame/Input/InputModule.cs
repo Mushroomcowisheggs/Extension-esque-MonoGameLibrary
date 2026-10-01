@@ -1,7 +1,6 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Modularity;
