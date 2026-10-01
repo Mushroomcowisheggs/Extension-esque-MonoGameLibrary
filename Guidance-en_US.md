@@ -28,6 +28,10 @@ The principles below are annotated with the roles to which they apply.
 
 ---
 
+**About the examples**: All code examples in this document **serve only to illustrate design intent and principles**. They are not a description of the existing implementation, and they are not guaranteed to match the current code verbatim. Signatures, members, naming, and structure in an example may differ from the actual code; where an example and the code disagree, the code is authoritative. The value of an example lies in the design idea it conveys; it should not be treated as a reference implementation to copy directly, nor used as the basis for judging whether an implementation is compliant.
+
+---
+
 ## 1. Explicit Dependencies Principle
 
 **Roles**: [Extension] must follow; [Core] provide support; [Game] uses at composition root.
