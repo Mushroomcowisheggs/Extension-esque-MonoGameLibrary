@@ -152,7 +152,7 @@ public class BadAudioModule : ILoadable {
    - `IUpdateable`: for per-frame update logic (physics, AI, input processing, etc.). Called during `GameHost.Update`.
    - `IDrawable`: for per-frame rendering. Called during `GameHost.Draw`.
 
-2. **An `Order` property (int) must be provided.** Smaller values execute earlier. A default of `0` is suggested, but adjust as needed (e.g., an input module should use a negative value).
+2. **An `Order` property (int) must be provided.** Smaller values execute earlier. A default of `0` is suggested, but adjust as needed (e.g., an input module should use a negative value). **Equal `Order` values must be resolved deterministically**: the host breaks a tie by the participant's full type name in ordinal order, so a schedule is reproducible whether or not two participants happen to share an `Order`. Do not rely on that tie-break to express intent - give distinct values where the order matters. This is the same tie-break `ModuleLoader` applies to registration order.
 3. **`Enabled` / `Visible` properties (bool) must be provided.** The host checks these flags before calling `Update` / `Draw`. They must support dynamic changes at runtime.
 4. **Do not perform time-consuming operations in `Update` or `Draw`** (e.g., disk I/O, network requests). Use `IThreadPool` for asynchronous processing.
 5. **Keep methods short**, performing only the minimal necessary work each cycle. Exceeding 16ms will cause frame drops.
@@ -160,8 +160,13 @@ public class BadAudioModule : ILoadable {
 ### Lifecycle Execution Order
 
 - `Initialize` phase: Calls `ILoadable.LoadContent` on all modules in the order they were added via `AddModule`.
-- `Update` phase: Calls `IUpdateable.Update` on all modules in ascending `Order`, skipping any with `Enabled == false`.
-- `Draw` phase: Calls `IDrawable.Draw` on all modules in ascending `Order`, skipping any with `Visible == false`.
+- `Update` phase: Calls `IUpdateable.Update` on all modules in ascending `Order`, resolving equal `Order` values by full type name in ordinal order, skipping any with `Enabled == false`.
+- `Draw` phase: Calls `IDrawable.Draw` on all modules in ascending `Order`, resolving equal `Order` values by full type name in ordinal order, skipping any with `Visible == false`.
+
+**Admission is publish-after-load.** A module becomes visible to `Update` and `Draw` only once its `LoadContent` has returned successfully, so a frame on another thread never observes a participant whose load is still in progress. If the load throws, the module is withdrawn from the host and never becomes schedulable. Two consequences follow:
+
+- **Supply a module's dependencies before adding it.** Do not add modules from inside a `LoadContent`: `AddModule` throws while `Initialize` is running, because such a module would be loaded by the calling thread rather than by `Initialize`'s loop, putting two threads inside the content services at once. Add every module either before `Initialize` or after it returns.
+- **`Initialize` runs once, on one thread.** A second call while the first is still loading throws.
 
 ### Module Placement Guideline
 
@@ -345,7 +350,7 @@ The built-in services carry their synchronization guarantees in their own XML do
 
 | Service | Guarantee |
 | --- | --- |
-| `GameHost` | Fully thread-safe; `Initialize`, `Update`, `Draw`, `AddModule` and `Dispose` may be called from different threads. |
+| `GameHost` | Thread-safe, with two exceptions. `Initialize` is single-entry: a second concurrent call throws. `AddModule` is refused while initialization is running, so a module's dependencies must be supplied before it is added. `Update`, `Draw` and `Dispose` may be called from different threads. |
 | `ScreenService`, `StateService` | Thread-safe; one lock serializes all calls. Screen/state lifecycle callbacks (`Enter`/`Exit`/`Update`/`Draw`) run while that lock is held, so a callback must not block on another thread that calls the same service. |
 | `InputService` | Thread-safe; `Update` publishes one consistent input snapshot and every query reads that snapshot under the same lock. |
 | `AudioService` | Thread-safe; playback tracking, the mute flag and the MonoGame global volume state (`MediaPlayer.Volume`, `SoundEffect.MasterVolume`) share one lock. |

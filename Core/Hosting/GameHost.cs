@@ -112,6 +112,16 @@ namespace MonoGameLibrary.Core.Hosting {
                         "Cannot add modules to a GameHost that is in a faulted state. "
                     );
                 }
+                // Admission is publish-after-load, so the module's own dependencies must be settled
+                // before it is added. A module that registers a further module while the host is
+                // loading would be loaded by the calling thread instead of by Initialize's loop,
+                // which would put two threads inside the content services at once.
+                if (_flagIsLoading) {
+                    throw new InvalidOperationException(
+                        "Cannot add modules while the GameHost is initializing. Add every module before " +
+                        "Initialize, or add it after Initialize returns. "
+                    );
+                }
                 
                 if (_setModule.Contains(module)) {
                     throw new InvalidOperationException(
@@ -122,23 +132,22 @@ namespace MonoGameLibrary.Core.Hosting {
                 _setModule.Add(module);
                 _listAllModules.Add(module);
                 
-                // Categorize module according to implemented interfaces
                 if (module is ILoadable loadable) {
                     _listLoadableModules.Add(loadable);
-                    // Post-initialization admission: once Initialize's loading loop has run (or is
-                    // running on another thread), nothing else will load this module, so it must
-                    // load here before Update/Draw pick it up.
-                    if (_flagIsInitialized || _flagIsLoading) {
-                        loadableToLoad = loadable;
-                    }
                 }
-                if (module is IUpdateable updateable) {
-                    _listUpdateableModules.Add(updateable);
-                    _flagUpdateOrderDirty = true;
-                }
-                if (module is IDrawable drawable) {
-                    _listDrawableModules.Add(drawable);
-                    _flagDrawOrderDirty = true;
+                
+                // Three admission cases. Before Initialize, membership is published now and the
+                // loading loop will load the module; the frame cannot run yet, so the ordering is
+                // not observable. After Initialize, the module is loaded first and published only
+                // on success, so a frame on another thread never sees an unloaded participant. A
+                // module with nothing to load has no window to hold back and is published at once.
+                if (!_flagIsInitialized) {
+                    PublishSchedulingMembership(module);
+                } else if (module is ILoadable loadableToSchedule) {
+                    // Published below, once LoadContent has returned.
+                    loadableToLoad = loadableToSchedule;
+                } else {
+                    PublishSchedulingMembership(module);
                 }
             }
             
@@ -150,7 +159,32 @@ namespace MonoGameLibrary.Core.Hosting {
                     RemoveModuleCore(module);
                     throw;
                 }
+                // The load succeeded, so the module may now join the per-frame schedule.
+                PublishSchedulingMembership(module);
             }
+        }
+        
+        /// <summary>
+        /// Publishes a module's scheduling membership: adds it to the update and draw lists and
+        /// marks the schedule caches dirty so the next traversal rebinds.
+        /// </summary>
+        /// <param name="module">The module to publish. </param>
+        /// <returns><c>true</c> if the module participates in a schedule, otherwise <c>false</c>. </returns>
+        private bool PublishSchedulingMembership(object module) {
+            bool flagSchedulable = false;
+            lock (_lock) {
+                if (module is IUpdateable updateable) {
+                    _listUpdateableModules.Add(updateable);
+                    _flagUpdateOrderDirty = true;
+                    flagSchedulable = true;
+                }
+                if (module is IDrawable drawable) {
+                    _listDrawableModules.Add(drawable);
+                    _flagDrawOrderDirty = true;
+                    flagSchedulable = true;
+                }
+            }
+            return flagSchedulable;
         }
         
         /// <summary>
@@ -158,6 +192,11 @@ namespace MonoGameLibrary.Core.Hosting {
         /// post-initialization admission. 
         /// </summary>
         /// <param name="module">The module to remove. </param>
+        /// <remarks>
+        /// The scheduling caches are invalidated unconditionally rather than only when a removal
+        /// actually happened, because a rollback that leaves a cache holding a withdrawn participant
+        /// is exactly the failure this method exists to prevent.
+        /// </remarks>
         private void RemoveModuleCore(object module) {
             lock (_lock) {
                 _setModule.Remove(module);
@@ -166,15 +205,13 @@ namespace MonoGameLibrary.Core.Hosting {
                     _listLoadableModules.Remove(loadable);
                 }
                 if (module is IUpdateable updateable) {
-                    if (_listUpdateableModules.Remove(updateable)) {
-                        _flagUpdateOrderDirty = true;
-                    }
+                    _listUpdateableModules.Remove(updateable);
                 }
                 if (module is IDrawable drawable) {
-                    if (_listDrawableModules.Remove(drawable)) {
-                        _flagDrawOrderDirty = true;
-                    }
+                    _listDrawableModules.Remove(drawable);
                 }
+                _flagUpdateOrderDirty = true;
+                _flagDrawOrderDirty = true;
             }
         }
         
@@ -197,6 +234,11 @@ namespace MonoGameLibrary.Core.Hosting {
                     if (_flagIsInitialized) {
                         throw new InvalidOperationException(
                             "Initialize has already been called on this GameHost. "
+                        );
+                    }
+                    if (_flagIsLoading) {
+                        throw new InvalidOperationException(
+                            "Initialize is already running on this GameHost. "
                         );
                     }
                     
@@ -256,7 +298,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
                 if (flagNeedSort) {
                     _backBufferUpdateables.Sort(delegate(IUpdateable a, IUpdateable b) {
-                        return a.Order.CompareTo(b.Order);
+                        return CompareScheduleOrder(a.Order, a, b.Order, b);
                     });
                     lock (_lock) {
                         if (_flagUpdateOrderDirty) {
@@ -299,7 +341,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
                 if (flagNeedSort) {
                     _backBufferDrawables.Sort(delegate(IDrawable a, IDrawable b) {
-                        return a.Order.CompareTo(b.Order);
+                        return CompareScheduleOrder(a.Order, a, b.Order, b);
                     });
                     lock (_lock) {
                         if (_flagDrawOrderDirty) {
@@ -363,6 +405,30 @@ namespace MonoGameLibrary.Core.Hosting {
                     _eventOperationsIdle.Set();
                 }
             }
+        }
+        
+        /// <summary>
+        /// Orders two participants for the per-frame schedule: ascending <see cref="IUpdateable.Order"/>,
+        /// and on a tie the full type name in ordinal order.
+        /// </summary>
+        /// <remarks>
+        /// The tie-break is what makes the schedule a <em>total</em> order. Without it, two participants
+        /// sharing an <c>Order</c> reach an unstable comparison, and <c>List&lt;T&gt;.Sort</c> is documented
+        /// as an unstable introspective sort, so their relative traversal order would fall back to whatever
+        /// sequence the list happened to be built in - an implementation accident rather than a contract.
+        /// The full type name is the same secondary key <c>ModuleLoader</c> applies to registration order,
+        /// so the loading and scheduling orders are resolved by one rule rather than two.
+        /// </remarks>
+        private static int CompareScheduleOrder(int orderLeft, object participantLeft, int orderRight, object participantRight) {
+            int comparison = orderLeft.CompareTo(orderRight);
+            if (comparison != 0) {
+                return comparison;
+            }
+            return string.Compare(
+                participantLeft.GetType().FullName,
+                participantRight.GetType().FullName,
+                StringComparison.Ordinal
+            );
         }
         
         /// <summary>

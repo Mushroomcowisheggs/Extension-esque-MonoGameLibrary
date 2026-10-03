@@ -152,7 +152,7 @@ public class BadAudioModule : ILoadable {
    - `IUpdateable`：用于每帧更新逻辑（物理、AI、输入处理等）。在 `GameHost.Update` 中被调用。
    - `IDrawable`：用于每帧渲染。在 `GameHost.Draw` 中被调用。
 
-2. **必须提供 `Order` 属性**（int）。数值越小执行越早。默认建议为 `0`，但可根据需要调整（如输入模块应设为负值）。
+2. **必须提供 `Order` 属性**（int）。数值越小执行越早。默认建议为 `0`，但可根据需要调整（如输入模块应设为负值）。**`Order` 相等时必须能确定地决出先后**：宿主以参与者**类型全名**的序数序作为次级键打破平局，因此无论两个参与者是否恰好同 `Order`，调度都可复现。不要依赖该次级键来表达设计意图——需要区分先后时就给出不同的值。这与 `ModuleLoader` 对注册序所用的次级键是同一个。
 3. **必须提供 `Enabled` / `Visible` 属性**（bool）。宿主在调用 `Update` / `Draw` 前会检查这些标志。它们应允许在运行时动态更改。
 4. **不要在 `Update` 或 `Draw` 中执行耗时操作**（如磁盘 I/O、网络请求）。应使用 `IThreadPool` 异步处理。
 5. **保持方法简短**，每个周期内完成最小必要工作。超过 16ms 会导致掉帧。
@@ -160,8 +160,13 @@ public class BadAudioModule : ILoadable {
 ### 生命周期执行顺序
 
 - `Initialize` 阶段：按 `AddModule` 添加顺序调用所有 `ILoadable.LoadContent`。
-- `Update` 阶段：按 `Order` 升序调用所有 `IUpdateable.Update`，但跳过 `Enabled == false` 的模块。
-- `Draw` 阶段：按 `Order` 升序调用所有 `IDrawable.Draw`，但跳过 `Visible == false` 的模块。
+- `Update` 阶段：按 `Order` 升序调用所有 `IUpdateable.Update`，`Order` 相等时以类型全名的序数序决出先后，并跳过 `Enabled == false` 的模块。
+- `Draw` 阶段：按 `Order` 升序调用所有 `IDrawable.Draw`，`Order` 相等时以类型全名的序数序决出先后，并跳过 `Visible == false` 的模块。
+
+**准则是"先加载后发布"（publish-after-load）。** 模块只有在其 `LoadContent` 成功返回之后才对 `Update` 与 `Draw` 可见，因此另一线程上的帧不会观察到加载尚未完成的参与者。若加载抛出异常，该模块会被从宿主中撤除，且永远不会进入调度。由此有两条推论：
+
+- **在添加模块之前先备齐它的依赖。** 不要在 `LoadContent` 内部添加模块：`Initialize` 运行期间 `AddModule` 会抛出异常，因为这样的模块会由调用线程加载，而不是由 `Initialize` 的循环加载，从而使两个线程同时进入内容服务。所有模块要么在 `Initialize` 之前添加，要么在它返回之后添加。
+- **`Initialize` 只运行一次、只在一个线程上运行。** 在第一次仍在加载时再次调用会抛出异常。
 
 ### 模块放置指引
 
@@ -345,7 +350,7 @@ public class AsyncWorker : IUpdateable {
 
 | 服务 | 保证 |
 | --- | --- |
-| `GameHost` | 完全线程安全；`Initialize`、`Update`、`Draw`、`AddModule`、`Dispose` 可在不同线程调用。 |
+| `GameHost` | 线程安全，但有两处例外。`Initialize` 为单次进入：并发再次调用会抛出异常。`Initialize` 运行期间 `AddModule` 会被拒绝，因此模块的依赖必须在添加之前备齐。`Update`、`Draw`、`Dispose` 可在不同线程调用。 |
 | `ScreenService`、`StateService` | 线程安全；单锁串行化所有调用。屏幕/状态生命周期回调（`Enter`/`Exit`/`Update`/`Draw`）在持锁期间运行，回调内不得阻塞等待另一个调用同一服务的线程。 |
 | `InputService` | 线程安全；`Update` 发布一致的输入快照，所有查询在同一把锁下读取该快照。 |
 | `AudioService` | 线程安全；播放跟踪、静音标志与 MonoGame 全局音量状态（`MediaPlayer.Volume`、`SoundEffect.MasterVolume`）共用一把锁。 |
