@@ -21,7 +21,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private const int BacklogSize = 32;
         
         private readonly ILogger _logger;
-        private int _flagDisposed;
+        private int _markDisposed;
         
         /// <summary>
         /// Initializes a new transport.
@@ -33,7 +33,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public Task<INetworkListener> ListenAsync(int port, CancellationToken token) {
-            if (Volatile.Read(ref _flagDisposed) != 0) {
+            if (Volatile.Read(ref _markDisposed) != 0) {
                 throw new ObjectDisposedException(nameof(TcpNetworkTransport));
             }
             if (port < 0 || port > 65535) {
@@ -79,7 +79,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public async Task<INetworkChannel> ConnectAsync(string addressHost, int port, CancellationToken token) {
-            if (Volatile.Read(ref _flagDisposed) != 0) {
+            if (Volatile.Read(ref _markDisposed) != 0) {
                 throw new ObjectDisposedException(nameof(TcpNetworkTransport));
             }
             if (string.IsNullOrWhiteSpace(addressHost)) {
@@ -108,7 +108,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public void Dispose() {
-            Interlocked.Exchange(ref _flagDisposed, 1);
+            Interlocked.Exchange(ref _markDisposed, 1);
             GC.SuppressFinalize(this);
         }
     }

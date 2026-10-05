@@ -57,8 +57,8 @@ namespace MonoGameLibrary.Extensions.Networking {
         private long _timestampLastReceived;
         private long _timestampPingSent;
         private long _timestampPingPayload;
-        private int _flagDisposed;
-        private int _flagSignalled;
+        private int _markDisposed;
+        private int _markSignalled;
         
         /// <summary>
         /// Initializes the timing fields so that a fresh link is never considered idle.
@@ -153,7 +153,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// Clears the wake-up permit once the send loop has drained the queue, so the next frame wakes it again.
         /// </summary>
         internal void MarkQueueDrained() {
-            Interlocked.Exchange(ref _flagSignalled, 0);
+            Interlocked.Exchange(ref _markSignalled, 0);
             if (!OutboundQueue.IsEmpty) { WakeSendLoop(); }
         }
         
@@ -178,7 +178,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// Stops the pumps and releases the channel. The method is idempotent.
         /// </summary>
         public void Dispose() {
-            if (Interlocked.Exchange(ref _flagDisposed, 1) != 0) {
+            if (Interlocked.Exchange(ref _markDisposed, 1) != 0) {
                 return;
             }
             try {

@@ -646,6 +646,7 @@ builder.AddModule(new MyModule(logger, profiler));
 7. **局部字段同样遵循中心词开头的声明式命名**，如`timeFrame`、`serviceContent`、`logger`。
 8. **公开字段通常直接使用自然语言顺序命名**，如`FrameTime`、`IContentService`、`Logger`。也就是代入式命名，字段名 = 对象名（或隐含的上下文对象）+ 属性名。它反映的是“这个数据是哪个对象的哪个字段”，而非“我们定义一个字段，然后进行限定”。
 9. 用于标识而非计算的布尔变量命名须以flag开头以明确用途。
+10. **必须以原子方式更新、因而无法存放于`bool`的标识状态，须以`mark`开头**，如`_markDisposed`、`_markClosed`、`_markSignalled`。`bool`没有原子更新，故此类状态以0/1存放于`int`，并通过`Interlocked`或`Volatile`读写。它是标识状态而非数据，因此需要自己的类别词：`flag`不可用，因为`flag`声明的是类型；而按存储命名（`_intDisposed`）属于代入式命名。`mark`既约束用法也约束命名——以0/1原子更新的字段带`mark`，带`mark`的字段也须以0/1原子更新。以原子方式驱动的计数器或时间戳属于*数据*，各用自身的类别词（`_countPendingWork`、`_timestampLastReceived`）。
 
 ---
 

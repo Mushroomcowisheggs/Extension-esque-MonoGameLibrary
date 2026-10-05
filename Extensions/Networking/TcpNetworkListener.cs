@@ -15,7 +15,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private readonly ILogger _logger;
         private readonly Socket _socketListener;
         private readonly int _port;
-        private int _stateClosed;
+        private int _markClosed;
         
         /// <summary>
         /// Initializes a listener around an already bound and listening socket.
@@ -41,7 +41,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public async Task<INetworkChannel> AcceptAsync(CancellationToken token) {
-            if (Volatile.Read(ref _stateClosed) != 0) {
+            if (Volatile.Read(ref _markClosed) != 0) {
                 return null;
             }
             
@@ -52,7 +52,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 _logger.Debug($"The listener on port {_port} was closed while accepting: {exception.Message}");
                 return null;
             } catch (SocketException exception) {
-                if (Volatile.Read(ref _stateClosed) != 0) {
+                if (Volatile.Read(ref _markClosed) != 0) {
                     _logger.Debug($"The listener on port {_port} stopped accepting: {exception.Message}");
                     return null;
                 }
@@ -67,7 +67,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public void Close() {
-            if (Interlocked.Exchange(ref _stateClosed, 1) != 0) {
+            if (Interlocked.Exchange(ref _markClosed, 1) != 0) {
                 return;
             }
             // Socket.Dispose is idempotent, so no guard is needed here.

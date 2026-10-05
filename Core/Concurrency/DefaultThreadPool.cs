@@ -9,7 +9,7 @@ namespace MonoGameLibrary.Core.Concurrency {
     /// A lightweight default implementation of <see cref="IThreadPool"/>. 
     /// </summary>
     public sealed class DefaultThreadPool : IThreadPool, IDisposable {
-        private int _stateDispose;
+        private int _markDispose;
         private int _countPendingWork;
         private readonly ILogger _logger;
         private Optional<Func<Action<Exception, string>>> _handlerException;
@@ -72,7 +72,7 @@ namespace MonoGameLibrary.Core.Concurrency {
                 throw new ArgumentNullException(nameof(work));
             }
             
-            if (Volatile.Read(ref _stateDispose) != 0) {
+            if (Volatile.Read(ref _markDispose) != 0) {
                 throw new ObjectDisposedException(nameof(DefaultThreadPool));
             }
             
@@ -101,7 +101,7 @@ namespace MonoGameLibrary.Core.Concurrency {
                 throw new ArgumentNullException(nameof(work));
             }
             
-            if (Volatile.Read(ref _stateDispose) != 0) {
+            if (Volatile.Read(ref _markDispose) != 0) {
                 throw new ObjectDisposedException(nameof(DefaultThreadPool));
             }
             
@@ -131,7 +131,7 @@ namespace MonoGameLibrary.Core.Concurrency {
                 throw new ArgumentNullException(nameof(work));
             }
             
-            if (Volatile.Read(ref _stateDispose) != 0) {
+            if (Volatile.Read(ref _markDispose) != 0) {
                 throw new ObjectDisposedException(nameof(DefaultThreadPool));
             }
             
@@ -152,7 +152,7 @@ namespace MonoGameLibrary.Core.Concurrency {
         
         /// <inheritdoc />
         public void Shutdown(bool flagWaitForCompletion) {
-            Interlocked.Exchange(ref _stateDispose, 1);
+            Interlocked.Exchange(ref _markDispose, 1);
             
             if (flagWaitForCompletion) {
                 var spin = new SpinWait();

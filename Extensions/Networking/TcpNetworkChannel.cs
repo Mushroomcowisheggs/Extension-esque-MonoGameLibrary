@@ -15,7 +15,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private readonly Socket _socketTcp;
         private readonly ILogger _logger;
         private readonly string _addressRemote;
-        private int _stateClosed;
+        private int _markClosed;
         
         /// <summary>
         /// Initializes a channel around an already connected socket.
@@ -52,7 +52,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <inheritdoc />
         public bool IsOpen {
             get {
-                if (Volatile.Read(ref _stateClosed) != 0) {
+                if (Volatile.Read(ref _markClosed) != 0) {
                     return false;
                 }
                 return _socketTcp.Connected;
@@ -67,7 +67,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             if (count <= 0) {
                 throw new InvalidOperationException("The requested byte count must be positive.");
             }
-            if (Volatile.Read(ref _stateClosed) != 0) {
+            if (Volatile.Read(ref _markClosed) != 0) {
                 return 0;
             }
             
@@ -100,7 +100,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public void Close() {
-            if (Interlocked.Exchange(ref _stateClosed, 1) != 0) {
+            if (Interlocked.Exchange(ref _markClosed, 1) != 0) {
                 return;
             }
             try {

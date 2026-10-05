@@ -646,6 +646,7 @@ builder.AddModule(new MyModule(logger, profiler));
 7. **Local variables also follow headword-first declarative naming**, e.g., `timeFrame`, `serviceContent`, `logger`.
 8. **Public fields typically use natural language order**, e.g., `FrameTime`, `IContentService`, `Logger`. This is substitutional naming: `field = object name (or implied context object) + property name`. It reflects "which property of which object this data belongs to", rather than "we define a field and then qualify it".
 9. Boolean variables used for identification rather than computation must start with `flag` to clarify their purpose.
+10. **Identification state that must be updated atomically, and therefore cannot be held in a `bool`, must start with `mark`**, e.g., `_markDisposed`, `_markClosed`, `_markSignalled`. `bool` has no atomic update, so such state is held as 0/1 in an `int` and driven through `Interlocked` or `Volatile`. It is identification state rather than data, so it needs a category word of its own: `flag` is unavailable because `flag` states a type, and naming the field for its storage (`_intDisposed`) would be substitutional naming. `mark` binds to the use as well as to the word — a field updated atomically as 0/1 carries `mark`, and a field carrying `mark` is updated atomically as 0/1. A counter or a timestamp driven atomically is *data*, and takes its own category word (`_countPendingWork`, `_timestampLastReceived`).
 
 ---
 
