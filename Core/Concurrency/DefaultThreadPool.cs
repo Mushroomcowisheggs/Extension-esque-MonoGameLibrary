@@ -37,6 +37,8 @@ namespace MonoGameLibrary.Core.Concurrency {
             return handler;
         }
         
+        /// <summary>Replaces the provider whose handler receives exceptions raised by background tasks.</summary>
+        /// <param name="provider">Returns the handler to invoke; the provider runs on each unhandled exception.</param>
         public void SetExceptionHandlerProvider(Func<Action<Exception, string>> provider) {
             if (provider == null) {
                 throw new ArgumentNullException(nameof(provider));

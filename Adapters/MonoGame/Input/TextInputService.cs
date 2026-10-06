@@ -14,13 +14,20 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
     public sealed class TextInputService : ITextInputService, IDisposable {
         private readonly object _lock = new object();
         private readonly Queue<char> _queueCharacters;
+        
+        /// <summary>
+        /// Reusable drain buffer. The queue is emptied every frame, so allocating a fresh array here
+        /// allocated on every frame that carried input; the buffer grows to the largest burst seen and
+        /// is then reused, which is what removes the per-frame allocation rather than the array itself.
+        /// </summary>
+        private char[] _bufferCharacters = new char[0];
         private readonly Game _game;
         private bool _flagEnabled;
         private bool _flagDisposed;
-
+        
         /// <inheritdoc />
         public event EventHandler<TextEnteredEventArgs> TextEntered;
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="TextInputService"/> class.
         /// </summary>
@@ -35,7 +42,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
             _flagEnabled = true;
             _game.Window.TextInput += OnTextInput;
         }
-
+        
         /// <inheritdoc />
         public bool IsEnabled {
             get {
@@ -51,7 +58,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         private void OnTextInput(object sender, TextInputEventArgs arguments) {
             lock (_lock) {
                 if (_flagDisposed || !_flagEnabled) {
@@ -60,26 +67,30 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 _queueCharacters.Enqueue(arguments.Character);
             }
         }
-
+        
         /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
-            char[] arrayCharacters;
+            int countCharacters;
             lock (_lock) {
                 if (_flagDisposed || _queueCharacters.Count == 0) {
                     return;
                 }
-                arrayCharacters = _queueCharacters.ToArray();
+                countCharacters = _queueCharacters.Count;
+                if (_bufferCharacters.Length < countCharacters) {
+                    _bufferCharacters = new char[countCharacters];
+                }
+                _queueCharacters.CopyTo(_bufferCharacters, 0);
                 _queueCharacters.Clear();
             }
             EventHandler<TextEnteredEventArgs> handler = TextEntered;
             if (handler == null) {
                 return;
             }
-            for (int index = 0; index < arrayCharacters.Length; index += 1) {
-                handler(this, new TextEnteredEventArgs(arrayCharacters[index]));
+            for (int index = 0; index < countCharacters; index += 1) {
+                handler(this, new TextEnteredEventArgs(_bufferCharacters[index]));
             }
         }
-
+        
         /// <summary>
         /// Unsubscribes from the window and drops any buffered characters.
         /// </summary>

@@ -19,13 +19,17 @@ namespace MonoGameLibrary.Extensions.Screens {
         private bool _flagIsProcessing;
         private bool _flagDisposed;
         
+        /// <summary>Initializes the service with an empty screen stack.</summary>
         public ScreenService() {
         }
         
+        /// <summary>Gets the screen on top of the stack, or null when the stack is empty.</summary>
         public Screen CurrentScreen {
             get { lock (_lock) { return _screens.Count > 0 ? _screens[_screens.Count - 1] : null; } }
         }
         
+        /// <summary>Pushes a screen, exiting the previous top. Deferred to the end of <see cref="Update"/> when called during a traversal.</summary>
+        /// <param name="screen">The screen to push; it is loaded and initialised first.</param>
         public void Push(Screen screen) {
             if (screen == null) {
                 throw new ArgumentNullException(nameof(screen));
@@ -43,6 +47,7 @@ namespace MonoGameLibrary.Extensions.Screens {
             }
         }
         
+        /// <summary>Removes and disposes the top screen, re-entering the one beneath. Does nothing when the stack is empty.</summary>
         public void Pop() {
             lock (_lock) {
                 ThrowIfDisposed();
@@ -61,6 +66,8 @@ namespace MonoGameLibrary.Extensions.Screens {
             }
         }
         
+        /// <summary>Replaces the whole stack with a single screen. Deferred to the end of <see cref="Update"/> when called during a traversal.</summary>
+        /// <param name="screen">The screen to become the new stack.</param>
         public void Change(Screen screen) {
             if (screen == null) {
                 throw new ArgumentNullException(nameof(screen));
@@ -82,6 +89,8 @@ namespace MonoGameLibrary.Extensions.Screens {
             }
         }
         
+        /// <summary>Updates from the top of the stack downwards, stopping at the first blocking screen, then drains deferred mutations.</summary>
+        /// <param name="timeFrame">The frame time to pass to each screen.</param>
         public void Update(FrameTime timeFrame) {
             lock (_lock) {
                 if (_flagDisposed) {
@@ -109,6 +118,8 @@ namespace MonoGameLibrary.Extensions.Screens {
             }
         }
         
+        /// <summary>Draws from the lowest non-transparent screen upwards.</summary>
+        /// <param name="timeFrame">The frame time to pass to each screen.</param>
         public void Draw(FrameTime timeFrame) {
             lock (_lock) {
                 if (_flagDisposed || _screens.Count == 0) {
@@ -127,6 +138,7 @@ namespace MonoGameLibrary.Extensions.Screens {
             }
         }
         
+        /// <summary>Exits and disposes every screen, top first. Safe to call more than once.</summary>
         public void Dispose() {
             lock (_lock) {
                 if (_flagDisposed) {

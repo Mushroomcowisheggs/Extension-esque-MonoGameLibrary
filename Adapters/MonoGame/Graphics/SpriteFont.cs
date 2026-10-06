@@ -82,6 +82,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
                 MonoGameLibrary.Extensions.Graphics.SpriteEffects effectsSprite,
                 float depthLayer
             ) {
+                if (font == null) {
+                    throw new ArgumentNullException(nameof(font));
+                }
+                if (text == null) {
+                    throw new ArgumentNullException(nameof(text));
+                }
                 _font = font;
                 _text = text;
                 _position = position;

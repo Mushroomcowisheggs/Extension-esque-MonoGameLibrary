@@ -82,6 +82,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             }
         }
         
+        /// <summary>Gets the bridges this service resolved, which consumers use to reach Gum's runtime types.</summary>
         public GumBridgesService Bridges {
             get { return _serviceBridges; }
         }
@@ -151,18 +152,24 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             }
         }
         
+        /// <summary>Adds a key that moves focus forward through Gum's tab order.</summary>
+        /// <param name="key">The key to add.</param>
         public void AddNavigationForwardKey(NavigationKey key) {
             FrameworkElement.TabKeyCombos.Add(
                 new KeyCombo { PushedKey = ToMonoGameKey(key) }
             );
         }
         
+        /// <summary>Adds a key that moves focus backward through Gum's tab order.</summary>
+        /// <param name="key">The key to add.</param>
         public void AddNavigationReverseKey(NavigationKey key) {
             FrameworkElement.TabReverseKeyCombos.Add(
                 new KeyCombo { PushedKey = ToMonoGameKey(key) }
             );
         }
         
+        /// <summary>Removes a previously added forward-navigation key. Removing a key that was never added is a no-op.</summary>
+        /// <param name="key">The key to remove.</param>
         public void RemoveNavigationForwardKey(NavigationKey key) {
             Keys keyMonoGame = ToMonoGameKey(key);
             FrameworkElement.TabKeyCombos.RemoveAll(delegate(KeyCombo combo) {
@@ -170,6 +177,8 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             });
         }
         
+        /// <summary>Removes a previously added reverse-navigation key. Removing a key that was never added is a no-op.</summary>
+        /// <param name="key">The key to remove.</param>
         public void RemoveNavigationReverseKey(NavigationKey key) {
             Keys keyMonoGame = ToMonoGameKey(key);
             FrameworkElement.TabReverseKeyCombos.RemoveAll(delegate(KeyCombo combo) {

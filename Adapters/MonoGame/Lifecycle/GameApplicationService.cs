@@ -1,3 +1,4 @@
+using System;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Primitives;
 
@@ -7,6 +8,9 @@ namespace MonoGameLibrary.Adapters.MonoGame.Lifecycle {
         private readonly IntegrationGame _game;
         
         public GameApplicationService(IntegrationGame game) {
+            if (game == null) {
+                throw new ArgumentNullException(nameof(game));
+            }
             _game = game;
         }
         

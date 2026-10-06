@@ -18,6 +18,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         TextureRegion,
         AnimationFrame
     > {
+        /// <summary>Applies a neutral texture to a nine-slice's texture property.</summary>
+        /// <param name="target">The nine-slice to apply it to.</param>
+        /// <param name="texture">The texture to apply; it must expose a MonoGame <c>Texture2D</c>.</param>
         public void ApplyToNineSlice(
             NineSliceRuntime target,
             ITwoDimensionalTexture texture
@@ -28,6 +31,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             target.Texture = GetTexture(texture, nameof(texture));
         }
         
+        /// <summary>Applies a neutral colour to a nine-slice.</summary>
+        /// <param name="target">The nine-slice to apply it to.</param>
+        /// <param name="color">The colour to apply.</param>
         public void ApplyColorToNineSlice(
             NineSliceRuntime target,
             Color color
@@ -38,6 +44,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             target.Color = ToMonoGameColor(color);
         }
         
+        /// <summary>Applies a neutral colour to a coloured rectangle.</summary>
+        /// <param name="target">The rectangle to apply it to.</param>
+        /// <param name="color">The colour to apply.</param>
         public void ApplyColorToColoredRectangle(
             ColoredRectangleRuntime target,
             Color color
@@ -48,6 +57,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             target.Color = ToMonoGameColor(color);
         }
         
+        /// <summary>Applies a neutral colour to a text runtime.</summary>
+        /// <param name="target">The text runtime to apply it to.</param>
+        /// <param name="color">The colour to apply.</param>
         public void ApplyColorToText(TextRuntime target, Color color) {
             if (target == null) {
                 throw new ArgumentNullException(nameof(target));
@@ -55,6 +67,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             target.Color = ToMonoGameColor(color);
         }
         
+        /// <summary>Creates a Gum animation frame from a neutral texture region.</summary>
+        /// <param name="region">The region the frame displays.</param>
+        /// <param name="lengthFrame">How long the frame is displayed.</param>
         public AnimationFrame CreateAnimationFrame(
             TextureRegion region,
             float lengthFrame

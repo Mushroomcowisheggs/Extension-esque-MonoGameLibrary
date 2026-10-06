@@ -31,6 +31,9 @@ namespace MonoGameLibrary.Core.Pooling {
             private readonly int _capacityMax;
             
             public DefaultObjectPool(Func<T> factory, int capacityInitial, int capacityMax) {
+                if (factory == null) {
+                    throw new ArgumentNullException(nameof(factory));
+                }
                 _factory = factory;
                 _capacityMax = capacityMax;
                 

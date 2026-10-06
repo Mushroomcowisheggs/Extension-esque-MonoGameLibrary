@@ -9,13 +9,17 @@ namespace MonoGameLibrary.Extensions.Scenes {
         private Scene _scenePending;
         private bool _flagDisposed;
         
+        /// <summary>Initializes the service with no scene and no pending change.</summary>
         public SceneService() {
         }
         
+        /// <summary>Gets the scene currently published, or null before the first change is applied.</summary>
         public Scene CurrentScene {
             get { lock (_lock) { return _sceneCurrent; } }
         }
         
+        /// <summary>Requests a scene change. The new scene is loaded and initialised during the next <see cref="Update"/>; any previously pending scene is disposed immediately.</summary>
+        /// <param name="scene">The scene to activate.</param>
         public void ChangeScene(Scene scene) {
             if (scene == null) {
                 throw new ArgumentNullException(nameof(scene));
@@ -29,6 +33,8 @@ namespace MonoGameLibrary.Extensions.Scenes {
             }
         }
         
+        /// <summary>Prepares and publishes a pending scene, then updates the current one.</summary>
+        /// <param name="timeFrame">The frame time to pass to the scene.</param>
         public void Update(FrameTime timeFrame) {
             Scene sceneToActivate = null;
             lock (_lock) {
@@ -67,6 +73,8 @@ namespace MonoGameLibrary.Extensions.Scenes {
             }
         }
         
+        /// <summary>Draws the current scene when it is visible.</summary>
+        /// <param name="timeFrame">The frame time to pass to the scene.</param>
         public void Draw(FrameTime timeFrame) {
             if (_flagDisposed) {
                 return;
@@ -77,6 +85,7 @@ namespace MonoGameLibrary.Extensions.Scenes {
             }
         }
         
+        /// <summary>Releases the current and any pending scene. Safe to call more than once.</summary>
         public void Dispose() {
             Scene sceneCurrent;
             Scene scenePending;

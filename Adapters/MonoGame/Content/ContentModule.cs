@@ -14,6 +14,8 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         private ContentService _serviceContent;
         private bool _flagDisposed;
         
+        /// <summary>Registers the content service, its backend and its factory, then adds this module to the host. Requires a <c>ContentManager</c> to be registered already.</summary>
+        /// <param name="builder">The builder performing the composition fold.</param>
         public void Register(GameBuilder builder) {
             if (builder == null) {
                 throw new ArgumentNullException(nameof(builder));
@@ -36,6 +38,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
             builder.AddModule(this);
         }
         
+        /// <summary>Releases the content service. Safe to call more than once.</summary>
         public void Dispose() {
             if (_flagDisposed) {
                 return;
