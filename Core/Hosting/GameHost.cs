@@ -286,10 +286,12 @@ namespace MonoGameLibrary.Core.Hosting {
                 List<IUpdateable> listToIterate;
                 bool flagNeedSort = false;
                 lock (_lock) {
-                    if (_flagIsFaulted)
+                    if (_flagIsFaulted) {
                         throw new InvalidOperationException("Cannot update a GameHost that is in a faulted state.");
-                    if (!_flagIsInitialized)
+                    }
+                    if (!_flagIsInitialized) {
                         throw new InvalidOperationException("Initialize must be called before Update.");
+                    }
                     if (_flagUpdateOrderDirty) {
                         flagNeedSort = true;
                         _backBufferUpdateables.Clear();
@@ -314,7 +316,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     listToIterate = _cachedUpdateablesSorted;
                 }
                 foreach (IUpdateable module in listToIterate) {
-                    if (!module.Enabled) continue;
+                    if (!module.Enabled) { continue; }
                     SafeExecute("Update", module, delegate { module.Update(timeFrame); });
                 }
             } finally {
@@ -329,10 +331,12 @@ namespace MonoGameLibrary.Core.Hosting {
                 List<IDrawable> listToIterate;
                 bool flagNeedSort = false;
                 lock (_lock) {
-                    if (_flagIsFaulted)
+                    if (_flagIsFaulted) {
                         throw new InvalidOperationException("Cannot draw a GameHost that is in a faulted state.");
-                    if (!_flagIsInitialized)
+                    }
+                    if (!_flagIsInitialized) {
                         throw new InvalidOperationException("Initialize must be called before Draw.");
+                    }
                     if (_flagDrawOrderDirty) {
                         flagNeedSort = true;
                         _backBufferDrawables.Clear();

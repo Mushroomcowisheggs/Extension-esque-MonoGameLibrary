@@ -652,15 +652,15 @@ builder.AddModule(new MyModule(logger, profiler));
 
 ## 9. Explicit Control Flow Principle
 
-**Roles**: [Extension] must follow.
+**Roles**: [Extension] must follow; [Core] must follow the same shape, because the host's control flow is the contract its extensions read.
 
 ### Detailed Rules
 
 1. **The C# null-conditional operator (`?.`) and null-coalescing operator (`??`) are forbidden.** All null checks must use explicit `if (x != null)` or `if (x == null)` branches.
 2. **The `?? throw new` pattern in constructors is forbidden.** A standalone null-check statement must be used.
 3. **Expression-bodied definitions (`=>`) for properties, methods, and read-only members are not allowed.** Full block bodies `{ get { ... } }` or `{ return ...; }` must be used.
-4. **All conditional logic must use complete `if-else` blocks.** The ternary operator `? :` can be used in simple assignment scenarios, but `if-else` is recommended for clarity in complex situations. 
-5. **Loops and exception handling must use braces `{}`**, even when the body contains only a single statement. 
+4. **All conditional logic must use complete `if-else` blocks, with a braced block `{}` on every `if`, `else if` and `else` body**, even when the body contains only a single statement. The ternary operator `? :` can be used in simple assignment scenarios, but `if-else` is recommended for clarity in complex situations. 
+5. **Loops (`for`, `foreach`, `while`, `do`), `lock` and `using` must use braces `{}`**, even when the body contains only a single statement; `try`, `catch` and `finally` already require a block in C#. 
 6. **Use explicit anonymous delegate syntax** (delegate { ... }) instead of lambda expressions (e.g., (x) => x.Foo) for all delegate parameters. 
 
 ### Why This Design?

@@ -35,7 +35,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// </summary>
         public bool Enabled {
             get { lock (_lock) { return _flagEnabled; } }
-            set { lock (_lock) _flagEnabled = value; }
+            set { lock (_lock) { _flagEnabled = value; } }
         }
         
         /// <summary>

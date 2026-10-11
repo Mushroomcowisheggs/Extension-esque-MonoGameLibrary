@@ -31,7 +31,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         /// </summary>
         public bool IsMuted {
             get { lock (_lock) { return _flagIsMuted; } }
-            private set { lock (_lock) _flagIsMuted = value; }
+            private set { lock (_lock) { _flagIsMuted = value; } }
         }
         
         /// <summary>
