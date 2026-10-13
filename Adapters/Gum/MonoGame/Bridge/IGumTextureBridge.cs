@@ -1,10 +1,11 @@
 using MonoGameLibrary.Core.Primitives;
 
-namespace MonoGameLibrary.Extensions.Bridge {
+namespace MonoGameLibrary.Adapters.Gum.MonoGame.Bridge {
     /// <summary>
-    /// Defines the cross-adapter contract for applying platform-neutral
-    /// graphics values to Gum runtime targets. The generic target types keep
-    /// Extensions independent of Gum and of any rendering backend.
+    /// Applies platform-neutral graphics values to Gum's MonoGame runtime types. The
+    /// contract lives with the Gum adapter that both implements and consumes it; the
+    /// generic target types keep it free of concrete Gum and rendering-backend types,
+    /// so a composition root can substitute another implementation.
     /// </summary>
     public interface IGumTextureBridge<
         in TNineSlice,

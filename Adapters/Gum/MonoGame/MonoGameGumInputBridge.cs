@@ -1,7 +1,7 @@
 using System;
 using Gum.Forms.Controls;
 using Microsoft.Xna.Framework.Input;
-using MonoGameLibrary.Extensions.Bridge;
+using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
 using MonoGameLibrary.Extensions.Input;
 
 namespace MonoGameLibrary.Adapters.Gum.MonoGame {

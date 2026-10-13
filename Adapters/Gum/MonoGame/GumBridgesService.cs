@@ -2,7 +2,7 @@ using System;
 using Gum.Forms.Controls;
 using Gum.Graphics.Animation;
 using MonoGameGum.GueDeriving;
-using MonoGameLibrary.Extensions.Bridge;
+using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
 using MonoGameLibrary.Extensions.Graphics;
 using MonoGameLibrary.Extensions.Input;
 

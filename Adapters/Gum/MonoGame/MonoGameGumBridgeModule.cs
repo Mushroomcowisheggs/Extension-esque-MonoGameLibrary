@@ -3,9 +3,9 @@ using Gum.Forms.Controls;
 using Gum.Graphics.Animation;
 using Microsoft.Xna.Framework.Input;
 using MonoGameGum.GueDeriving;
+using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Modularity;
-using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Graphics;
 using MonoGameLibrary.Extensions.Input;
 

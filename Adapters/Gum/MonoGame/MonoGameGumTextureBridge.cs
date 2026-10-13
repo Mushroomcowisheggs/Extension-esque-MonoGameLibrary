@@ -2,6 +2,7 @@ using System;
 using Gum.Graphics.Animation;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGameGum.GueDeriving;
+using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
 using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Graphics;
