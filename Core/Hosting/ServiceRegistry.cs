@@ -5,7 +5,12 @@ namespace MonoGameLibrary.Core.Hosting {
     /// <summary>
     /// A thread-safe service registry that stores services by their type. 
     /// </summary>
-    public class ServiceRegistry : IServiceRegistry {
+    /// <remarks>
+    /// The implementation is internal: the registry is reached through <see cref="GameBuilder"/> at
+    /// the composition root and is not part of the library's public surface. Its <see cref="Clear"/>
+    /// member exists for the builder's own failed-build rollback and is internal for the same reason.
+    /// </remarks>
+    internal sealed class ServiceRegistry : IServiceRegistry {
         private readonly ConcurrentDictionary<Type, object> _registryService = new ConcurrentDictionary<Type, object>();
         
         /// <summary>
@@ -22,7 +27,7 @@ namespace MonoGameLibrary.Core.Hosting {
             if (instance == null) {
                 throw new ArgumentNullException(nameof(instance));
             }
-
+            
             if (!TryRegister(instance, false)) {
                 throw new InvalidOperationException(
                     $"Service of type {typeof(T).FullName} is already registered. "
@@ -60,7 +65,7 @@ namespace MonoGameLibrary.Core.Hosting {
         /// <inheritdoc />
         public bool TryGet<T>(out T instance) where T : class {
             Type type = typeof(T);
-
+            
             if (_registryService.TryGetValue(type, out object rawInstance)) {
                 instance = rawInstance as T;
                 return instance != null;
@@ -75,15 +80,12 @@ namespace MonoGameLibrary.Core.Hosting {
             return _registryService.ContainsKey(typeof(T));
         }
         
-        /// <inheritdoc />
-        public bool Remove<T>() where T : class {
-            return _registryService.TryRemove(typeof(T), out var valueRemoved);
-        }
-        
         /// <summary>
         /// Removes all registered services, returning the registry to an empty state. 
+        /// Called by <see cref="GameBuilder"/> when a build fails, so a failed composition leaves no
+        /// capability behind. Not public: nothing outside the builder may mutate the capability set.
         /// </summary>
-        public void Clear() {
+        internal void Clear() {
             _registryService.Clear();
         }
     }

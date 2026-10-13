@@ -6,6 +6,8 @@ using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Screens {
     /// <summary>Integrates screen management with the host lifecycle.</summary>
+    // Extensions band (-199..-100): unique inside the band, so the loader's tie-break never decides
+    // this module's load position.
     [ModuleRegistration(-100)]
     public sealed class ScreenModule : IModule, IUpdateable, IDrawable, IDisposable {
         private IScreenService _service;

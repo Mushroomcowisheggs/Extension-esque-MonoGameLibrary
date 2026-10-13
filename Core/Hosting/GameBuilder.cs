@@ -8,6 +8,8 @@ namespace MonoGameLibrary.Core.Hosting {
     /// <summary>
     /// Provides a fluent API for configuring and building an <see cref="IGameHost"/>.
     /// Each instance can only build one host; subsequent calls to <see cref="Build"/> will throw.
+    /// Every member, resolution included, is a composition-phase operation: once the builder has
+    /// built, it neither accepts registrations nor resolves services.
     /// </summary>
     public class GameBuilder : IGameBuilder<GameBuilder> {
         private readonly object _lockBuilder = new object();
@@ -82,13 +84,32 @@ namespace MonoGameLibrary.Core.Hosting {
         public GameBuilder UseObjectPoolFactory(IObjectPoolFactory factoryPool, bool flagOverwrite = false) { RegisterService(factoryPool, flagOverwrite); return this; }
         
         /// <inheritdoc />
+        /// <remarks>
+        /// Resolution is bound to the composition phase exactly as registration is. A module is given
+        /// the builder in <c>IModule.Register</c> and may resolve there, but a module that stores the
+        /// builder and resolves after <see cref="Build"/> has returned gets an exception instead of a
+        /// capability, which is what keeps the registry a composition-root tool rather than a service
+        /// locator reachable from the frame loop.
+        /// </remarks>
         public TService GetService<TService>() where TService : class {
-            return _registryService.Get<TService>();
+            lock (_lockBuilder) {
+                if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
+                if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                return _registryService.Get<TService>();
+            }
         }
         
         /// <inheritdoc />
+        /// <remarks>
+        /// The same composition-phase bound as <see cref="GetService{TService}"/>: after
+        /// <see cref="Build"/> has returned this reports failure instead of resolving.
+        /// </remarks>
         public bool TryGetService<TService>(out TService instance) where TService : class {
-            return _registryService.TryGet<TService>(out instance);
+            lock (_lockBuilder) {
+                if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
+                if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                return _registryService.TryGet<TService>(out instance);
+            }
         }
         
         /// <inheritdoc />
@@ -111,7 +132,9 @@ namespace MonoGameLibrary.Core.Hosting {
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
                 
                 _flagIsBuilding = true;
-                host = new GameHost(_registryService);
+                // The host is constructed without the registry: after this point the capability set is
+                // closed and there is no path from a participant back to it.
+                host = new GameHost();
                 actionToRunConfig = _actionConfigHost;
                 listModulesSnapshot = new List<object>(_listModules);
             }

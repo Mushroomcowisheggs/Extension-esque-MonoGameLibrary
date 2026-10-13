@@ -5,6 +5,8 @@ using MonoGameLibrary.Core.Time;
 namespace MonoGameLibrary.Core.Hosting {
     /// <summary>
     /// Represents a game host that manages the lifecycle of game modules. 
+    /// The host exposes no service registry on purpose: capabilities are resolved once, at the
+    /// composition root, and a participant receives them through constructor injection. 
     /// </summary>
     public interface IGameHost : IDisposable {
         /// <summary>
@@ -12,8 +14,6 @@ namespace MonoGameLibrary.Core.Hosting {
         /// If not set, exceptions are rethrown. 
         /// </summary>
         Action<Exception, string> OnError { get; set; }
-        
-        IServiceRegistry Services { get; }
         
         /// <summary>
         /// Adds a module to the host. Modules may be added at any time, before or after 

@@ -6,7 +6,9 @@ using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Scenes {
     /// <summary>Integrates scene management with the host lifecycle.</summary>
-    [ModuleRegistration(-100)]
+    // Extensions band (-199..-100), unique in the band: registered after the Adapters that provide the
+    // services this module consumes.
+    [ModuleRegistration(-199)]
     public sealed class SceneModule : IModule, IUpdateable, IDrawable, IDisposable {
         private ISceneService _service;
         private readonly int _order;

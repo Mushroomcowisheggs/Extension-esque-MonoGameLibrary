@@ -11,10 +11,11 @@ namespace MonoGameLibrary.Core.Hosting {
     /// <summary>
     /// Default implementation of <see cref="IGameHost"/>, coordinating module loading, updating, drawing, and disposal. 
     /// All public instance members are thread‑safe; the host can be used from multiple threads. 
+    /// The host holds no service registry: it schedules the participants it is given and exposes no
+    /// route back to the capabilities those participants were constructed with.
     /// </summary>
     public class GameHost : IGameHost {
         private readonly object _lock = new object();
-        private readonly IServiceRegistry _registryService;
         private readonly HashSet<object> _setModule = new HashSet<object>();
         private readonly List<object> _listAllModules = new List<object>();
         private readonly List<ILoadable> _listLoadableModules = new List<ILoadable>();
@@ -27,6 +28,11 @@ namespace MonoGameLibrary.Core.Hosting {
         private List<IDrawable> _backBufferDrawables = new List<IDrawable>();
         
         private Optional<IContentService> _serviceContent;
+        
+        // The schedule's tie-break key: for each admitted participant, the position at which the
+        // composition root admitted it. See CompareScheduleOrder for why the type name is not used.
+        private readonly Dictionary<object, int> _indexAdmission = new Dictionary<object, int>();
+        private int _countAdmitted = 0;
         
         // Lifecycle state flags
         private bool _flagIsInitialized = false;
@@ -59,32 +65,16 @@ namespace MonoGameLibrary.Core.Hosting {
             } }
         }
         
-        /// <inheritdoc />
-        public IServiceRegistry Services {
-            get {
-                lock (_lock) {
-                    if (_flagDisposed) {
-                        throw new ObjectDisposedException(
-                            nameof(GameHost), 
-                            "The GameHost has been disposed. "
-                        );
-                    }
-                    // During disposal (_flagDisposing == true) services remain accessible. 
-                    return _registryService;
-                }
-            }
-        }
-        
         /// <summary>
         /// Initializes a new instance of the <see cref="GameHost"/> class. 
         /// </summary>
-        /// <param name="registryService">The service registry used by the host. </param>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="registryService"/> is null. </exception>
-        public GameHost(IServiceRegistry registryService) {
-            if (registryService == null) {
-                throw new ArgumentNullException(nameof(registryService));
-            }
-            _registryService = registryService;
+        /// <remarks>
+        /// The host is constructed without the service registry on purpose. The capability set is
+        /// resolved and wired by the composition root before the host exists, and a participant
+        /// receives what it needs through constructor injection; there is deliberately no path from a
+        /// participant back to the registry at run time.
+        /// </remarks>
+        public GameHost() {
         }
         
         /// <inheritdoc />
@@ -131,6 +121,13 @@ namespace MonoGameLibrary.Core.Hosting {
                 
                 _setModule.Add(module);
                 _listAllModules.Add(module);
+                
+                // The admission index records where the composition root placed this participant among
+                // all admitted modules. It is the schedule's tie-break key instead of the type name, so
+                // that renaming a participant cannot move it in the frame. It is not decremented when a
+                // module is withdrawn: the index stays unique for the life of the host.
+                _indexAdmission[module] = _countAdmitted;
+                _countAdmitted += 1;
                 
                 if (module is ILoadable loadable) {
                     _listLoadableModules.Add(loadable);
@@ -195,12 +192,14 @@ namespace MonoGameLibrary.Core.Hosting {
         /// <remarks>
         /// The scheduling caches are invalidated unconditionally rather than only when a removal
         /// actually happened, because a rollback that leaves a cache holding a withdrawn participant
-        /// is exactly the failure this method exists to prevent.
+        /// is exactly the failure this method exists to prevent. The admission counter is not
+        /// rewound: an index consumed by a withdrawn module is never handed to another participant.
         /// </remarks>
         private void RemoveModuleCore(object module) {
             lock (_lock) {
                 _setModule.Remove(module);
                 _listAllModules.Remove(module);
+                _indexAdmission.Remove(module);
                 if (module is ILoadable loadable) {
                     _listLoadableModules.Remove(loadable);
                 }
@@ -285,6 +284,7 @@ namespace MonoGameLibrary.Core.Hosting {
             try {
                 List<IUpdateable> listToIterate;
                 bool flagNeedSort = false;
+                Dictionary<object, int> indicesAdmission = null;
                 lock (_lock) {
                     if (_flagIsFaulted) {
                         throw new InvalidOperationException("Cannot update a GameHost that is in a faulted state.");
@@ -296,11 +296,15 @@ namespace MonoGameLibrary.Core.Hosting {
                         flagNeedSort = true;
                         _backBufferUpdateables.Clear();
                         _backBufferUpdateables.AddRange(_listUpdateableModules);
+                        // The sort below runs outside the lock, so it reads this snapshot of the
+                        // admission indices rather than the live map, which AddModule may be writing.
+                        indicesAdmission = new Dictionary<object, int>(_indexAdmission);
                     }
                 }
                 if (flagNeedSort) {
+                    Dictionary<object, int> indicesSort = indicesAdmission;
                     _backBufferUpdateables.Sort(delegate(IUpdateable a, IUpdateable b) {
-                        return CompareScheduleOrder(a.Order, a, b.Order, b);
+                        return CompareScheduleOrder(a.Order, a, b.Order, b, indicesSort);
                     });
                     lock (_lock) {
                         if (_flagUpdateOrderDirty) {
@@ -330,6 +334,7 @@ namespace MonoGameLibrary.Core.Hosting {
             try {
                 List<IDrawable> listToIterate;
                 bool flagNeedSort = false;
+                Dictionary<object, int> indicesAdmission = null;
                 lock (_lock) {
                     if (_flagIsFaulted) {
                         throw new InvalidOperationException("Cannot draw a GameHost that is in a faulted state.");
@@ -341,11 +346,14 @@ namespace MonoGameLibrary.Core.Hosting {
                         flagNeedSort = true;
                         _backBufferDrawables.Clear();
                         _backBufferDrawables.AddRange(_listDrawableModules);
+                        // As in Update: the sort runs outside the lock and reads this snapshot.
+                        indicesAdmission = new Dictionary<object, int>(_indexAdmission);
                     }
                 }
                 if (flagNeedSort) {
+                    Dictionary<object, int> indicesSort = indicesAdmission;
                     _backBufferDrawables.Sort(delegate(IDrawable a, IDrawable b) {
-                        return CompareScheduleOrder(a.Order, a, b.Order, b);
+                        return CompareScheduleOrder(a.Order, a, b.Order, b, indicesSort);
                     });
                     lock (_lock) {
                         if (_flagDrawOrderDirty) {
@@ -413,26 +421,55 @@ namespace MonoGameLibrary.Core.Hosting {
         
         /// <summary>
         /// Orders two participants for the per-frame schedule: ascending <see cref="IUpdateable.Order"/>,
-        /// and on a tie the full type name in ordinal order.
+        /// and on a tie the position at which the composition root admitted them.
         /// </summary>
+        /// <param name="orderLeft">The left participant's <c>Order</c>. </param>
+        /// <param name="participantLeft">The left participant. </param>
+        /// <param name="orderRight">The right participant's <c>Order</c>. </param>
+        /// <param name="participantRight">The right participant. </param>
+        /// <param name="indicesAdmission">The admission-index snapshot the sort is reading. </param>
         /// <remarks>
-        /// The tie-break is what makes the schedule a <em>total</em> order. Without it, two participants
-        /// sharing an <c>Order</c> reach an unstable comparison, and <c>List&lt;T&gt;.Sort</c> is documented
-        /// as an unstable introspective sort, so their relative traversal order would fall back to whatever
-        /// sequence the list happened to be built in - an implementation accident rather than a contract.
-        /// The full type name is the same secondary key <c>ModuleLoader</c> applies to registration order,
-        /// so the loading and scheduling orders are resolved by one rule rather than two.
+        /// The secondary key is what makes the schedule a <em>total</em> order. Without it, two
+        /// participants sharing an <c>Order</c> reach an unstable comparison, and <c>List&lt;T&gt;.Sort</c>
+        /// is documented as an unstable introspective sort, so their relative traversal order would fall
+        /// back to the order the list happened to be built in - an implementation accident rather than a
+        /// contract. Admission order supplies the key without consulting the participant's type name, so
+        /// a rename cannot move a participant; the key is the order of <c>AddModule</c> calls, which the
+        /// composition root writes and can read. A tie remains a reproducible fallback rather than a way
+        /// to state intent: distinct <c>Order</c> values are the declared form of an intended sequence.
         /// </remarks>
-        private static int CompareScheduleOrder(int orderLeft, object participantLeft, int orderRight, object participantRight) {
+        private static int CompareScheduleOrder(
+            int orderLeft,
+            object participantLeft,
+            int orderRight,
+            object participantRight,
+            Dictionary<object, int> indicesAdmission
+        ) {
             int comparison = orderLeft.CompareTo(orderRight);
             if (comparison != 0) {
                 return comparison;
             }
-            return string.Compare(
-                participantLeft.GetType().FullName,
-                participantRight.GetType().FullName,
-                StringComparison.Ordinal
+            return GetAdmissionIndex(indicesAdmission, participantLeft).CompareTo(
+                GetAdmissionIndex(indicesAdmission, participantRight)
             );
+        }
+        
+        /// <summary>
+        /// Reads a participant's admission index out of a schedule snapshot. 
+        /// </summary>
+        /// <param name="indicesAdmission">The admission-index snapshot. </param>
+        /// <param name="participant">The participant to look up. </param>
+        /// <returns>The admission index, or <see cref="int.MaxValue"/> if the snapshot does not hold one. </returns>
+        /// <remarks>
+        /// The snapshot is taken under the same lock that admits participants, so a missing entry is not
+        /// expected; the fallback assigns a defined position instead of an accidental one.
+        /// </remarks>
+        private static int GetAdmissionIndex(Dictionary<object, int> indicesAdmission, object participant) {
+            int index;
+            if (indicesAdmission != null && indicesAdmission.TryGetValue(participant, out index)) {
+                return index;
+            }
+            return int.MaxValue;
         }
         
         /// <summary>
@@ -558,6 +595,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 _flagDisposed = true;
                 _setModule.Clear();
                 _listAllModules.Clear();
+                _indexAdmission.Clear();
                 _listLoadableModules.Clear();
                 _listUpdateableModules.Clear();
                 _listDrawableModules.Clear();

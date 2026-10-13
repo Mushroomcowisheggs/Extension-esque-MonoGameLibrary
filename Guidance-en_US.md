@@ -46,7 +46,7 @@ The principles below are annotated with the roles to which they apply.
    - `ILoadingProgress` (loading progress)
    - `IObjectPoolFactory` (object pool factory)
    - Any custom service (e.g., `ISceneService`)
-2. **Do not use `ServiceRegistry.Get<T>()` or `GameHost.Services` inside a module.** Those are composition-root tools, not module tools.
+2. **Do not resolve capabilities inside a module: take them as constructor parameters.** Resolution is bound to the composition phase: `GameBuilder.GetService<T>()` and `TryGetService<T>()` throw once `Build` has run, and `GameHost` exposes no registry, so a module cannot reach one even by storing the builder. Resolving through the builder inside `IModule.Register` *is* the composition step and is the intended use; resolving from `Update`, `Draw` or any stored reference is refused by the API, not merely discouraged.
 3. **Do not use static methods or singletons to obtain dependencies in Extension or Game layers** (e.g., `ContentManager.Load`, static factories on `SoundEffect`). 
    - **For managed asset resources (Textures, Sounds, Models, etc.)**: Must be acquired through `IContentService`. 
    - **Special exemption for the Adapter Layer (`MonoGameLibrary.Adapters.MonoGame`)**: Adapters are permitted to wrap MonoGame's **runtime global state** (e.g., `MediaPlayer.Volume`, `SoundEffect.MasterVolume`, or `GraphicsDevice` static properties). However, this access must be strictly encapsulated behind a business-oriented service interface (e.g., `IAudioService`) and **must never** be exposed to or used by layers above the Adapter (Extensions or Game Applications). And static constructions must remain hidden inside the implementation of `IContentService`. 
@@ -64,11 +64,16 @@ The principles below are annotated with the roles to which they apply.
 To maintain a clean extension‑centric architecture, the following project‑reference rules are **mandatory**:
 
 - `Extensions` may reference **only** `Core`.
-- `Adapters` may reference `Extensions` (and `Core` transitively) **and** any required external libraries.
+- `Utilities` may reference **only** `Core`.
+- `Adapters` may reference `Extensions` (and `Core` transitively) **and** any required external libraries. An Adapter capability must not reference another Adapters project: a sibling capability is a peer rather than a dependency, and coordination belongs in the contracts registered with `GameBuilder`.
 - `Game` (the entry project) may reference both `Extensions` and any `Adapters` it needs.
 - **Under no circumstances** may `Extensions` reference any `Adapters` project. If you find a `using` directive pointing to an Adapter namespace inside an Extension file, that file belongs in Adapters.
 
 This rule guarantees that the business layer (Extensions) remains completely unaware of the infrastructure (Adapters), enabling easy backend swapping and testability.
+
+These directions are exhaustive: a project reference not listed above is forbidden. The compiler rejects reference cycles and nothing else, so the list is written down and kept deliberately.
+
+**Core's namespaces are a closed set.** The kernel carries mechanism vocabulary only - `Primitives`, `Hosting`, `Lifecycle`, `Modularity`, `Content`, `Concurrency`, `Diagnostics`, `Pooling`, `Time`, and the `MonoGameLibrary.Core` root - and never feature vocabulary (an audio, input, graphics, scene, screen, state, UI, networking, window or Gum type). A feature type in the kernel cannot be moved out without breaking every consumer, so the set is widened deliberately or not at all, never as an accident of where a file was placed.
 
 **Functional component isolation (mandatory inside each layer)**:
 
@@ -152,7 +157,7 @@ public class BadAudioModule : ILoadable {
    - `IUpdateable`: for per-frame update logic (physics, AI, input processing, etc.). Called during `GameHost.Update`.
    - `IDrawable`: for per-frame rendering. Called during `GameHost.Draw`.
 
-2. **An `Order` property (int) must be provided.** Smaller values execute earlier. A default of `0` is suggested, but adjust as needed (e.g., an input module should use a negative value). **Equal `Order` values must be resolved deterministically**: the host breaks a tie by the participant's full type name in ordinal order, so a schedule is reproducible whether or not two participants happen to share an `Order`. Do not rely on that tie-break to express intent - give distinct values where the order matters. This is the same tie-break `ModuleLoader` applies to registration order.
+2. **An `Order` property (int) must be provided.** Smaller values execute earlier. A default of `0` is suggested, but adjust as needed (e.g., an input module should use a negative value). **Equal `Order` values are resolved by admission order**: a participant that shares an `Order` with another is ordered by the order in which the composition root added it, never by its type name, so renaming a participant cannot move it and a schedule is reproducible whether or not two participants happen to share an `Order`. Do not rely on that tie-break to express intent - give distinct values where the order matters. `ModuleLoader` runs before any admission exists, so it still resolves duplicate *registration* orders by its own tie-break on the full type name; give those distinct values too (Principle 6).
 3. **`Enabled` / `Visible` properties (bool) must be provided.** The host checks these flags before calling `Update` / `Draw`. They must support dynamic changes at runtime.
 4. **Do not perform time-consuming operations in `Update` or `Draw`** (e.g., disk I/O, network requests). Use `IThreadPool` for asynchronous processing.
 5. **Keep methods short**, performing only the minimal necessary work each cycle. Exceeding 16ms will cause frame drops.
@@ -160,8 +165,8 @@ public class BadAudioModule : ILoadable {
 ### Lifecycle Execution Order
 
 - `Initialize` phase: Calls `ILoadable.LoadContent` on all modules in the order they were added via `AddModule`.
-- `Update` phase: Calls `IUpdateable.Update` on all modules in ascending `Order`, resolving equal `Order` values by full type name in ordinal order, skipping any with `Enabled == false`.
-- `Draw` phase: Calls `IDrawable.Draw` on all modules in ascending `Order`, resolving equal `Order` values by full type name in ordinal order, skipping any with `Visible == false`.
+- `Update` phase: Calls `IUpdateable.Update` on all modules in ascending `Order`, resolving equal `Order` values by admission order, skipping any with `Enabled == false`.
+- `Draw` phase: Calls `IDrawable.Draw` on all modules in ascending `Order`, resolving equal `Order` values by admission order, skipping any with `Visible == false`.
 
 **Admission is publish-after-load.** A module becomes visible to `Update` and `Draw` only once its `LoadContent` has returned successfully, so a frame on another thread never observes a participant whose load is still in progress. If the load throws, the module is withdrawn from the host and never becomes schedulable. Two consequences follow:
 
@@ -486,11 +491,12 @@ public class CompositeModule : IDisposable {
 
 ### Detailed Rules
 
-1. **`Order` determines execution sequence.** It should be a constant or configuration-based, but must be determined at construction time. Do not change `Order` frequently at runtime, because the host re-sorts the module list before each `Update`/`Draw` (which involves copying the list).
+1. **`Order` determines execution sequence.** It should be a constant or configuration-based, but must be determined at construction time. Do not change `Order` frequently at runtime, because the host re-sorts the module list before each `Update`/`Draw` (which involves copying the list). Participants that share a value are ordered by admission order (the order of `AddModule` calls); that is reproducible, but it is not a way to express an intended sequence.
 2. **`Enabled` and `Visible` must support dynamic runtime changes.** They are typically used for pause menus, screen transitions, etc.
 3. **Modules must not communicate through `Order`.** Ordering is purely for scheduling, not a communication mechanism.
 4. **If logical dependencies exist between modules (e.g., Input must update before Physics), establish an explicit partial order through the `Order` property.**
 5. **Do not execute complex logic in the getters of `Enabled`/`Visible`**, as they are accessed multiple times per frame.
+6. **Registration order (`[ModuleRegistration]`) is a dependency channel, not a label.** `ModuleLoader` constructs and registers discovered modules in ascending registration order, so a module that provides a service must carry a lower value than the module that consumes it. Stay inside your layer's band - Adapters `-500..-200`, Extensions `-199..-100`, `-99..-1` reserved for future library modules, `0` and above application modules - and keep values unique inside a band. A duplicate value hands the pair's relative load order to the loader's tie-break on the full type name, which a rename would change.
 
 ### Example
 

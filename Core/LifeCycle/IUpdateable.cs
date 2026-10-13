@@ -13,6 +13,10 @@ namespace MonoGameLibrary.Core.Lifecycle {
         
         /// <summary>
         /// Gets the update order. Lower values update first.
+        /// Participants that share a value are ordered by the order in which the composition root
+        /// admitted them, never by their type name, so renaming a participant cannot move it. A tie
+        /// is a reproducible fallback, not a way to express intent: give distinct values wherever
+        /// the order matters.
         /// </summary>
         int Order { get; }
         

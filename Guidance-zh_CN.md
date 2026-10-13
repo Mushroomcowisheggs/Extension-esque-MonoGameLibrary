@@ -46,7 +46,7 @@ Extensions → Core                      （Extensions 绝不指向 Adapters）
    - `ILoadingProgress`（加载进度）
    - `IObjectPoolFactory`（对象池工厂）
    - 任何自定义服务（如 `ISceneService`）
-2. **禁止在模块内部使用 `ServiceRegistry.Get<T>()` 或 `GameHost.Services`**。这些是组合根的工具，不是模块的。
+2. **禁止在模块内部解析能力：能力必须作为构造函数参数传入。** 解析与组合阶段绑定：`GameBuilder.GetService<T>()` 与 `TryGetService<T>()` 在 `Build` 之后调用会抛出异常，`GameHost` 也不再暴露注册表，因此模块即使把 builder 存起来也拿不到能力。在 `IModule.Register` 中通过 builder 解析**就是**组合步骤本身，属于正当用法；从 `Update`、`Draw` 或任何被保存的引用中解析会被 API 直接拒绝，而不只是"不推荐"。
 3. **禁止在 Extension 或 Game 层使用静态方法或单例**获取依赖（例如 `ContentManager.Load`、`SoundEffect` 的静态工厂）。
    - **对于托管资源资产（纹理、声音、模型等）**：必须通过 `IContentService` 获取。  
    - **对于适配层（`MonoGameLibrary.Adapters.MonoGame`）的特殊豁免**：适配器可以封装 MonoGame 的**运行时全局状态**（如 `MediaPlayer.Volume`、`SoundEffect.MasterVolume` 或 `GraphicsDevice` 静态属性），但**必须**将其隐藏在面向业务的服务接口（如 `IAudioService`）之后。**严禁**将这种静态访问泄露到适配层之外的任何模块（Extension 或 Game）中。且静态构造必须隐藏在 `IContentService` 的实现内部。
@@ -64,11 +64,16 @@ Extensions → Core                      （Extensions 绝不指向 Adapters）
 为保持以扩展为中心的干净架构，以下项目引用规则**强制**执行：
 
 - `Extensions` 只能引用 `Core`。
-- `Adapters` 可以引用 `Extensions`（以及间接的 `Core`）和所需的外部库。
+- `Utilities` 只能引用 `Core`。
+- `Adapters` 可以引用 `Extensions`（以及间接的 `Core`）和所需的外部库。Adapter 能力不得引用另一个 Adapters 项目：同级能力是同伴而非依赖，协作应通过注册到 `GameBuilder` 的契约完成。
 - `Game`（入口项目）可以引用 `Extensions` 以及它需要的任何 `Adapters`。
 - **任何情况下**，`Extensions` 都不得引用任何 `Adapters` 项目。如果在 Extension 文件中发现了指向 Adapters 命名空间的 `using` 语句，则该文件应移至 Adapters。
 
 此规则保证业务层（Extensions）完全不知晓基础设施（Adapters），从而实现轻松的后端替换和可测试性。
+
+上述方向是穷尽的：未列出的项目引用一律禁止。编译器只拒绝循环引用，除此之外不作判断，因此这份清单必须明确写出并被遵守。
+
+**Core 的命名空间是封闭集合。** 内核只承载机制词汇——`Primitives`、`Hosting`、`Lifecycle`、`Modularity`、`Content`、`Concurrency`、`Diagnostics`、`Pooling`、`Time`，以及 `MonoGameLibrary.Core` 根——绝不承载特性词汇（音频、输入、图形、场景、屏幕、状态、UI、网络、窗口、Gum 等类型）。内核中的特性类型无法在不破坏所有调用方的前提下搬走，因此该集合只能被有意扩充，绝不能取决于文件恰好放在哪里。
 
 **层内功能组件隔离（强制）**：
 
@@ -152,7 +157,7 @@ public class BadAudioModule : ILoadable {
    - `IUpdateable`：用于每帧更新逻辑（物理、AI、输入处理等）。在 `GameHost.Update` 中被调用。
    - `IDrawable`：用于每帧渲染。在 `GameHost.Draw` 中被调用。
 
-2. **必须提供 `Order` 属性**（int）。数值越小执行越早。默认建议为 `0`，但可根据需要调整（如输入模块应设为负值）。**`Order` 相等时必须能确定地决出先后**：宿主以参与者**类型全名**的序数序作为次级键打破平局，因此无论两个参与者是否恰好同 `Order`，调度都可复现。不要依赖该次级键来表达设计意图——需要区分先后时就给出不同的值。这与 `ModuleLoader` 对注册序所用的次级键是同一个。
+2. **必须提供 `Order` 属性**（int）。数值越小执行越早。默认建议为 `0`，但可根据需要调整（如输入模块应设为负值）。**`Order` 相等时按准入顺序决出先后**：`Order` 相同的参与者按组合根加入它们的顺序排列，绝不使用类型名，因此重命名不会移动参与者，无论是否存在并列调度都可复现。不要依赖该次级键来表达设计意图——需要区分先后时就给出不同的值。`ModuleLoader` 在任何准入发生之前运行，因此它仍以自己的类型全名次级键打破*注册序*的并列；注册序也要给出互不相同的值（见第 6 条）。
 3. **必须提供 `Enabled` / `Visible` 属性**（bool）。宿主在调用 `Update` / `Draw` 前会检查这些标志。它们应允许在运行时动态更改。
 4. **不要在 `Update` 或 `Draw` 中执行耗时操作**（如磁盘 I/O、网络请求）。应使用 `IThreadPool` 异步处理。
 5. **保持方法简短**，每个周期内完成最小必要工作。超过 16ms 会导致掉帧。
@@ -160,8 +165,8 @@ public class BadAudioModule : ILoadable {
 ### 生命周期执行顺序
 
 - `Initialize` 阶段：按 `AddModule` 添加顺序调用所有 `ILoadable.LoadContent`。
-- `Update` 阶段：按 `Order` 升序调用所有 `IUpdateable.Update`，`Order` 相等时以类型全名的序数序决出先后，并跳过 `Enabled == false` 的模块。
-- `Draw` 阶段：按 `Order` 升序调用所有 `IDrawable.Draw`，`Order` 相等时以类型全名的序数序决出先后，并跳过 `Visible == false` 的模块。
+- `Update` 阶段：按 `Order` 升序调用所有 `IUpdateable.Update`，`Order` 相等时按准入顺序决出先后，并跳过 `Enabled == false` 的模块。
+- `Draw` 阶段：按 `Order` 升序调用所有 `IDrawable.Draw`，`Order` 相等时按准入顺序决出先后，并跳过 `Visible == false` 的模块。
 
 **准则是"先加载后发布"（publish-after-load）。** 模块只有在其 `LoadContent` 成功返回之后才对 `Update` 与 `Draw` 可见，因此另一线程上的帧不会观察到加载尚未完成的参与者。若加载抛出异常，该模块会被从宿主中撤除，且永远不会进入调度。由此有两条推论：
 
@@ -486,11 +491,12 @@ public class CompositeModule : IDisposable {
 
 ### 规则详述
 
-1. **`Order` 决定执行顺序**，它应该是常量或基于配置，但必须在构造时确定。不要在运行时频繁更改 `Order`，因为排序发生在每次 `Update`/`Draw` 前（会拷贝列表）。
+1. **`Order` 决定执行顺序**，它应该是常量或基于配置，但必须在构造时确定。不要在运行时频繁更改 `Order`，因为排序发生在每次 `Update`/`Draw` 前（会拷贝列表）。`Order` 相同的参与者按准入顺序（`AddModule` 的调用顺序）排列；这可复现，但不是表达设计意图的方式。
 2. **`Enabled` 和 `Visible` 应支持运行时动态更改**。它们通常用于暂停菜单、屏幕过渡等。
 3. **模块间不应通过 `Order` 进行通信**。顺序仅用于调度，不是通信机制。
 4. **如果模块之间存在依赖关系（如输入必须在物理前更新），应通过 `Order` 建立明确的偏序**。
 5. **不要在 `Enabled`/`Visible` 的 getter 中执行复杂逻辑**，因为它们每帧被多次访问。
+6. **注册序（`[ModuleRegistration]`）是依赖通道，不是标签。** `ModuleLoader` 按注册序升序构造并注册被发现的模块，因此提供服务的模块必须比消费它的模块取更小的值。请留在所属层的号段内——Adapters `-500..-200`、Extensions `-199..-100`、`-99..-1` 预留给未来的库模块、`0` 及以上为应用模块——并保证同一号段内取值唯一。重复取值会把该对的装载顺序交给类型全名次级键，重命名就会移动它们。
 
 ### 示例
 

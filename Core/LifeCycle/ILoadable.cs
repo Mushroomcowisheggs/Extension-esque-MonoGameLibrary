@@ -5,9 +5,9 @@ namespace MonoGameLibrary.Core.Lifecycle {
     /// Implemented by modules that require a one-time content loading phase.
     /// Modules must obtain necessary services (like <see cref="IContentService"/>) 
     /// through constructor injection: the composition root resolves services at build time 
-    /// and passes them in. Service-locator lookups (for example through 
-    /// <see cref="IServiceRegistry"/>) are not allowed inside a module; the registry is 
-    /// reserved for the composition root.
+    /// and passes them in. A module cannot reach the registry afterwards even if it tries to:
+    /// <see cref="GameBuilder.GetService{TService}"/> and <see cref="GameBuilder.TryGetService{TService}"/>
+    /// throw once the builder has built, and the host exposes no registry at all.
     /// </summary>
     public interface ILoadable {
         /// <summary>
