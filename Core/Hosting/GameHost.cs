@@ -44,6 +44,12 @@ namespace MonoGameLibrary.Core.Hosting {
         // Dirty flags
         private bool _flagUpdateOrderDirty = true;
         private bool _flagDrawOrderDirty = true;
+        // Membership generation, bumped whenever either schedule list changes. A traversal captures it
+        // with its snapshot and publishes only if it is unchanged: the dirty flag alone cannot tell
+        // "dirty when I took the snapshot" from "dirty after I took it", and committing in the second
+        // case would publish the pre-admission schedule and clear the flag, dropping the new participant
+        // until the next unrelated membership change.
+        private int _generationSchedule = 0;
         
         // Concurrency tracking
         private int _countActiveOperations = 0;
@@ -180,6 +186,9 @@ namespace MonoGameLibrary.Core.Hosting {
                     _flagDrawOrderDirty = true;
                     flagSchedulable = true;
                 }
+                if (flagSchedulable) {
+                    _generationSchedule += 1;
+                }
             }
             return flagSchedulable;
         }
@@ -211,6 +220,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
                 _flagUpdateOrderDirty = true;
                 _flagDrawOrderDirty = true;
+                _generationSchedule += 1;
             }
         }
         
@@ -284,6 +294,7 @@ namespace MonoGameLibrary.Core.Hosting {
             try {
                 List<IUpdateable> listToIterate;
                 bool flagNeedSort = false;
+                int generationSnapshot = 0;
                 Dictionary<object, int> indicesAdmission = null;
                 lock (_lock) {
                     if (_flagIsFaulted) {
@@ -299,6 +310,9 @@ namespace MonoGameLibrary.Core.Hosting {
                         // The sort below runs outside the lock, so it reads this snapshot of the
                         // admission indices rather than the live map, which AddModule may be writing.
                         indicesAdmission = new Dictionary<object, int>(_indexAdmission);
+                        // Captured under the same lock as the snapshot, so the pair describes one
+                        // membership state.
+                        generationSnapshot = _generationSchedule;
                     }
                 }
                 if (flagNeedSort) {
@@ -307,13 +321,16 @@ namespace MonoGameLibrary.Core.Hosting {
                         return CompareScheduleOrder(a.Order, a, b.Order, b, indicesSort);
                     });
                     lock (_lock) {
-                        if (_flagUpdateOrderDirty) {
+                        if (_generationSchedule == generationSnapshot) {
                             // Swap buffers
                             List<IUpdateable> temp = _cachedUpdateablesSorted;
                             _cachedUpdateablesSorted = _backBufferUpdateables;
                             _backBufferUpdateables = temp;
                             _flagUpdateOrderDirty = false;
                         }
+                        // Otherwise a participant was admitted or withdrawn while this copy was being
+                        // sorted: the flag stays set and the next traversal rebuilds from the current
+                        // lists, so the change is delayed by a frame instead of lost.
                     }
                 }
                 lock (_lock) {
@@ -334,6 +351,7 @@ namespace MonoGameLibrary.Core.Hosting {
             try {
                 List<IDrawable> listToIterate;
                 bool flagNeedSort = false;
+                int generationSnapshot = 0;
                 Dictionary<object, int> indicesAdmission = null;
                 lock (_lock) {
                     if (_flagIsFaulted) {
@@ -348,6 +366,7 @@ namespace MonoGameLibrary.Core.Hosting {
                         _backBufferDrawables.AddRange(_listDrawableModules);
                         // As in Update: the sort runs outside the lock and reads this snapshot.
                         indicesAdmission = new Dictionary<object, int>(_indexAdmission);
+                        generationSnapshot = _generationSchedule;
                     }
                 }
                 if (flagNeedSort) {
@@ -356,7 +375,7 @@ namespace MonoGameLibrary.Core.Hosting {
                         return CompareScheduleOrder(a.Order, a, b.Order, b, indicesSort);
                     });
                     lock (_lock) {
-                        if (_flagDrawOrderDirty) {
+                        if (_generationSchedule == generationSnapshot) {
                             // Swap buffers
                             List<IDrawable> temp = _cachedDrawablesSorted;
                             _cachedDrawablesSorted = _backBufferDrawables;
@@ -605,6 +624,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 _backBufferDrawables.Clear();
                 _flagUpdateOrderDirty = true;
                 _flagDrawOrderDirty = true;
+                _generationSchedule += 1;
             }
         }
     }

@@ -500,7 +500,8 @@ namespace MonoGameLibrary.Extensions.Networking {
                         return;
                     }
                     record = new DiscoveryRoomRecord();
-                    record.Sequence = ++_sequenceRoom;
+                    _sequenceRoom += 1;
+                    record.Sequence = _sequenceRoom;
                     _rooms.Add(identifierRoom, record);
                     flagIsNew = true;
                 } else {
