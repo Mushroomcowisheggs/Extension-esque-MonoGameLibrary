@@ -46,13 +46,26 @@ The MonoGameLibrary provides a clean separation of concerns with Core (platform-
    ```bash
    git clone https://codeberg.org/Mushroomcowisheggs/Extension-esque-MonoGameLibrary.git
    ```
-2. Add a reference to `MonoGameLibrary.csproj` in your game project.
+2. Add a reference to `Core/MonoGameLibrary.Core.csproj`. It is the only required project: the
+   platform-neutral contracts, `GameBuilder` and `GameHost`, with no platform package — a program
+   that references just this one builds a host, initializes it, runs frames and disposes it, which
+   is the whole mandatory surface. Everything else is added on demand, along the same direction:
+   `Extensions` (the optional modules — audio, input, scenes, screens, graphics, networking) and
+   `Utilities` build on `Core`; an adapter builds on `Core` and `Extensions` plus one platform's
+   packages and binds the library to that platform — `Adapters/MonoGame` and
+   `Adapters/Gum/MonoGame` are the two in this repository, so MonoGame is one platform among them
+   rather than a requirement. Project references are transitive, so an adapter also brings `Core`
+   and `Extensions` into the game.
 
 ### Basic Usage (Composition Root)
 ```csharp
+using MonoGameLibrary.Core.Content;              // IContentService
 using MonoGameLibrary.Core.Hosting;
-using MonoGameLibrary.Adapters.MonoGame;
+using MonoGameLibrary.Adapters.MonoGame.Audio;   // UseAudio
+using MonoGameLibrary.Adapters.MonoGame.Content; // ContentService
+using MonoGameLibrary.Adapters.MonoGame.Input;   // UseInput
 using MonoGameLibrary.Extensions;
+using MonoGameLibrary.Extensions.Scenes;         // SceneModule
 
 var builder = new GameBuilder();
 builder.UseDefaultServices();
