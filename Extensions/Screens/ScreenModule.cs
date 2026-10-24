@@ -1,4 +1,7 @@
 using System;
+using System.Threading;
+using MonoGameLibrary.Core;
+using MonoGameLibrary.Core.Diagnostics;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Modularity;
@@ -10,10 +13,13 @@ namespace MonoGameLibrary.Extensions.Screens {
     // this module's load position.
     [ModuleRegistration(-100)]
     public sealed class ScreenModule : IModule, IUpdateable, IDrawable, IDisposable {
-        private IScreenService _service;
+        // Every mutable field is volatile: the gates are read on the frame thread while the application
+        // writes them, and the service reference is published by composition and then read per frame.
+        private volatile IScreenService _service;
         private readonly int _order;
-        private bool _flagEnabled = true;
-        private bool _flagVisible = true;
+        private volatile bool _flagEnabled = true;
+        private volatile bool _flagVisible = true;
+        private int _markDisposed;
         
         /// <summary>Initializes the module with the schedule position it will occupy.</summary>
         /// <param name="order">The value reported by <see cref="Order"/>.</param>
@@ -34,7 +40,14 @@ namespace MonoGameLibrary.Extensions.Screens {
             if (builder == null) {
                 throw new ArgumentNullException(nameof(builder));
             }
-            _service = new ScreenService();
+            // A screen whose cleanup fails is reported through the composition's logger; without one the
+            // service keeps the silent default rather than dropping the report.
+            ILogger logger;
+            if (builder.TryGetService<ILogger>(out logger)) {
+                _service = new ScreenService(new Optional<ILogger>(logger));
+            } else {
+                _service = new ScreenService();
+            }
             builder.RegisterService<IScreenService>(_service);
             builder.AddModule(this);
         }
@@ -55,11 +68,15 @@ namespace MonoGameLibrary.Extensions.Screens {
             }
         }
         
-        /// <summary>Releases the screen service. Safe to call more than once.</summary>
+        /// <summary>Releases the screen service. Safe to call more than once, and only one caller releases it.</summary>
         public void Dispose() {
-            if (_service != null) {
-                _service.Dispose();
-                _service = null;
+            if (Interlocked.Exchange(ref _markDisposed, 1) != 0) {
+                return;
+            }
+            IScreenService service = _service;
+            _service = null;
+            if (service != null) {
+                service.Dispose();
             }
             GC.SuppressFinalize(this);
         }

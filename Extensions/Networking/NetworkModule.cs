@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
@@ -15,8 +16,10 @@ namespace MonoGameLibrary.Extensions.Networking {
         private readonly INetworkService _serviceNetwork;
         private readonly Optional<INetworkProbe> _probeNetwork;
         private readonly int _order;
-        private bool _flagEnabled = true;
-        private bool _flagDisposed;
+        // Read on the frame thread while the application writes it, and elected atomically so the
+        // service is released exactly once.
+        private volatile bool _flagEnabled = true;
+        private int _markDisposed;
         
         /// <summary>
         /// Initializes a new module.
@@ -73,10 +76,9 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public void Dispose() {
-            if (_flagDisposed) {
+            if (Interlocked.Exchange(ref _markDisposed, 1) != 0) {
                 return;
             }
-            _flagDisposed = true;
             _serviceNetwork.Dispose();
             GC.SuppressFinalize(this);
         }

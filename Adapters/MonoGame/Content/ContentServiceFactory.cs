@@ -43,7 +43,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         
         /// <inheritdoc />
         public IContentService Create() {
-            var managerContent = new ContentManager(_providerService) {
+            ContentManager managerContent = new ContentManager(_providerService) {
                 RootDirectory = _directoryRoot
             };
             ContentService serviceContent = new ContentService(managerContent);

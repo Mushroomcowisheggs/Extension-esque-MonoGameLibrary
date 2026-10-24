@@ -168,10 +168,11 @@ public class BadAudioModule : ILoadable {
 - `Update` 阶段：按 `Order` 升序调用所有 `IUpdateable.Update`，`Order` 相等时按准入顺序决出先后，并跳过 `Enabled == false` 的模块。
 - `Draw` 阶段：按 `Order` 升序调用所有 `IDrawable.Draw`，`Order` 相等时按准入顺序决出先后，并跳过 `Visible == false` 的模块。
 
-**准则是"先加载后发布"（publish-after-load）。** 模块只有在其 `LoadContent` 成功返回之后才对 `Update` 与 `Draw` 可见，因此另一线程上的帧不会观察到加载尚未完成的参与者。若加载抛出异常，该模块会被从宿主中撤除，且永远不会进入调度。由此有两条推论：
+**准则是"先加载后发布"（publish-after-load）。** 模块只有在其 `LoadContent` 成功返回之后才对 `Update` 与 `Draw` 可见，因此另一线程上的帧不会观察到加载尚未完成的参与者。若加载抛出异常，该模块会被从宿主中撤除，且永远不会进入调度。由此有三条推论：
 
 - **在添加模块之前先备齐它的依赖。** 不要在 `LoadContent` 内部添加模块：`Initialize` 运行期间 `AddModule` 会抛出异常，因为这样的模块会由调用线程加载，而不是由 `Initialize` 的循环加载，从而使两个线程同时进入内容服务。所有模块要么在 `Initialize` 之前添加，要么在它返回之后添加。
 - **`Initialize` 只运行一次、只在一个线程上运行。** 在第一次仍在加载时再次调用会抛出异常。
+- **失败的准入不转移所有权。** 宿主把该模块从成员中撤除并重新抛出异常；它不会调用 `Dispose`，因为宿主只是调度了这个对象，而收到异常的调用方仍持有该引用。`LoadContent` 可能失败的参与者必须在抛出前释放它已获取的资源。准入本身是受跟踪的宿主操作，因此正在进行的关闭会等待迟到的加载结束，而已开始的关闭会拒绝这次准入。
 
 ### 模块放置指引
 
@@ -346,7 +347,7 @@ public class AsyncWorker : IUpdateable {
 1. **假设 `Update` 和 `Draw` 可能在不同线程上被调用**（虽然 MonoGame 通常在主线程，但 Core 不保证）。因此，模块内共享状态必须使用同步原语保护。
 2. **使用 `IThreadPool` 执行后台任务**时，注意竞争条件和可见性。使用 `lock`、`Interlocked`、`ConcurrentDictionary` 等。
 3. **避免在 `Update`/`Draw` 中阻塞等待**（如 `Thread.Sleep`、`WaitHandle.WaitOne`）。这会拖慢主循环。
-4. **如果模块公开了可变的属性（如 `Volume`），确保其实现是线程安全的**（使用 `Interlocked` 或锁）。
+4. **如果模块公开了可变的属性（如 `Volume`），确保其实现是线程安全的**（使用 `Interlocked`、锁，或对 `Enabled` 这类单字长门控使用 `volatile`）。
 5. **设计时考虑重入**：例如，`Update` 中可能触发事件，而事件处理器可能再次调用模块的方法。
 
 ### 服务线程归属
@@ -355,7 +356,7 @@ public class AsyncWorker : IUpdateable {
 
 | 服务 | 保证 |
 | --- | --- |
-| `GameHost` | 线程安全，但有两处例外。`Initialize` 为单次进入：并发再次调用会抛出异常。`Initialize` 运行期间 `AddModule` 会被拒绝，因此模块的依赖必须在添加之前备齐。`Update`、`Draw`、`Dispose` 可在不同线程调用。 |
+| `GameHost` | 线程安全，但有两处例外。`Initialize` 为单次进入：并发再次调用会抛出异常。`Initialize` 运行期间 `AddModule` 会被拒绝，因此模块的依赖必须在添加之前备齐；迟到的准入本身是受跟踪的操作，`Dispose` 会等待它结束。`Update`、`Draw`、`Dispose` 可在不同线程调用：调度重建发布不可变副本，关闭则通过选举由唯一调用方释放参与者，其余调用方等待该释放完成。 |
 | `ScreenService`、`StateService` | 线程安全；单锁串行化所有调用。屏幕/状态生命周期回调（`Enter`/`Exit`/`Update`/`Draw`）在持锁期间运行，回调内不得阻塞等待另一个调用同一服务的线程。 |
 | `InputService` | 线程安全；`Update` 发布一致的输入快照，所有查询在同一把锁下读取该快照。 |
 | `AudioService` | 线程安全；播放跟踪、静音标志与 MonoGame 全局音量状态（`MediaPlayer.Volume`、`SoundEffect.MasterVolume`）共用一把锁。 |
@@ -432,6 +433,7 @@ public void Update(FrameTime time) {
 5. **如果模块实现了 `IDisposable`，它也应该在 `Dispose` 中释放子模块**（如果有）。
 6. **宿主会在关闭时调用每个模块的 `Dispose`**，但模块不应该依赖宿主来释放，因为宿主可能崩溃或不调用。
 7. **不要在 `Dispose` 中抛出异常**。如果异常发生，宿主会捕获它并通过 `OnError` 报告，但不应影响其他模块的释放。
+8. **释放多个资源的清理必须尝试每一次释放。** 抛出异常的释放只消耗它自己：逐项捕获、经 `ILogger` 报告、然后继续。用单个外层 `try` 会在第一次失败后放弃其余释放，而方法已经置位的释放标志又使调用方无法重试。宿主在参与者之间适用同一规则，参与者在自己的资源之间适用它。
 
 ### 示例
 
@@ -491,7 +493,7 @@ public class CompositeModule : IDisposable {
 
 ### 规则详述
 
-1. **`Order` 决定执行顺序**，它应该是常量或基于配置，但必须在构造时确定。不要在运行时频繁更改 `Order`，因为排序发生在每次 `Update`/`Draw` 前（会拷贝列表）。`Order` 相同的参与者按准入顺序（`AddModule` 的调用顺序）排列；这可复现，但不是表达设计意图的方式。
+1. **`Order` 决定执行顺序**，它应该是常量或基于配置，但必须在构造时确定。宿主缓存已排序的调度，只在调度成员变化时重建，而不是每帧重排。运行期更改 `Order` 的参与者必须在更改后调用 `IGameHost.InvalidateSchedule`；在它调用之前，缓存的顺序继续生效。`Order` 相同的参与者按准入顺序（`AddModule` 的调用顺序）排列；这可复现，但不是表达设计意图的方式。
 2. **`Enabled` 和 `Visible` 应支持运行时动态更改**。它们通常用于暂停菜单、屏幕过渡等。
 3. **模块间不应通过 `Order` 进行通信**。顺序仅用于调度，不是通信机制。
 4. **如果模块之间存在依赖关系（如输入必须在物理前更新），应通过 `Order` 建立明确的偏序**。

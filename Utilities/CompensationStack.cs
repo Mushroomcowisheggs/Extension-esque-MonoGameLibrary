@@ -74,7 +74,15 @@ namespace MonoGameLibrary.Utilities {
                         action.Invoke();
                     }
                 } catch (Exception exception) {
-                    _logger.Error("CompensationStack: Compensation action threw an exception.", exception);
+                    // The logger is part of the recovery path, so its own failure must not stop the
+                    // remaining compensations from running.
+                    try {
+                        _logger.Error("CompensationStack: Compensation action threw an exception.", exception);
+                    } catch (Exception loggerException) {
+                        System.Diagnostics.Trace.TraceError(
+                            $"CompensationStack: reporting a failed compensation threw: {loggerException}"
+                        );
+                    }
                 }
             }
         }

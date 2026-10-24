@@ -10,7 +10,9 @@ namespace MonoGameLibrary.Extensions.States {
     public sealed class StateModule : IUpdateable {
         private readonly IStateService _service;
         private readonly int _order;
-        private bool _flagEnabled = true;
+        // Read on the frame thread while the application writes it; a volatile gate keeps the write
+        // visible without taking a lock on the per-frame path.
+        private volatile bool _flagEnabled = true;
         
         /// <summary>Initializes the module around an existing state service.</summary>
         /// <param name="service">The state service to drive.</param>

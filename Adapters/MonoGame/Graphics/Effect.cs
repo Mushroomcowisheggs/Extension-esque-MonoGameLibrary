@@ -39,7 +39,14 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
                 if (textureConcrete == null) {
                     throw new NotSupportedException("Unsupported texture adapter.");
                 }
-                parameter.SetValue(textureConcrete.GetNativeTexture());
+                Texture2D textureNative = textureConcrete.GetNativeTexture();
+                if (textureNative == null) {
+                    throw new ObjectDisposedException(
+                        nameof(TwoDimensionalTexture), 
+                        "The texture adapter has been released and no longer holds a texture. "
+                    );
+                }
+                parameter.SetValue(textureNative);
             } else if (typeof(T) == typeof(Vector2)) {
                 parameter.SetValue((Vector2)(object)value);
             } else if (typeof(T) == typeof(Vector3)) {

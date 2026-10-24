@@ -168,10 +168,11 @@ public class BadAudioModule : ILoadable {
 - `Update` phase: Calls `IUpdateable.Update` on all modules in ascending `Order`, resolving equal `Order` values by admission order, skipping any with `Enabled == false`.
 - `Draw` phase: Calls `IDrawable.Draw` on all modules in ascending `Order`, resolving equal `Order` values by admission order, skipping any with `Visible == false`.
 
-**Admission is publish-after-load.** A module becomes visible to `Update` and `Draw` only once its `LoadContent` has returned successfully, so a frame on another thread never observes a participant whose load is still in progress. If the load throws, the module is withdrawn from the host and never becomes schedulable. Two consequences follow:
+**Admission is publish-after-load.** A module becomes visible to `Update` and `Draw` only once its `LoadContent` has returned successfully, so a frame on another thread never observes a participant whose load is still in progress. If the load throws, the module is withdrawn from the host and never becomes schedulable. Three consequences follow:
 
 - **Supply a module's dependencies before adding it.** Do not add modules from inside a `LoadContent`: `AddModule` throws while `Initialize` is running, because such a module would be loaded by the calling thread rather than by `Initialize`'s loop, putting two threads inside the content services at once. Add every module either before `Initialize` or after it returns.
 - **`Initialize` runs once, on one thread.** A second call while the first is still loading throws.
+- **A failed admission transfers no ownership.** The host removes the module from membership and rethrows; it does not call `Dispose`, because it only scheduled the object and the caller that received the exception still holds the reference. A participant whose `LoadContent` can fail must release what it acquired before it throws. Admission is a tracked host operation, so a disposal in progress waits for a late load to finish and a disposal already started rejects the admission.
 
 ### Module Placement Guideline
 
@@ -346,7 +347,7 @@ public class AsyncWorker : IUpdateable {
 1. **Assume `Update` and `Draw` may be invoked on different threads** (although MonoGame typically uses the main thread, Core does not guarantee this). Therefore, any shared state within a module must be protected with synchronization primitives.
 2. **When using `IThreadPool` for background tasks**, be mindful of race conditions and memory visibility. Use `lock`, `Interlocked`, `ConcurrentDictionary`, etc.
 3. **Avoid blocking waits in `Update`/`Draw`** (e.g., `Thread.Sleep`, `WaitHandle.WaitOne`). This will stall the main loop.
-4. **If a module exposes mutable properties (e.g., `Volume`), ensure their implementations are thread-safe** (using `Interlocked` or locks).
+4. **If a module exposes mutable properties (e.g., `Volume`), ensure their implementations are thread-safe** (using `Interlocked`, a lock, or `volatile` for a single-word gate such as `Enabled`).
 5. **Design for reentrancy**: for instance, `Update` might fire an event whose handler invokes another method on the same module.
 
 ### Service thread ownership
@@ -355,7 +356,7 @@ The built-in services carry their synchronization guarantees in their own XML do
 
 | Service | Guarantee |
 | --- | --- |
-| `GameHost` | Thread-safe, with two exceptions. `Initialize` is single-entry: a second concurrent call throws. `AddModule` is refused while initialization is running, so a module's dependencies must be supplied before it is added. `Update`, `Draw` and `Dispose` may be called from different threads. |
+| `GameHost` | Thread-safe, with two exceptions. `Initialize` is single-entry: a second concurrent call throws. `AddModule` is refused while initialization is running, so a module's dependencies must be supplied before it is added; a late admission is itself a tracked operation, so `Dispose` waits for it. `Update`, `Draw` and `Dispose` may be called from different threads: a schedule rebuild publishes an immutable copy, and disposal is elected so exactly one caller releases the participants while any other caller waits for that release. |
 | `ScreenService`, `StateService` | Thread-safe; one lock serializes all calls. Screen/state lifecycle callbacks (`Enter`/`Exit`/`Update`/`Draw`) run while that lock is held, so a callback must not block on another thread that calls the same service. |
 | `InputService` | Thread-safe; `Update` publishes one consistent input snapshot and every query reads that snapshot under the same lock. |
 | `AudioService` | Thread-safe; playback tracking, the mute flag and the MonoGame global volume state (`MediaPlayer.Volume`, `SoundEffect.MasterVolume`) share one lock. |
@@ -432,6 +433,7 @@ public void Update(FrameTime time) {
 5. **If a module implements `IDisposable`, it should also dispose any child modules** in its own `Dispose` method (if it owns any).
 6. **The host will call `Dispose` on each module during shutdown**, but a module must not rely on the host to release its resources, as the host may crash or fail to invoke cleanup.
 7. **Do not throw exceptions from `Dispose`**. If an exception occurs, the host will catch it and report it via `OnError`, but it must not prevent other modules from being disposed.
+8. **A cleanup that releases several resources must attempt every release.** A release that throws consumes only itself: catch it per resource, report it through `ILogger`, and continue. One surrounding `try` abandons the remaining releases after the first failure, and the disposed flag the method has already set prevents a caller from retrying them. The host applies the same rule between participants; a participant applies it between its own resources.
 
 ### Example
 
@@ -491,7 +493,7 @@ public class CompositeModule : IDisposable {
 
 ### Detailed Rules
 
-1. **`Order` determines execution sequence.** It should be a constant or configuration-based, but must be determined at construction time. Do not change `Order` frequently at runtime, because the host re-sorts the module list before each `Update`/`Draw` (which involves copying the list). Participants that share a value are ordered by admission order (the order of `AddModule` calls); that is reproducible, but it is not a way to express an intended sequence.
+1. **`Order` determines execution sequence.** It should be a constant or configuration-based, but must be determined at construction time. The host caches the sorted schedule and rebuilds it when scheduling membership changes, not before every frame. A participant that changes `Order` at runtime must call `IGameHost.InvalidateSchedule` after the change; until it does, the cached sequence stays in force. Participants that share a value are ordered by admission order (the order of `AddModule` calls); that is reproducible, but it is not a way to express an intended sequence.
 2. **`Enabled` and `Visible` must support dynamic runtime changes.** They are typically used for pause menus, screen transitions, etc.
 3. **Modules must not communicate through `Order`.** Ordering is purely for scheduling, not a communication mechanism.
 4. **If logical dependencies exist between modules (e.g., Input must update before Physics), establish an explicit partial order through the `Order` property.**

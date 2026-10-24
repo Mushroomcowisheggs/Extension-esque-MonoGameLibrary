@@ -175,7 +175,8 @@ namespace MonoGameLibrary.Extensions.Networking {
         }
         
         /// <summary>
-        /// Stops the pumps and releases the channel. The method is idempotent.
+        /// Stops the pumps and releases the channel. The method is idempotent, and each release is
+        /// attempted even when an earlier one fails.
         /// </summary>
         public void Dispose() {
             if (Interlocked.Exchange(ref _markDisposed, 1) != 0) {
@@ -183,16 +184,24 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             try {
                 LinkSource.Cancel();
-            } catch (ObjectDisposedException exceptionReleased) {
-                // The cancellation source was already released.
-                _logger.Debug("The resource was already released: " + exceptionReleased.Message);
+            } catch (Exception exception) {
+                // A cancellation handler that throws must not keep the channel and the source alive.
+                _logger.Error("Cancelling the link scope failed; the channel is still closed.", exception);
             }
             INetworkChannel channel = Channel;
             if (channel != null) {
-                channel.Close();
+                try {
+                    channel.Close();
+                } catch (Exception exception) {
+                    _logger.Error("Closing the link channel during disposal failed.", exception);
+                }
             }
             WakeSendLoop();
-            LinkSource.Dispose();
+            try {
+                LinkSource.Dispose();
+            } catch (Exception exception) {
+                _logger.Error("Releasing the link cancellation source during disposal failed.", exception);
+            }
             GC.SuppressFinalize(this);
         }
     }

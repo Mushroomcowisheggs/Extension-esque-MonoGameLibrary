@@ -18,6 +18,12 @@ namespace MonoGameLibrary.Core.Lifecycle {
         /// is a reproducible fallback, not a way to express intent: give distinct values wherever
         /// the order matters.
         /// </summary>
+        /// <remarks>
+        /// The value must be fixed by construction. The host caches the sorted schedule and rebuilds it
+        /// when membership changes, so a later change to a backing field is invisible until then. A
+        /// participant that must change its order at runtime calls <c>IGameHost.InvalidateSchedule</c>
+        /// after the change; that is the only supported route.
+        /// </remarks>
         int Order { get; }
         
         /// <summary>

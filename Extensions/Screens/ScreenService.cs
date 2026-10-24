@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MonoGameLibrary.Core;
+using MonoGameLibrary.Core.Diagnostics;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Screens {
@@ -11,16 +13,27 @@ namespace MonoGameLibrary.Extensions.Screens {
     /// run while that lock is held, so a callback must not block waiting on a thread that calls
     /// this service. Mutations requested during <see cref="Update"/> are deferred to the end of the
     /// call and applied in order, exactly as in earlier versions.
+    /// <para>
+    /// Cleanup is per screen. A screen that fails to unsubscribe, exit or dispose is reported to the
+    /// configured <see cref="ILogger"/> and the remaining screens are still released, because a screen
+    /// stack that stops at the first failure leaves the rest of its screens running after the service
+    /// reports itself disposed.
+    /// </para>
     /// </remarks>
     public sealed class ScreenService : IScreenService {
         private readonly object _lock = new object();
         private readonly List<Screen> _screens = new List<Screen>();
         private readonly Queue<Action> _queueOperation = new Queue<Action>();
+        private readonly ILogger _logger;
         private bool _flagIsProcessing;
         private bool _flagDisposed;
         
-        /// <summary>Initializes the service with an empty screen stack.</summary>
-        public ScreenService() {
+        /// <summary>
+        /// Initializes the service with an empty screen stack.
+        /// </summary>
+        /// <param name="logger">Optional logger for a screen whose cleanup fails. </param>
+        public ScreenService(Optional<ILogger> logger = default) {
+            if (logger.HasValue) { _logger = logger.Value; } else { _logger = NullLogger.Instance; }
         }
         
         /// <summary>Gets the screen on top of the stack, or null when the stack is empty.</summary>
@@ -54,10 +67,8 @@ namespace MonoGameLibrary.Extensions.Screens {
                 QueueOrExecute(delegate {
                     if (_screens.Count > 0) {
                         Screen screenTop = _screens[_screens.Count - 1];
-                        UnsubscribeScreen(screenTop);
-                        screenTop.Exit();
                         _screens.RemoveAt(_screens.Count - 1);
-                        screenTop.Dispose();
+                        ReleaseScreen(screenTop);
                     }
                     if (_screens.Count > 0) {
                         _screens[_screens.Count - 1].Enter();
@@ -78,10 +89,8 @@ namespace MonoGameLibrary.Extensions.Screens {
                     PrepareScreen(screen);
                     while (_screens.Count > 0) {
                         Screen screenTop = _screens[_screens.Count - 1];
-                        UnsubscribeScreen(screenTop);
-                        screenTop.Exit();
                         _screens.RemoveAt(_screens.Count - 1);
-                        screenTop.Dispose();
+                        ReleaseScreen(screenTop);
                     }
                     _screens.Add(screen);
                     screen.Enter();
@@ -146,13 +155,11 @@ namespace MonoGameLibrary.Extensions.Screens {
                 }
                 _flagDisposed = true;
                 _queueOperation.Clear();
-                for (int index = _screens.Count - 1; index >= 0; index -= 1) {
-                    Screen screen = _screens[index];
-                    UnsubscribeScreen(screen);
-                    screen.Exit();
-                    screen.Dispose();
+                while (_screens.Count > 0) {
+                    Screen screen = _screens[_screens.Count - 1];
+                    _screens.RemoveAt(_screens.Count - 1);
+                    ReleaseScreen(screen);
                 }
-                _screens.Clear();
             }
             GC.SuppressFinalize(this);
         }
@@ -164,9 +171,45 @@ namespace MonoGameLibrary.Extensions.Screens {
                 SubscribeScreen(screen);
             }
             catch (Exception) {
-                screen.Dispose();
+                // The load failed, so the screen never joins the stack; its own partial state still has
+                // to be released, and a failing release must not replace the failure that caused it.
+                try {
+                    screen.Dispose();
+                } catch (Exception exception) {
+                    ReportReleaseFailure("dispose", screen, exception);
+                }
                 throw;
             }
+        }
+        
+        /// <summary>
+        /// Releases one screen and reports a failing step without letting it stop the remaining steps or
+        /// the remaining screens.
+        /// </summary>
+        /// <param name="screen">The screen to release; it has already left the stack. </param>
+        private void ReleaseScreen(Screen screen) {
+            try {
+                UnsubscribeScreen(screen);
+            } catch (Exception exception) {
+                ReportReleaseFailure("unsubscribe", screen, exception);
+            }
+            try {
+                screen.Exit();
+            } catch (Exception exception) {
+                ReportReleaseFailure("exit", screen, exception);
+            }
+            try {
+                screen.Dispose();
+            } catch (Exception exception) {
+                ReportReleaseFailure("dispose", screen, exception);
+            }
+        }
+        
+        private void ReportReleaseFailure(string operation, Screen screen, Exception exception) {
+            _logger.Error(
+                $"Screen {operation} failed for {screen.GetType().Name}; the remaining screens are still released.", 
+                exception
+            );
         }
         
         private void QueueOrExecute(Action operation) {

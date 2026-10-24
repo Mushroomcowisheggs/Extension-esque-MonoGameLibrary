@@ -46,6 +46,11 @@ namespace MonoGameLibrary.Extensions.Networking {
         private readonly ConcurrentDictionary<Guid, NetworkConnection> _connections = new ConcurrentDictionary<Guid, NetworkConnection>();
         private readonly ConcurrentDictionary<Guid, NetworkPeerRecord> _peersKnown = new ConcurrentDictionary<Guid, NetworkPeerRecord>();
         
+        // Disposal is elected: one caller closes the session and releases the transport, and a second
+        // caller waits for that release instead of closing the same session twice.
+        private int _markDisposalElected;
+        private readonly ManualResetEventSlim _eventDisposeComplete = new ManualResetEventSlim(false);
+        
         private NetworkStatus _status = NetworkStatus.Idle;
         private NetworkRole _role = NetworkRole.None;
         private NetworkRoomInfo _infoCurrent;
@@ -58,7 +63,6 @@ namespace MonoGameLibrary.Extensions.Networking {
         private long _sequencePeer;
         private volatile bool _flagDisconnectRequested;
         private bool _flagSessionOpen;
-        private bool _flagDisposed;
         
         private INetworkListener _listener;
         private CancellationTokenSource _sourceSession;
@@ -401,15 +405,27 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public void Dispose() {
-            if (_flagDisposed) {
+            if (Interlocked.Exchange(ref _markDisposalElected, 1) != 0) {
+                _eventDisposeComplete.Wait();
                 return;
             }
-            _flagDisposed = true;
             try {
-                CloseSession("The network service was disposed.", NetworkStatus.Idle);
-                _transportNetwork.Dispose();
+                // Session closure and transport release are separate attempts: a failing status handler or
+                // timeouts during closure must not keep the transport alive, and neither failure may leave
+                // Dispose raising an exception the caller cannot act on.
+                try {
+                    CloseSession("The network service was disposed.", NetworkStatus.Idle);
+                } catch (Exception exception) {
+                    _logger.Error("Closing the network session during disposal failed.", exception);
+                }
+                try {
+                    _transportNetwork.Dispose();
+                } catch (Exception exception) {
+                    _logger.Error("Releasing the network transport during disposal failed.", exception);
+                }
             } finally {
                 GC.SuppressFinalize(this);
+                _eventDisposeComplete.Set();
             }
         }
         
@@ -1493,19 +1509,28 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             
             if (listener != null) {
-                listener.Close();
+                try {
+                    listener.Close();
+                } catch (Exception exception) {
+                    _logger.Error("Closing the session listener during teardown failed.", exception);
+                }
             }
             if (sourceSession != null) {
                 try {
                     sourceSession.Cancel();
-                } catch (ObjectDisposedException exceptionReleased) {
-                    // The scope was already released.
-                    _logger.Debug("The resource was already released: " + exceptionReleased.Message);
+                } catch (Exception exception) {
+                    // Includes a handler that threw from Cancel: the session still has to close.
+                    _logger.Error("Cancelling the session scope during teardown failed.", exception);
                 }
             }
             
             foreach (NetworkConnection connection in _connections.Values) {
-                TeardownConnection(connection, reason);
+                try {
+                    TeardownConnection(connection, reason);
+                } catch (Exception exception) {
+                    // One peer's teardown must not leave the remaining peers connected.
+                    _logger.Error($"Tearing down the connection to '{connection.Address}' failed.", exception);
+                }
             }
             _connections.Clear();
             _peersKnown.Clear();
@@ -1525,7 +1550,11 @@ namespace MonoGameLibrary.Extensions.Networking {
                 _portTarget = 0;
             }
             if (sourceSession != null) {
-                sourceSession.Dispose();
+                try {
+                    sourceSession.Dispose();
+                } catch (Exception exception) {
+                    _logger.Error("Releasing the session scope during teardown failed.", exception);
+                }
             }
             NetworkInboundEvent notificationDiscarded;
             while (_queueInbound.TryDequeue(out notificationDiscarded)) {

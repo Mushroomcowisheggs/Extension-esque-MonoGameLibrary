@@ -14,6 +14,18 @@ namespace MonoGameLibrary.Core.Hosting {
     /// The host holds no service registry: it schedules the participants it is given and exposes no
     /// route back to the capabilities those participants were constructed with.
     /// </summary>
+    /// <remarks>
+    /// Thread safety has three parts. Membership and the lifecycle flags are guarded by one lock. A
+    /// schedule rebuild sorts a private copy outside that lock and publishes it by a single reference
+    /// assignment, so a published list is immutable and two traversal threads each read a stable
+    /// snapshot. Disposal is elected, so exactly one caller releases the participants while any other
+    /// caller waits for that release to finish.
+    /// <para>
+    /// The guarantee stops at the participants. A participant's <c>Order</c>, <c>Enabled</c> or
+    /// <c>Visible</c> getter runs on the calling thread outside the callback wrapper, and a callback
+    /// must not block waiting for work that needs this host.
+    /// </para>
+    /// </remarks>
     public class GameHost : IGameHost {
         private readonly object _lock = new object();
         private readonly HashSet<object> _setModule = new HashSet<object>();
@@ -22,10 +34,12 @@ namespace MonoGameLibrary.Core.Hosting {
         private readonly List<IUpdateable> _listUpdateableModules = new List<IUpdateable>();
         private readonly List<IDrawable> _listDrawableModules = new List<IDrawable>();
         
-        private List<IUpdateable> _cachedUpdateablesSorted = new List<IUpdateable>();
-        private List<IDrawable> _cachedDrawablesSorted = new List<IDrawable>();
-        private List<IUpdateable> _backBufferUpdateables = new List<IUpdateable>();
-        private List<IDrawable> _backBufferDrawables = new List<IDrawable>();
+        // The published schedule. A rebuild constructs a fresh list and assigns it here under the lock;
+        // a published list is never sorted, cleared or reused, so a traversal that captured one keeps a
+        // stable snapshot for its whole loop. The earlier implementation sorted a shared back buffer and
+        // swapped two lists, which let a rebuild recycle the list another traversal was iterating.
+        private List<IUpdateable> _listUpdateablesPublished = new List<IUpdateable>();
+        private List<IDrawable> _listDrawablesPublished = new List<IDrawable>();
         
         private Optional<IContentService> _serviceContent;
         
@@ -56,6 +70,14 @@ namespace MonoGameLibrary.Core.Hosting {
         private readonly HashSet<int> _setActiveThreads = new HashSet<int>();
         private readonly ManualResetEventSlim _eventOperationsIdle = new ManualResetEventSlim(true);
         
+        // Shutdown election. Exactly one caller performs the cleanup; every other caller waits for that
+        // cleanup to finish instead of running a second release loop over the same participants. A
+        // participant whose own Dispose calls back into Dispose on the same thread returns immediately,
+        // because waiting there would wait on itself.
+        private int _markDisposalElected = 0;
+        private int _idDisposer = 0;
+        private readonly ManualResetEventSlim _eventDisposeComplete = new ManualResetEventSlim(false);
+        
         // Error handling callback
         private Action<Exception, string> _actionOnError = delegate { };
         
@@ -83,87 +105,98 @@ namespace MonoGameLibrary.Core.Hosting {
         public GameHost() {
         }
         
-        /// <inheritdoc />
+        /// <summary>
+        /// Adds a module to the host, loading it immediately when the host is already initialized.
+        /// </summary>
+        /// <param name="module">The module to add. </param>
+        /// <remarks>
+        /// Admission is a tracked host operation, like <see cref="Update"/>, <see cref="Draw"/> and
+        /// <see cref="Initialize"/>: a disposal in progress waits for a late load to finish before it
+        /// releases participants, and a disposal already in progress rejects the admission. Without that
+        /// participation a successful load could publish scheduling membership into a host whose lists
+        /// were already cleared.
+        /// <para>
+        /// A failed late load withdraws the module from membership and rethrows; the host does not call
+        /// <see cref="IDisposable.Dispose"/> on it. The host never owned the object — it only scheduled
+        /// it — and the caller that received the exception still holds the reference, so releasing what
+        /// the failed load acquired is the caller's decision, not a silent ownership transfer. A
+        /// participant whose <c>LoadContent</c> can fail should release what it acquired before it
+        /// throws.
+        /// </para>
+        /// </remarks>
         public void AddModule(object module) {
             if (module == null) {
                 throw new ArgumentNullException(nameof(module));
             }
             
-            ILoadable loadableToLoad = null;
-            lock (_lock) {
-                if (_flagDisposed) {
-                    throw new ObjectDisposedException(
-                        nameof(GameHost), 
-                        "The GameHost has been disposed. "
-                    );
-                }
-                if (_flagDisposing) {
-                    throw new ObjectDisposedException(
-                        nameof(GameHost), 
-                        "The GameHost is in the process of being disposed. "
-                    );
-                }
-                if (_flagIsFaulted) {
-                    throw new InvalidOperationException(
-                        "Cannot add modules to a GameHost that is in a faulted state. "
-                    );
-                }
-                // Admission is publish-after-load, so the module's own dependencies must be settled
-                // before it is added. A module that registers a further module while the host is
-                // loading would be loaded by the calling thread instead of by Initialize's loop,
-                // which would put two threads inside the content services at once.
-                if (_flagIsLoading) {
-                    throw new InvalidOperationException(
-                        "Cannot add modules while the GameHost is initializing. Add every module before " +
-                        "Initialize, or add it after Initialize returns. "
-                    );
+            EnterOperation();
+            try {
+                ILoadable loadableToLoad = null;
+                lock (_lock) {
+                    if (_flagIsFaulted) {
+                        throw new InvalidOperationException(
+                            "Cannot add modules to a GameHost that is in a faulted state. "
+                        );
+                    }
+                    // Admission is publish-after-load, so the module's own dependencies must be settled
+                    // before it is added. A module that registers a further module while the host is
+                    // loading would be loaded by the calling thread instead of by Initialize's loop,
+                    // which would put two threads inside the content services at once.
+                    if (_flagIsLoading) {
+                        throw new InvalidOperationException(
+                            "Cannot add modules while the GameHost is initializing. Add every module before " +
+                            "Initialize, or add it after Initialize returns. "
+                        );
+                    }
+                    
+                    if (_setModule.Contains(module)) {
+                        throw new InvalidOperationException(
+                            $"The module {module.GetType().FullName} has already been added. "
+                        );
+                    }
+                    
+                    _setModule.Add(module);
+                    _listAllModules.Add(module);
+                    
+                    // The admission index records where the composition root placed this participant among
+                    // all admitted modules. It is the schedule's tie-break key instead of the type name, so
+                    // that renaming a participant cannot move it in the frame. It is not decremented when a
+                    // module is withdrawn: the index stays unique for the life of the host.
+                    _indexAdmission[module] = _countAdmitted;
+                    _countAdmitted += 1;
+                    
+                    if (module is ILoadable loadable) {
+                        _listLoadableModules.Add(loadable);
+                    }
+                    
+                    // Three admission cases. Before Initialize, membership is published now and the
+                    // loading loop will load the module; the frame cannot run yet, so the ordering is
+                    // not observable. After Initialize, the module is loaded first and published only
+                    // on success, so a frame on another thread never sees an unloaded participant. A
+                    // module with nothing to load has no window to hold back and is published at once.
+                    if (!_flagIsInitialized) {
+                        PublishSchedulingMembership(module);
+                    } else if (module is ILoadable loadableToSchedule) {
+                        // Published below, once LoadContent has returned.
+                        loadableToLoad = loadableToSchedule;
+                    } else {
+                        PublishSchedulingMembership(module);
+                    }
                 }
                 
-                if (_setModule.Contains(module)) {
-                    throw new InvalidOperationException(
-                        $"The module {module.GetType().FullName} has already been added. "
-                    );
-                }
-                
-                _setModule.Add(module);
-                _listAllModules.Add(module);
-                
-                // The admission index records where the composition root placed this participant among
-                // all admitted modules. It is the schedule's tie-break key instead of the type name, so
-                // that renaming a participant cannot move it in the frame. It is not decremented when a
-                // module is withdrawn: the index stays unique for the life of the host.
-                _indexAdmission[module] = _countAdmitted;
-                _countAdmitted += 1;
-                
-                if (module is ILoadable loadable) {
-                    _listLoadableModules.Add(loadable);
-                }
-                
-                // Three admission cases. Before Initialize, membership is published now and the
-                // loading loop will load the module; the frame cannot run yet, so the ordering is
-                // not observable. After Initialize, the module is loaded first and published only
-                // on success, so a frame on another thread never sees an unloaded participant. A
-                // module with nothing to load has no window to hold back and is published at once.
-                if (!_flagIsInitialized) {
+                if (loadableToLoad != null) {
+                    try {
+                        SafeExecute("LoadContent", loadableToLoad, loadableToLoad.LoadContent);
+                    } catch (Exception) {
+                        // A failed late admission must not leave an unloaded module behind.
+                        RemoveModuleCore(module);
+                        throw;
+                    }
+                    // The load succeeded, so the module may now join the per-frame schedule.
                     PublishSchedulingMembership(module);
-                } else if (module is ILoadable loadableToSchedule) {
-                    // Published below, once LoadContent has returned.
-                    loadableToLoad = loadableToSchedule;
-                } else {
-                    PublishSchedulingMembership(module);
                 }
-            }
-            
-            if (loadableToLoad != null) {
-                try {
-                    SafeExecute("LoadContent", loadableToLoad, loadableToLoad.LoadContent);
-                } catch (Exception) {
-                    // A failed late admission must not leave an unloaded module behind.
-                    RemoveModuleCore(module);
-                    throw;
-                }
-                // The load succeeded, so the module may now join the per-frame schedule.
-                PublishSchedulingMembership(module);
+            } finally {
+                ExitOperation();
             }
         }
         
@@ -293,7 +326,7 @@ namespace MonoGameLibrary.Core.Hosting {
             EnterOperation();
             try {
                 List<IUpdateable> listToIterate;
-                bool flagNeedSort = false;
+                List<IUpdateable> listFresh = null;
                 int generationSnapshot = 0;
                 Dictionary<object, int> indicesAdmission = null;
                 lock (_lock) {
@@ -304,28 +337,28 @@ namespace MonoGameLibrary.Core.Hosting {
                         throw new InvalidOperationException("Initialize must be called before Update.");
                     }
                     if (_flagUpdateOrderDirty) {
-                        flagNeedSort = true;
-                        _backBufferUpdateables.Clear();
-                        _backBufferUpdateables.AddRange(_listUpdateableModules);
-                        // The sort below runs outside the lock, so it reads this snapshot of the
-                        // admission indices rather than the live map, which AddModule may be writing.
+                        // A rebuild owns its copy. The sort below runs outside the lock on this list
+                        // alone, so a concurrent traversal or rebuild cannot observe or disturb it, and
+                        // publishing is a single reference assignment rather than a swap of shared
+                        // buffers.
+                        listFresh = new List<IUpdateable>(_listUpdateableModules);
+                        // The sort reads this snapshot of the admission indices rather than the live
+                        // map, which AddModule may be writing.
                         indicesAdmission = new Dictionary<object, int>(_indexAdmission);
                         // Captured under the same lock as the snapshot, so the pair describes one
                         // membership state.
                         generationSnapshot = _generationSchedule;
                     }
                 }
-                if (flagNeedSort) {
+                if (listFresh != null) {
+                    List<IUpdateable> listToSort = listFresh;
                     Dictionary<object, int> indicesSort = indicesAdmission;
-                    _backBufferUpdateables.Sort(delegate(IUpdateable a, IUpdateable b) {
+                    listToSort.Sort(delegate(IUpdateable a, IUpdateable b) {
                         return CompareScheduleOrder(a.Order, a, b.Order, b, indicesSort);
                     });
                     lock (_lock) {
                         if (_generationSchedule == generationSnapshot) {
-                            // Swap buffers
-                            List<IUpdateable> temp = _cachedUpdateablesSorted;
-                            _cachedUpdateablesSorted = _backBufferUpdateables;
-                            _backBufferUpdateables = temp;
+                            _listUpdateablesPublished = listToSort;
                             _flagUpdateOrderDirty = false;
                         }
                         // Otherwise a participant was admitted or withdrawn while this copy was being
@@ -334,7 +367,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     }
                 }
                 lock (_lock) {
-                    listToIterate = _cachedUpdateablesSorted;
+                    listToIterate = _listUpdateablesPublished;
                 }
                 foreach (IUpdateable module in listToIterate) {
                     if (!module.Enabled) { continue; }
@@ -350,7 +383,7 @@ namespace MonoGameLibrary.Core.Hosting {
             EnterOperation();
             try {
                 List<IDrawable> listToIterate;
-                bool flagNeedSort = false;
+                List<IDrawable> listFresh = null;
                 int generationSnapshot = 0;
                 Dictionary<object, int> indicesAdmission = null;
                 lock (_lock) {
@@ -361,31 +394,28 @@ namespace MonoGameLibrary.Core.Hosting {
                         throw new InvalidOperationException("Initialize must be called before Draw.");
                     }
                     if (_flagDrawOrderDirty) {
-                        flagNeedSort = true;
-                        _backBufferDrawables.Clear();
-                        _backBufferDrawables.AddRange(_listDrawableModules);
-                        // As in Update: the sort runs outside the lock and reads this snapshot.
+                        // As in Update: a rebuild owns its copy, so the sort runs outside the lock on a
+                        // list no other traversal can observe.
+                        listFresh = new List<IDrawable>(_listDrawableModules);
                         indicesAdmission = new Dictionary<object, int>(_indexAdmission);
                         generationSnapshot = _generationSchedule;
                     }
                 }
-                if (flagNeedSort) {
+                if (listFresh != null) {
+                    List<IDrawable> listToSort = listFresh;
                     Dictionary<object, int> indicesSort = indicesAdmission;
-                    _backBufferDrawables.Sort(delegate(IDrawable a, IDrawable b) {
+                    listToSort.Sort(delegate(IDrawable a, IDrawable b) {
                         return CompareScheduleOrder(a.Order, a, b.Order, b, indicesSort);
                     });
                     lock (_lock) {
                         if (_generationSchedule == generationSnapshot) {
-                            // Swap buffers
-                            List<IDrawable> temp = _cachedDrawablesSorted;
-                            _cachedDrawablesSorted = _backBufferDrawables;
-                            _backBufferDrawables = temp;
+                            _listDrawablesPublished = listToSort;
                             _flagDrawOrderDirty = false;
                         }
                     }
                 }
                 lock (_lock) {
-                    listToIterate = _cachedDrawablesSorted;
+                    listToIterate = _listDrawablesPublished;
                 }
                 foreach (IDrawable module in listToIterate) {
                     if (!module.Visible) { continue; }
@@ -393,6 +423,30 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
             } finally {
                 ExitOperation();
+            }
+        }
+        
+        /// <inheritdoc />
+        public void InvalidateSchedule() {
+            lock (_lock) {
+                if (_flagDisposed) {
+                    throw new ObjectDisposedException(
+                        nameof(GameHost), 
+                        "The GameHost has been disposed. "
+                    );
+                }
+                if (_flagDisposing) {
+                    throw new ObjectDisposedException(
+                        nameof(GameHost), 
+                        "The GameHost is in the process of being disposed. "
+                    );
+                }
+                // Bumping the generation also abandons a rebuild that is already sorting: its snapshot
+                // no longer describes the state this call is asking for, so its publication is skipped
+                // and the next traversal sorts the new values.
+                _flagUpdateOrderDirty = true;
+                _flagDrawOrderDirty = true;
+                _generationSchedule += 1;
             }
         }
         
@@ -529,9 +583,35 @@ namespace MonoGameLibrary.Core.Hosting {
         }
         
         /// <summary>
+        /// Reports a failure raised while releasing one resource, without letting the report stop the
+        /// remaining releases.
+        /// </summary>
+        /// <param name="exception">The release failure. </param>
+        /// <param name="context">The operation and participant the failure belongs to. </param>
+        /// <remarks>
+        /// This is the cleanup counterpart of <see cref="SafeExecute"/>: there the original exception is
+        /// rethrown, here it is consumed because a shutdown must still attempt every remaining release. A
+        /// handler that itself throws is recorded on the original exception and traced, so the failure of
+        /// the report cannot abort the loop.
+        /// </remarks>
+        private void ReportCleanupFailure(Exception exception, string context) {
+            try {
+                OnError(exception, context);
+            } catch (Exception handlerException) {
+                if (!exception.Data.Contains("HandlerException")) {
+                    exception.Data["HandlerException"] = handlerException;
+                }
+                System.Diagnostics.Trace.TraceError(
+                    $"Error handler threw an exception while processing cleanup failure [{exception}] in {context}: {handlerException}"
+                );
+            }
+        }
+        
+        /// <summary>
         /// Disposes the host and all disposable modules, and unloads content. 
-        /// Exceptions during individual module disposal or content unload are caught 
-        /// and do not prevent disposal of remaining modules. 
+        /// Exactly one caller performs the release and every other caller waits for it to finish; each
+        /// release is attempted even when an earlier one fails, and a release failure is reported rather
+        /// than propagated. 
         /// </summary>
         public void Dispose() {
             Dispose(true);
@@ -543,88 +623,105 @@ namespace MonoGameLibrary.Core.Hosting {
         /// </summary>
         /// <param name="flagDisposing">If <c>true</c>, releases both managed and unmanaged resources. </param>
         protected virtual void Dispose(bool flagDisposing) {
-            if (_flagDisposed) {
-                return;
-            }
-            
             int idCurrentThread = Thread.CurrentThread.ManagedThreadId;
             
             lock (_lock) {
-                // Reentrant call from within an active operation is forbidden.
-                if (_setActiveThreads.Contains(idCurrentThread)) {
-                    throw new InvalidOperationException(
-                        "Cannot dispose GameHost from within Update, Draw, or Initialize. "
-                    );
-                }
-                
                 if (_flagDisposed) {
                     return;
                 }
-                
+                // Reentrant call from within an active operation is forbidden.
+                if (_setActiveThreads.Contains(idCurrentThread)) {
+                    throw new InvalidOperationException(
+                        "Cannot dispose GameHost from within Update, Draw, Initialize or a module admission. "
+                    );
+                }
+                // A participant whose own Dispose calls back into Dispose on this thread must not wait
+                // for the cleanup it is itself running.
+                if (_idDisposer == idCurrentThread) {
+                    return;
+                }
+            }
+            
+            if (Interlocked.Exchange(ref _markDisposalElected, 1) != 0) {
+                // Another caller is already releasing the participants. Waiting makes Dispose mean "the
+                // resources are released when this returns" and keeps a second release loop from running
+                // over the same participants.
+                _eventDisposeComplete.Wait();
+                return;
+            }
+            
+            lock (_lock) {
+                _idDisposer = idCurrentThread;
                 // Prevent new operations from entering.
                 _flagDisposing = true;
             }
             
-            // Wait for all currently active operations to finish without burning CPU cycles.
-            _eventOperationsIdle.Wait();
-            
-            // Dispose all modules that implement IDisposable.
-            if (flagDisposing) {
-                // Step 1: Dispose all modules first (they may hold references to content resources).
-                // Modules are released in reverse registration order so that a module registered
-                // early, such as the content module, outlives everything that uses it.
-                for (int indexModule = _listAllModules.Count - 1; indexModule >= 0; indexModule -= 1) {
-                    object module = _listAllModules[indexModule];
-                    if (module is IDisposable disposable) {
-                        try {
-                            disposable.Dispose();
-                        } catch (Exception exception) {
-                            string context = $"{GetType().Name}.Dispose (Module: {module.GetType().Name})";
+            try {
+                // Wait for all currently active operations to finish without burning CPU cycles.
+                _eventOperationsIdle.Wait();
+                
+                // Dispose all modules that implement IDisposable.
+                if (flagDisposing) {
+                    // Step 1: Dispose all modules first (they may hold references to content resources).
+                    // Modules are released in reverse registration order so that a module registered
+                    // early, such as the content module, outlives everything that uses it. The list is
+                    // snapshotted first so that a participant's cleanup cannot disturb the loop that is
+                    // releasing it.
+                    object[] modules;
+                    lock (_lock) {
+                        modules = _listAllModules.ToArray();
+                    }
+                    for (int indexModule = modules.Length - 1; indexModule >= 0; indexModule -= 1) {
+                        object module = modules[indexModule];
+                        if (module is IDisposable disposable) {
                             try {
-                                OnError(exception, context);
-                            } catch (Exception) { }
+                                disposable.Dispose();
+                            } catch (Exception exception) {
+                                ReportCleanupFailure(
+                                    exception, 
+                                    $"{GetType().Name}.Dispose (Module: {module.GetType().Name})"
+                                );
+                            }
+                        }
+                    }
+                    
+                    // Step 2: Unload all content (modules have released their references)
+                    if (_serviceContent.HasValue) {
+                        try {
+                            _serviceContent.Value.Unload();
+                        } catch (Exception exception) {
+                            ReportCleanupFailure(exception, $"{GetType().Name}.Dispose (Content.Unload)");
+                        }
+                    }
+                    
+                    // Step 3: Dispose the content service itself
+                    if (_serviceContent.HasValue) {
+                        try {
+                            _serviceContent.Value.Dispose();
+                        } catch (Exception exception) {
+                            ReportCleanupFailure(exception, $"{GetType().Name}.Dispose (Content.Dispose)");
                         }
                     }
                 }
-                
-                // Step 2: Unload all content (modules have released their references)
-                if (_serviceContent.HasValue) {
-                    try {
-                        _serviceContent.Value.Unload();
-                    } catch (Exception exception) {
-                        try {
-                            OnError(exception, $"{GetType().Name}.Dispose (Content.Unload)");
-                        } catch (Exception) { }
-                    }
+            } finally {
+                // Finally mark as fully disposed and clear internal lists. The published schedules are
+                // replaced rather than cleared: a published list is guaranteed immutable, so even a
+                // reference that outlived its traversal sees a consistent (stale) snapshot.
+                lock (_lock) {
+                    _flagDisposed = true;
+                    _setModule.Clear();
+                    _listAllModules.Clear();
+                    _indexAdmission.Clear();
+                    _listLoadableModules.Clear();
+                    _listUpdateableModules.Clear();
+                    _listDrawableModules.Clear();
+                    _listUpdateablesPublished = new List<IUpdateable>();
+                    _listDrawablesPublished = new List<IDrawable>();
+                    _flagUpdateOrderDirty = true;
+                    _flagDrawOrderDirty = true;
+                    _generationSchedule += 1;
                 }
-                
-                // Step 3: Dispose the content service itself
-                if (_serviceContent.HasValue) {
-                    try {
-                        _serviceContent.Value.Dispose();
-                    } catch (Exception exception) {
-                        try {
-                            OnError(exception, $"{GetType().Name}.Dispose (Content.Dispose)");
-                        } catch (Exception) { }
-                    }
-                }
-            }
-            // Finally mark as fully disposed and clear internal lists.
-            lock (_lock) {
-                _flagDisposed = true;
-                _setModule.Clear();
-                _listAllModules.Clear();
-                _indexAdmission.Clear();
-                _listLoadableModules.Clear();
-                _listUpdateableModules.Clear();
-                _listDrawableModules.Clear();
-                _cachedUpdateablesSorted.Clear();
-                _cachedDrawablesSorted.Clear();
-                _backBufferUpdateables.Clear();
-                _backBufferDrawables.Clear();
-                _flagUpdateOrderDirty = true;
-                _flagDrawOrderDirty = true;
-                _generationSchedule += 1;
+                _eventDisposeComplete.Set();
             }
         }
     }

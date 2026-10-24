@@ -17,12 +17,12 @@ namespace MonoGameLibrary.Extensions {
         /// and no exception is thrown for a duplicate. 
         /// </summary>
         /// <param name="builder">The game builder instance.</param>
-        /// <param name="logger">Optional logger implementation. If null, <see cref="ConsoleLogger"/> is used. </param>
-        /// <param name="profiler">Optional profiler implementation. If null, <see cref="NoOperationProfiler"/> is used. </param>
-        /// <param name="poolThread">Optional thread pool implementation. If null, <see cref="DefaultThreadPool"/> is used. </param>
-        /// <param name="serviceCancellation">Optional cancellation service. If null, <see cref="DefaultCancellationService"/> is used. </param>
-        /// <param name="progressLoading">Optional loading progress service. If null, <see cref="DefaultLoadingProgress"/> is used. </param>
-        /// <param name="factoryObjectPool">Optional object pool factory. If null, <see cref="DefaultObjectPoolFactory"/> is used. </param>
+        /// <param name="logger">Optional logger implementation. If the optional is empty, <see cref="NullLogger"/> is used. </param>
+        /// <param name="profiler">Optional profiler implementation. If the optional is empty, <see cref="NoOperationProfiler"/> is used. </param>
+        /// <param name="poolThread">Optional thread pool implementation. If the optional is empty, <see cref="DefaultThreadPool"/> is used. </param>
+        /// <param name="serviceCancellation">Optional cancellation service. If the optional is empty, <see cref="DefaultCancellationService"/> is used. </param>
+        /// <param name="progressLoading">Optional loading progress service. If the optional is empty, <see cref="DefaultLoadingProgress"/> is used. </param>
+        /// <param name="factoryObjectPool">Optional object pool factory. If the optional is empty, <see cref="DefaultObjectPoolFactory"/> is used. </param>
         /// <returns>The game builder instance. </returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="builder"/> is null.</exception>
         public static GameBuilder UseDefaultServices(
@@ -37,7 +37,7 @@ namespace MonoGameLibrary.Extensions {
             ILogger loggerResolved = logger.HasValue ? logger.Value : NullLogger.Instance;
             IProfiler profilerResolved = profiler.HasValue ? profiler.Value : new NoOperationProfiler();
             IThreadPool poolResolvedThread = poolThread.HasValue ? poolThread.Value : new DefaultThreadPool();
-            ICancellationService serviceResolvedCancellation = serviceCancellation.HasValue ? serviceCancellation.Value : new DefaultCancellationService();
+            ICancellationService serviceResolvedCancellation = serviceCancellation.HasValue ? serviceCancellation.Value : new DefaultCancellationService(new Optional<ILogger>(loggerResolved));
             ILoadingProgress progressResolvedLoading = progressLoading.HasValue ? progressLoading.Value : new DefaultLoadingProgress();
             IObjectPoolFactory factoryResolvedObjectPool = factoryObjectPool.HasValue ? factoryObjectPool.Value : new DefaultObjectPoolFactory();
             

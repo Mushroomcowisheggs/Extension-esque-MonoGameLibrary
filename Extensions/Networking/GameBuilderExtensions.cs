@@ -163,7 +163,9 @@ namespace MonoGameLibrary.Extensions.Networking {
                     return serviceRegistered;
                 }
             }
-            return new DefaultCancellationService();
+            // The private fallback still reports a failing cancellation callback: it uses the same logger
+            // the rest of this helper resolved, not a silent one.
+            return new DefaultCancellationService(new Optional<ILogger>(ResolveLogger(builder, default)));
         }
         
         /// <summary>

@@ -22,7 +22,7 @@ namespace MonoGameLibrary.Core.Pooling {
         /// <summary>
         /// Returns an object to the pool.
         /// Call this exactly once per object obtained from <see cref="Get"/> or <see cref="TryGet"/>;
-        /// returning an object the pool never handed out corrupts <see cref="CountInUse"/>.
+        /// returning an object the pool never handed out corrupts <see cref="InUseCount"/>.
         /// </summary>
         /// <param name="item">The object to return.</param>
         void Return(T item);
@@ -30,16 +30,16 @@ namespace MonoGameLibrary.Core.Pooling {
         /// <summary>
         /// Gets the number of objects currently in use (taken from the pool and not yet returned).
         /// </summary>
-        int CountInUse { get; }
+        int InUseCount { get; }
         
         /// <summary>
         /// Gets the number of objects available in the pool.
         /// </summary>
-        int CountAvailable { get; }
+        int AvailableCount { get; }
         
         /// <summary>
         /// Removes all idle objects from the pool.
-        /// Leased objects are unaffected: they remain counted in <see cref="CountInUse"/> until
+        /// Leased objects are unaffected: they remain counted in <see cref="InUseCount"/> until
         /// they are returned, and an object returned after a Clear is pooled again like any other
         /// return. Clear therefore never resets in-use accounting, so outstanding leases stay
         /// visible in diagnostics.

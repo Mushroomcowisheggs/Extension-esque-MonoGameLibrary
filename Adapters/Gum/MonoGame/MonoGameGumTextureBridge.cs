@@ -104,7 +104,17 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
                     nameParameter
                 );
             }
-            return provider.GetNativeTexture();
+            // The type test establishes that the capability exists, not that it still holds a value: a
+            // released wrapper resolves to null. Rejecting it here keeps the failure at the call site
+            // instead of letting a null reach Gum's runtime, where it would surface later and elsewhere.
+            Texture2D textureNative = provider.GetNativeTexture();
+            if (textureNative == null) {
+                throw new ArgumentException(
+                    "Texture no longer resolves a MonoGame Texture2D: the adapter behind it was released.",
+                    nameParameter
+                );
+            }
+            return textureNative;
         }
         
         private static Microsoft.Xna.Framework.Color ToMonoGameColor(

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using MonoGameLibrary.Core.Diagnostics;
 
 namespace MonoGameLibrary.Core.Concurrency {
     /// <summary>
@@ -13,12 +14,22 @@ namespace MonoGameLibrary.Core.Concurrency {
     /// <see cref="ObjectDisposedException"/> and no named token is (re)created — while 
     /// <see cref="CancelOperation"/> and <see cref="CancelAll"/> become no-ops so teardown 
     /// code can call them safely. <see cref="Dispose"/> cancels and releases every 
-    /// outstanding token. 
+    /// outstanding token. A cancellation callback that throws is reported to the configured logger and
+    /// does not keep the remaining operations from being cancelled and released.
     /// </remarks>
     public sealed class DefaultCancellationService : ICancellationService, IDisposable {
         private readonly object _lock = new object();
         private readonly Dictionary<string, CancellationTokenSource> _sources = new Dictionary<string, CancellationTokenSource>();
+        private readonly ILogger _logger;
         private bool _flagDisposed;
+        
+        /// <summary>
+        /// Initializes the service. 
+        /// </summary>
+        /// <param name="logger">Optional logger for a cancellation callback that throws during release. </param>
+        public DefaultCancellationService(Optional<ILogger> logger = default) {
+            if (logger.HasValue) { _logger = logger.Value; } else { _logger = NullLogger.Instance; }
+        }
         
         /// <inheritdoc />
         public CancellationToken GetTokenForOperation(string idOperation) {
@@ -47,8 +58,18 @@ namespace MonoGameLibrary.Core.Concurrency {
                 ThrowIfDisposed();
                 CancellationTokenSource current;
                 if (_sources.TryGetValue(idOperation, out current)) {
-                    current.Cancel();
-                    current.Dispose();
+                    // A callback that throws from Cancel must not skip the release of the previous scope
+                    // or the replacement that renewal is defined to produce.
+                    try {
+                        current.Cancel();
+                    } catch (Exception exception) {
+                        _logger.Error("Cancelling the previous operation during renewal failed.", exception);
+                    }
+                    try {
+                        current.Dispose();
+                    } catch (Exception exception) {
+                        _logger.Error("Releasing the previous operation's cancellation source failed.", exception);
+                    }
                 }
                 
                 var next = new CancellationTokenSource();
@@ -96,9 +117,20 @@ namespace MonoGameLibrary.Core.Concurrency {
                 if (_flagDisposed) { return; }
                 _flagDisposed = true;
                 
+                // Per operation, and per step: a callback that throws from Cancel must not keep this
+                // operation's source alive, and it must not keep the remaining operations from being
+                // cancelled and released.
                 foreach (var source in _sources.Values) {
-                    source.Cancel();
-                    source.Dispose();
+                    try {
+                        source.Cancel();
+                    } catch (Exception exception) {
+                        _logger.Error("Cancelling a named operation during disposal failed.", exception);
+                    }
+                    try {
+                        source.Dispose();
+                    } catch (Exception exception) {
+                        _logger.Error("Releasing a named operation's cancellation source failed.", exception);
+                    }
                 }
                 _sources.Clear();
             }

@@ -365,7 +365,15 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
                     $"The texture type '{texture.GetType().FullName}' is not a MonoGame texture adapter."
                 );
             }
-            return providerTexture.GetNativeTexture();
+            // A released adapter keeps implementing the contract but resolves to null; drawing with that
+            // value would fail inside the backend instead of at the call that supplied the texture.
+            Texture2D textureNative = providerTexture.GetNativeTexture();
+            if (textureNative == null) {
+                throw new ObjectDisposedException(
+                    texture.GetType().Name, "The texture adapter has been released and no longer holds a texture. "
+                );
+            }
+            return textureNative;
         }
         
         /// <inheritdoc />

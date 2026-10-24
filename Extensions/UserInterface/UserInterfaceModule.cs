@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Time;
 
@@ -10,9 +11,11 @@ namespace MonoGameLibrary.Extensions.UserInterface {
     public sealed class UserInterfaceModule : IUpdateable, IDrawable, IDisposable {
         private readonly IUserInterfaceService _serviceUserInterface;
         private readonly int _order;
-        private bool _flagEnabled = true;
-        private bool _flagVisible = true;
-        private bool _flagDisposed;
+        // Every mutable field is volatile: the gates are read on the frame thread while the application
+        // writes them, and disposal is elected atomically so the service is released once.
+        private volatile bool _flagEnabled = true;
+        private volatile bool _flagVisible = true;
+        private int _markDisposed;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="UserInterfaceModule"/> class.
@@ -47,7 +50,7 @@ namespace MonoGameLibrary.Extensions.UserInterface {
         
         /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
-            if (!_flagEnabled || _flagDisposed) {
+            if (!_flagEnabled || Volatile.Read(ref _markDisposed) != 0) {
                 return;
             }
             _serviceUserInterface.Update(timeFrame);
@@ -55,21 +58,20 @@ namespace MonoGameLibrary.Extensions.UserInterface {
         
         /// <inheritdoc />
         public void Draw(FrameTime timeFrame) {
-            if (!_flagVisible || _flagDisposed) {
+            if (!_flagVisible || Volatile.Read(ref _markDisposed) != 0) {
                 return;
             }
             _serviceUserInterface.Draw();
         }
         
         /// <summary>
-        /// Disposes the module (no unmanaged resources).
+        /// Disposes the module (no unmanaged resources). Exactly one caller releases the service.
         /// </summary>
         public void Dispose() {
-            if (_flagDisposed) {
+            if (Interlocked.Exchange(ref _markDisposed, 1) != 0) {
                 return;
             }
             _serviceUserInterface.Dispose();
-            _flagDisposed = true;
             GC.SuppressFinalize(this);
         }
     }

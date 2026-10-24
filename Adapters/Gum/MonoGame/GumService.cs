@@ -30,8 +30,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         private readonly DefaultVisualsVersion _version;
         private readonly GumBridgesService _serviceBridges;
         private readonly object _lock = new object();
-        private bool _flagInitialized;
-        private bool _flagDisposed;
+        // The lifecycle gates are read by every member, including the ones that do not take the lock.
+        private volatile bool _flagInitialized;
+        private volatile bool _flagDisposed;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="GumService"/> class. 
@@ -83,13 +84,18 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         }
         
         /// <summary>Gets the bridges this service resolved, which consumers use to reach Gum's runtime types.</summary>
+        /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
         public GumBridgesService Bridges {
-            get { return _serviceBridges; }
+            get {
+                ThrowIfDisposed();
+                return _serviceBridges;
+            }
         }
         
         /// <inheritdoc />
         public void Initialize() {
             lock (_lock) {
+                ThrowIfDisposed();
                 if (_flagInitialized) {
                     return;
                 }
@@ -154,7 +160,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         
         /// <summary>Adds a key that moves focus forward through Gum's tab order.</summary>
         /// <param name="key">The key to add.</param>
+        /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
         public void AddNavigationForwardKey(NavigationKey key) {
+            ThrowIfDisposed();
             FrameworkElement.TabKeyCombos.Add(
                 new KeyCombo { PushedKey = ToMonoGameKey(key) }
             );
@@ -162,7 +170,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         
         /// <summary>Adds a key that moves focus backward through Gum's tab order.</summary>
         /// <param name="key">The key to add.</param>
+        /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
         public void AddNavigationReverseKey(NavigationKey key) {
+            ThrowIfDisposed();
             FrameworkElement.TabReverseKeyCombos.Add(
                 new KeyCombo { PushedKey = ToMonoGameKey(key) }
             );
@@ -170,7 +180,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         
         /// <summary>Removes a previously added forward-navigation key. Removing a key that was never added is a no-op.</summary>
         /// <param name="key">The key to remove.</param>
+        /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
         public void RemoveNavigationForwardKey(NavigationKey key) {
+            ThrowIfDisposed();
             Keys keyMonoGame = ToMonoGameKey(key);
             FrameworkElement.TabKeyCombos.RemoveAll(delegate(KeyCombo combo) {
                 return combo.PushedKey == keyMonoGame;
@@ -179,7 +191,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         
         /// <summary>Removes a previously added reverse-navigation key. Removing a key that was never added is a no-op.</summary>
         /// <param name="key">The key to remove.</param>
+        /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
         public void RemoveNavigationReverseKey(NavigationKey key) {
+            ThrowIfDisposed();
             Keys keyMonoGame = ToMonoGameKey(key);
             FrameworkElement.TabReverseKeyCombos.RemoveAll(delegate(KeyCombo combo) {
                 return combo.PushedKey == keyMonoGame;
@@ -200,13 +214,17 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             }
         }
         
-        private void EnsureInitialized() {
+        private void ThrowIfDisposed() {
             if (_flagDisposed) {
                 throw new ObjectDisposedException(
                     nameof(GumService), 
                     "The GumService has been disposed. "
                 );
             }
+        }
+        
+        private void EnsureInitialized() {
+            ThrowIfDisposed();
             if (!_flagInitialized) {
                 throw new InvalidOperationException("GumService must be initialized before use.");
             }
