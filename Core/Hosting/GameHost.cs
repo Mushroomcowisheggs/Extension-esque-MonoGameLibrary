@@ -166,6 +166,15 @@ namespace MonoGameLibrary.Core.Hosting {
         /// </para>
         /// </remarks>
         public void AddModule(object module) {
+            if (module == null) {
+                throw new ArgumentNullException(nameof(module));
+            }
+            if (module is IUpdateable || module is IDrawable) {
+                throw new NotSupportedException(
+                    $"The participant {module.GetType().FullName} takes part in a schedule, so its order " +
+                    "must be supplied explicitly: AddModule(module, new ScheduleOptions(orderUpdate, orderDraw)). "
+                );
+            }
             AddModule(module, ScheduleOptions.Default);
         }
         
@@ -381,7 +390,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     foreach (ILoadable moduleLoadable in modulesToLoad) {
                         SafeExecute("LoadContent", moduleLoadable, moduleLoadable.LoadContent);
                     }
-
+                    
                     // All modules succeeded – mark as initialized.
                     lock (_lock) {
                         _flagIsInitialized = true;

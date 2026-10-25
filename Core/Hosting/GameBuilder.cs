@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MonoGameLibrary.Core.Diagnostics;
 using MonoGameLibrary.Core.Concurrency;
+using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Pooling;
 
 namespace MonoGameLibrary.Core.Hosting {
@@ -54,7 +55,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
-
+                
                 if (flagOverwrite) {
                     _registryService.TryRegister(instance, flagOverwrite: true);
                 } else {
@@ -68,6 +69,15 @@ namespace MonoGameLibrary.Core.Hosting {
         
         /// <inheritdoc />
         public GameBuilder AddModule(object module) {
+            if (module == null) {
+                throw new ArgumentNullException(nameof(module));
+            }
+            if (module is IUpdateable || module is IDrawable) {
+                throw new NotSupportedException(
+                    $"The participant {module.GetType().FullName} takes part in a schedule, so its order " +
+                    "must be supplied explicitly: AddModule(module, new ScheduleOptions(orderUpdate, orderDraw)). "
+                );
+            }
             return AddModule(module, ScheduleOptions.Default);
         }
         
@@ -77,7 +87,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
-
+                
                 if (_setModule.Contains(module)) {
                     throw new InvalidOperationException($"Module {module.GetType().FullName} already added.");
                 }

@@ -22,11 +22,16 @@ namespace MonoGameLibrary.Core.Hosting {
         
         /// <summary>
         /// Adds a module to the host. Duplicate modules are rejected immediately. 
+        /// A participant that implements <see cref="Lifecycle.IUpdateable"/> or <see cref="Lifecycle.IDrawable"/>
+        /// takes part in a schedule and must use <see cref="AddModule(object, ScheduleOptions)"/>; this overload
+        /// rejects it, including an intentional order of zero, which is written as <c>new ScheduleOptions(0, 0)</c>.
         /// </summary>
         /// <param name="module">The module instance to add. </param>
         /// <returns>The current builder instance. </returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="module"/> is null. </exception>
         /// <exception cref="InvalidOperationException">Thrown if <paramref name="module"/> has already been added. </exception>
+        /// <exception cref="NotSupportedException">Thrown if the participant implements <see cref="Lifecycle.IUpdateable"/>
+        /// or <see cref="Lifecycle.IDrawable"/> and therefore requires an explicit schedule. </exception>
         TBuilder AddModule(object module);
         
         /// <summary>

@@ -25,8 +25,13 @@ namespace MonoGameLibrary.Core.Hosting {
         /// and it does not dispose the withdrawn module. The caller received the exception and still
         /// holds the reference, so releasing what the failed load acquired is the caller's decision.
         /// Modules are picked up by <see cref="Update"/>/<see cref="Draw"/> on the next frame. 
+        /// A participant that implements <see cref="Lifecycle.IUpdateable"/> or <see cref="Lifecycle.IDrawable"/>
+        /// takes part in a schedule and must use <see cref="AddModule(object, ScheduleOptions)"/>; this overload
+        /// rejects it, including an intentional order of zero, which is written as <c>new ScheduleOptions(0, 0)</c>.
         /// </summary>
         /// <param name="module">The module to add. </param>
+        /// <exception cref="NotSupportedException">Thrown if the participant implements <see cref="Lifecycle.IUpdateable"/>
+        /// or <see cref="Lifecycle.IDrawable"/> and therefore requires an explicit schedule. </exception>
         void AddModule(object module);
         
         /// <summary>
@@ -38,7 +43,8 @@ namespace MonoGameLibrary.Core.Hosting {
         /// The host copies <paramref name="options"/> into its schedule entry at admission and never reads
         /// an order from the participant afterwards, so the scheduling key cannot be changed by mutating a
         /// participant's own member. Use <see cref="AddModule(object)"/> only for participants that do not
-        /// participate in a schedule; that overload admits them at order zero.
+        /// participate in a schedule; that overload rejects a scheduling participant instead of admitting it at
+        /// order zero. Pass <c>new ScheduleOptions(0, 0)</c> when zero is the intended order.
         /// </remarks>
         void AddModule(object module, ScheduleOptions options);
         
