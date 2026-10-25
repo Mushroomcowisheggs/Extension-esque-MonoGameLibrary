@@ -20,13 +20,11 @@ namespace MonoGameLibrary.Extensions.Scenes {
         private int _markDisposed;
         
         /// <summary>Initializes the module with the schedule position it will occupy.</summary>
-        /// <param name="order">The value reported by <see cref="Order"/>.</param>
+        /// <param name="order">The order supplied to <c>ScheduleOptions</c> at admission.</param>
         public SceneModule(int order = 0) {
             _order = order;
         }
         
-        /// <summary>Gets the position this module occupies in the host's schedule.</summary>
-        public int Order { get { return _order; } }
         /// <summary>Gets or sets whether <see cref="Update"/> forwards to the scene service.</summary>
         public bool Enabled { get { return _flagEnabled; } set { _flagEnabled = value; } }
         /// <summary>Gets or sets whether <see cref="Draw"/> forwards to the scene service.</summary>
@@ -40,7 +38,7 @@ namespace MonoGameLibrary.Extensions.Scenes {
             }
             _service = new SceneService();
             builder.RegisterService<ISceneService>(_service);
-            builder.AddModule(this);
+            builder.AddModule(this, new ScheduleOptions(orderUpdate: _order, orderDraw: _order));
         }
         
         /// <summary>Forwards the frame to the scene service when the module is enabled.</summary>

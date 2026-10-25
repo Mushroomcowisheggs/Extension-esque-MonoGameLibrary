@@ -76,7 +76,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             builder.RegisterService<GumBridgesService>(serviceGum.Bridges);
             builder.RegisterService<IUserInterfaceService>(serviceGum);
             builder.AddModule(new GumInitializationModule(serviceGum, manager));
-            builder.AddModule(new UserInterfaceModule(serviceGum));
+            builder.AddModule(new UserInterfaceModule(serviceGum), new ScheduleOptions(orderUpdate: 100, orderDraw: 100));
         }
     }
 }

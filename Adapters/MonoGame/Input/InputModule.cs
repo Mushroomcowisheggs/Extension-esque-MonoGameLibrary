@@ -26,11 +26,6 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         private bool _flagDisposed = false;
         
         /// <summary>
-        /// Gets the update order. Input should update before most systems, so default is -64.
-        /// </summary>
-        public int Order { get; } = -64;
-        
-        /// <summary>
         /// Gets or sets whether the module updates.
         /// </summary>
         public bool Enabled {
@@ -62,7 +57,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
             builder.RegisterService<ITextInputService>(_serviceText);
             // The single key translation table every MonoGame-flavoured adapter resolves.
             builder.RegisterService<INativeKeyProvider<Keys>>(new MonoGameKeyCodeProvider());
-            builder.AddModule(this);
+            builder.AddModule(this, new ScheduleOptions(orderUpdate: -64));
         }
         
         /// <inheritdoc />

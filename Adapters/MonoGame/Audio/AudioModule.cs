@@ -23,11 +23,6 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         private bool _flagDisposed = false;
         
         /// <summary>
-        /// Gets the update order. Default is 0.
-        /// </summary>
-        public int Order { get; } = 0;
-        
-        /// <summary>
         /// Gets or sets whether the module updates.
         /// </summary>
         public bool Enabled {
@@ -58,7 +53,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
             _factoryPcm = new PcmAudioOutputFactory();
             builder.RegisterService<IAudioService>(_serviceAudio);
             builder.RegisterService<IPcmAudioOutputFactory>(_factoryPcm);
-            builder.AddModule(this);
+            builder.AddModule(this, new ScheduleOptions(orderUpdate: 0));
         }
         
         /// <inheritdoc />

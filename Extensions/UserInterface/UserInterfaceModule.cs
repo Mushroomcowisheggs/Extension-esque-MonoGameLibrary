@@ -10,7 +10,6 @@ namespace MonoGameLibrary.Extensions.UserInterface {
     /// </summary>
     public sealed class UserInterfaceModule : IUpdateable, IDrawable, IDisposable {
         private readonly IUserInterfaceService _serviceUserInterface;
-        private readonly int _order;
         // Every mutable field is volatile: the gates are read on the frame thread while the application
         // writes them, and disposal is elected atomically so the service is released once.
         private volatile bool _flagEnabled = true;
@@ -21,19 +20,12 @@ namespace MonoGameLibrary.Extensions.UserInterface {
         /// Initializes a new instance of the <see cref="UserInterfaceModule"/> class.
         /// </summary>
         /// <param name="serviceUserInterface">The UI service to forward calls to.</param>
-        /// <param name="order">Execution order (default 0).</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceUserInterface"/> is null.</exception>
-        public UserInterfaceModule(IUserInterfaceService serviceUserInterface, int order = 100) {
+        public UserInterfaceModule(IUserInterfaceService serviceUserInterface) {
             if (serviceUserInterface == null) {
                 throw new ArgumentNullException(nameof(serviceUserInterface));
             }
             _serviceUserInterface = serviceUserInterface;
-            _order = order;
-        }
-        
-        /// <inheritdoc />
-        public int Order {
-            get { return _order; }
         }
         
         /// <inheritdoc />

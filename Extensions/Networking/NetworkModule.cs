@@ -38,13 +38,6 @@ namespace MonoGameLibrary.Extensions.Networking {
         }
         
         /// <inheritdoc />
-        public int Order {
-            get {
-                return _order;
-            }
-        }
-        
-        /// <inheritdoc />
         public bool Enabled {
             get {
                 return _flagEnabled;
@@ -63,7 +56,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             if (_probeNetwork.HasValue) {
                 builder.RegisterService<INetworkProbe>(_probeNetwork.Value);
             }
-            builder.AddModule(this);
+            builder.AddModule(this, new ScheduleOptions(orderUpdate: _order));
         }
         
         /// <inheritdoc />

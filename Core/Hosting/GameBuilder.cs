@@ -15,10 +15,38 @@ namespace MonoGameLibrary.Core.Hosting {
         private readonly object _lockBuilder = new object();
         private readonly ServiceRegistry _registryService = new ServiceRegistry();
         private readonly HashSet<object> _setModule = new HashSet<object>();
-        private readonly List<object> _listModules = new List<object>();
+        private readonly List<ModuleEntry> _listModules = new List<ModuleEntry>();
         private Action<GameHost> _actionConfigHost = delegate { };
         private bool _flagIsBuilding = false;
         private bool _flagIsBuilt = false;
+        
+        /// <summary>
+        /// One admitted module together with the schedule keys it was registered under. 
+        /// </summary>
+        private readonly struct ModuleEntry {
+            /// <summary>
+            /// Initializes a new entry. 
+            /// </summary>
+            /// <param name="module">The module instance. </param>
+            /// <param name="options">The fixed schedule keys. </param>
+            public ModuleEntry(object module, ScheduleOptions options) {
+                if (module == null) {
+                    throw new ArgumentNullException(nameof(module));
+                }
+                Module = module;
+                Options = options;
+            }
+            
+            /// <summary>
+            /// Gets the module instance. 
+            /// </summary>
+            public object Module { get; }
+            
+            /// <summary>
+            /// Gets the schedule keys. 
+            /// </summary>
+            public ScheduleOptions Options { get; }
+        }
         
         /// <inheritdoc />
         public GameBuilder RegisterService<TService>(TService instance, bool flagOverwrite = false) where TService : class {
@@ -40,6 +68,11 @@ namespace MonoGameLibrary.Core.Hosting {
         
         /// <inheritdoc />
         public GameBuilder AddModule(object module) {
+            return AddModule(module, ScheduleOptions.Default);
+        }
+        
+        /// <inheritdoc />
+        public GameBuilder AddModule(object module, ScheduleOptions options) {
             if (module == null) { throw new ArgumentNullException(nameof(module)); }
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
@@ -49,7 +82,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     throw new InvalidOperationException($"Module {module.GetType().FullName} already added.");
                 }
                 _setModule.Add(module);
-                _listModules.Add(module);
+                _listModules.Add(new ModuleEntry(module, options));
             }
             return this;
         }
@@ -125,7 +158,7 @@ namespace MonoGameLibrary.Core.Hosting {
         public IGameHost Build() {
             GameHost host;
             Action<GameHost> actionToRunConfig;
-            List<object> listModulesSnapshot;
+            List<ModuleEntry> listModulesSnapshot;
             
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already completed."); }
@@ -136,7 +169,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 // closed and there is no path from a participant back to it.
                 host = new GameHost();
                 actionToRunConfig = _actionConfigHost;
-                listModulesSnapshot = new List<object>(_listModules);
+                listModulesSnapshot = new List<ModuleEntry>(_listModules);
             }
             
             try {
@@ -149,8 +182,8 @@ namespace MonoGameLibrary.Core.Hosting {
                     poolThread.SetExceptionHandlerProvider(delegate() { return host.OnError; });
                 }
                 
-                foreach (object module in listModulesSnapshot) {
-                    host.AddModule(module);
+                foreach (ModuleEntry entry in listModulesSnapshot) {
+                    host.AddModule(entry.Module, entry.Options);
                 }
                 
                 lock (_lockBuilder) { _flagIsBuilt = true; }

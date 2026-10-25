@@ -16,8 +16,8 @@
 **物理依赖规则（项目级别强制）**：
 ```
 Game → Extensions → Core
-Game → Adapters → Extensions → Core   （Adapter 始终指向 Extensions）
-Extensions → Core                      （Extensions 绝不指向 Adapters）
+Game → Adapters → Extensions → Core   (an Adapter always points to Extensions)
+Extensions → Core                      (Extensions never points to Adapters)
 ```
 
 此规则保证 Extensions（业务层）完全不知晓 Adapters（基础设施），从而实现轻松的后端替换和可测试性。
@@ -157,7 +157,7 @@ public class BadAudioModule : ILoadable {
    - `IUpdateable`：用于每帧更新逻辑（物理、AI、输入处理等）。在 `GameHost.Update` 中被调用。
    - `IDrawable`：用于每帧渲染。在 `GameHost.Draw` 中被调用。
 
-2. **必须提供 `Order` 属性**（int）。数值越小执行越早。默认建议为 `0`，但可根据需要调整（如输入模块应设为负值）。**`Order` 相等时按准入顺序决出先后**：`Order` 相同的参与者按组合根加入它们的顺序排列，绝不使用类型名，因此重命名不会移动参与者，无论是否存在并列调度都可复现。不要依赖该次级键来表达设计意图——需要区分先后时就给出不同的值。`ModuleLoader` 在任何准入发生之前运行，因此它仍以自己的类型全名次级键打破*注册序*的并列；注册序也要给出互不相同的值（见第 6 条）。
+2. **必须在准入时通过 `ScheduleOptions` 提供调度顺序**（update order 与 draw order，int）。数值越小执行越早，默认建议为 `0`，可按需调整（如输入模块应使用负值）。**顺序值相等时按准入顺序决出先后**：相同的值按组合根加入它们的顺序排列，绝不使用类型名，因此重命名不会移动参与者。不要依赖该次级键来表达设计意图——需要区分先后时就给出不同的值。`ModuleLoader` 在任何准入发生之前运行，因此它仍以自己的类型全名次级键打破*注册序*的并列；注册序也要给出互不相同的值（见第 6 条）。
 3. **必须提供 `Enabled` / `Visible` 属性**（bool）。宿主在调用 `Update` / `Draw` 前会检查这些标志。它们应允许在运行时动态更改。
 4. **不要在 `Update` 或 `Draw` 中执行耗时操作**（如磁盘 I/O、网络请求）。应使用 `IThreadPool` 异步处理。
 5. **保持方法简短**，每个周期内完成最小必要工作。超过 16ms 会导致掉帧。
@@ -165,8 +165,8 @@ public class BadAudioModule : ILoadable {
 ### 生命周期执行顺序
 
 - `Initialize` 阶段：按 `AddModule` 添加顺序调用所有 `ILoadable.LoadContent`。
-- `Update` 阶段：按 `Order` 升序调用所有 `IUpdateable.Update`，`Order` 相等时按准入顺序决出先后，并跳过 `Enabled == false` 的模块。
-- `Draw` 阶段：按 `Order` 升序调用所有 `IDrawable.Draw`，`Order` 相等时按准入顺序决出先后，并跳过 `Visible == false` 的模块。
+- `Update` 阶段：按准入时提供的 update order 升序调用所有 `IUpdateable.Update`，顺序值相等时按准入顺序决出先后，并跳过 `Enabled == false` 的模块。
+- `Draw` 阶段：按准入时提供的 draw order 升序调用所有 `IDrawable.Draw`，顺序值相等时按准入顺序决出先后，并跳过 `Visible == false` 的模块。
 
 **准则是"先加载后发布"（publish-after-load）。** 模块只有在其 `LoadContent` 成功返回之后才对 `Update` 与 `Draw` 可见，因此另一线程上的帧不会观察到加载尚未完成的参与者。若加载抛出异常，该模块会被从宿主中撤除，且永远不会进入调度。由此有三条推论：
 
@@ -185,19 +185,15 @@ public class BadAudioModule : ILoadable {
 ```csharp
 // A physics module that must run before rendering
 public class PhysicsModule : IUpdateable, IDrawable {
-    private int _order;
     private bool _flagEnabled;
     private bool _flagVisible;
 
     public PhysicsModule() {
-        _order = 0;
         _flagEnabled = true;
         _flagVisible = false; // Physics does not draw anything.
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Enabled {
         get { return _flagEnabled; }
@@ -221,17 +217,13 @@ public class PhysicsModule : IUpdateable, IDrawable {
 
 // A debug overlay that draws after everything else
 public class DebugOverlay : IDrawable {
-    private int _order;
     private bool _flagVisible;
 
     public DebugOverlay() {
-        _order = 100; // Last
         _flagVisible = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Visible {
         get { return _flagVisible; }
@@ -306,9 +298,7 @@ public class AsyncWorker : IUpdateable {
         _pending = 0;
     }
 
-    public int Order {
-        get { return 0; }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Enabled {
         get { return true; }
@@ -385,9 +375,7 @@ public class SafeCounter : IUpdateable {
         }
     }
 
-    public int Order {
-        get { return 0; }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Enabled {
         get { return true; }
@@ -493,10 +481,10 @@ public class CompositeModule : IDisposable {
 
 ### 规则详述
 
-1. **`Order` 决定执行顺序**，它应该是常量或基于配置，但必须在构造时确定。宿主缓存已排序的调度，只在调度成员变化时重建，而不是每帧重排。运行期更改 `Order` 的参与者必须在更改后调用 `IGameHost.InvalidateSchedule`；在它调用之前，缓存的顺序继续生效。`Order` 相同的参与者按准入顺序（`AddModule` 的调用顺序）排列；这可复现，但不是表达设计意图的方式。
+1. **`ScheduleOptions` 决定执行顺序**。组合根在通过 `AddModule` 准入参与者时提供 update order 与 draw order；宿主把这些值复制进自己的调度条目，之后不再读取参与者的任何顺序成员。因此顺序在本次准入内固定：参与者无法通过修改自身状态移动自己，也不存在运行期失效调用。宿主只在调度成员变化时重建已排序的调度，而不是每帧重排。顺序值相同的参与者按准入顺序（`AddModule` 的调用顺序）排列；这可复现，但不是表达设计意图的方式。下文示例只展示参与者自身的成员；调度键不在其中。
 2. **`Enabled` 和 `Visible` 应支持运行时动态更改**。它们通常用于暂停菜单、屏幕过渡等。
-3. **模块间不应通过 `Order` 进行通信**。顺序仅用于调度，不是通信机制。
-4. **如果模块之间存在依赖关系（如输入必须在物理前更新），应通过 `Order` 建立明确的偏序**。
+3. **模块间不应通过调度顺序进行通信**。顺序仅用于调度，不是通信机制。
+4. **如果模块之间存在依赖关系（如输入必须在物理前更新），应在准入时通过 `ScheduleOptions` 建立明确的偏序**。
 5. **不要在 `Enabled`/`Visible` 的 getter 中执行复杂逻辑**，因为它们每帧被多次访问。
 6. **注册序（`[ModuleRegistration]`）是依赖通道，不是标签。** `ModuleLoader` 按注册序升序构造并注册被发现的模块，因此提供服务的模块必须比消费它的模块取更小的值。请留在所属层的号段内——Adapters `-500..-200`、Extensions `-199..-100`、`-99..-1` 预留给未来的库模块、`0` 及以上为应用模块——并保证同一号段内取值唯一。重复取值会把该对的装载顺序交给类型全名次级键，重命名就会移动它们。
 
@@ -504,17 +492,13 @@ public class CompositeModule : IDisposable {
 
 ```csharp
 public class InputModule : IUpdateable {
-    private int _order;
     private bool _flagEnabled;
 
     public InputModule() {
-        _order = -100; // Earliest
         _flagEnabled = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Enabled {
         get { return _flagEnabled; }
@@ -525,17 +509,13 @@ public class InputModule : IUpdateable {
 }
 
 public class PhysicsModule : IUpdateable {
-    private int _order;
     private bool _flagEnabled;
 
     public PhysicsModule() {
-        _order = 0; // After input
         _flagEnabled = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Enabled {
         get { return _flagEnabled; }
@@ -546,17 +526,13 @@ public class PhysicsModule : IUpdateable {
 }
 
 public class RenderModule : IDrawable {
-    private int _order;
     private bool _flagVisible;
 
     public RenderModule() {
-        _order = 10; // After other drawables
         _flagVisible = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Visible {
         get { return _flagVisible; }
@@ -707,12 +683,7 @@ public class SafeModule : ILoadable {
         }
     }
 
-    private int _order;
-    public int Order {
-        get {
-            return _order;
-        }
-    }
+    // Schedule order is supplied through ScheduleOptions at admission.
 
     public bool Enabled {
         get {
@@ -734,7 +705,6 @@ public class BadSafeModule {
         _texture?.Dispose();
     }
 
-    public int Order => 0; // Violates: expression-bodied property
 }
 ```
 
@@ -987,7 +957,7 @@ public class GameScene : Scene {
 
 - [ ] 所有外部依赖通过构造函数传入，无服务定位器。
 - [ ] 实现了必要的生命周期接口 (`ILoadable`, `IUpdateable`, `IDrawable`)。
-- [ ] 提供了 `Order`, `Enabled`, `Visible`（如果适用）。
+- [ ] 提供了 `Enabled`、`Visible`（如果适用），且组合根在准入时传入 `ScheduleOptions`。
 - [ ] 异常没有静默吞没；使用 `try-finally` 进行清理。
 - [ ] 如果使用 `IThreadPool`，异步操作中的异常被妥善处理。
 - [ ] 共享状态使用了同步原语（锁、互锁等）。

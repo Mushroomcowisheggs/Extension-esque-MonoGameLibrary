@@ -29,23 +29,23 @@ namespace MonoGameLibrary.Core.Hosting {
         /// <param name="module">The module to add. </param>
         void AddModule(object module);
         
+        /// <summary>
+        /// Adds a module with the schedule keys the host uses for it. 
+        /// </summary>
+        /// <param name="module">The module to add. </param>
+        /// <param name="options">The fixed update and draw order for this admission. </param>
+        /// <remarks>
+        /// The host copies <paramref name="options"/> into its schedule entry at admission and never reads
+        /// an order from the participant afterwards, so the scheduling key cannot be changed by mutating a
+        /// participant's own member. Use <see cref="AddModule(object)"/> only for participants that do not
+        /// participate in a schedule; that overload admits them at order zero.
+        /// </remarks>
+        void AddModule(object module, ScheduleOptions options);
+        
         void Initialize(IContentService serviceContent);
         
         void Update(FrameTime timeFrame);
         
         void Draw(FrameTime timeFrame);
-        
-        /// <summary>
-        /// Marks both schedules stale so the next <see cref="Update"/> and <see cref="Draw"/> rebuild
-        /// them from the current membership and the current <c>Order</c> values. 
-        /// </summary>
-        /// <remarks>
-        /// The host caches the sorted order and rebuilds it when membership changes. A participant that
-        /// changes its <c>Order</c> at runtime must call this method: no setter exists on the lifecycle
-        /// interfaces, so the host cannot observe the change. Order should be fixed at construction;
-        /// this is the supported route for the exceptional case.
-        /// </remarks>
-        /// <exception cref="ObjectDisposedException">Thrown if the host has been disposed or is being disposed. </exception>
-        void InvalidateSchedule();
     }
 }

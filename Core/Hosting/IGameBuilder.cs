@@ -30,6 +30,14 @@ namespace MonoGameLibrary.Core.Hosting {
         TBuilder AddModule(object module);
         
         /// <summary>
+        /// Adds a module with the schedule keys it is admitted under. 
+        /// </summary>
+        /// <param name="module">The module instance to add. </param>
+        /// <param name="options">The fixed update and draw order for this admission. </param>
+        /// <returns>The current builder instance. </returns>
+        TBuilder AddModule(object module, ScheduleOptions options);
+        
+        /// <summary>
         /// Provides a callback to configure the <see cref="GameHost"/> before modules are added. 
         /// </summary>
         /// <param name="actionConfigure">The action to run against the host. </param>

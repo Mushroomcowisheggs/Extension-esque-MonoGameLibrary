@@ -22,11 +22,6 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
         private bool _flagDisposed;
         
         /// <summary>
-        /// Gets the update order. The window is adjusted before coordinate mapping runs.
-        /// </summary>
-        public int Order { get; } = -63;
-        
-        /// <summary>
         /// Gets or sets whether the module updates.
         /// </summary>
         public bool Enabled {
@@ -64,7 +59,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
             
             _serviceWindow = new WindowService(game, managerGraphics);
             builder.RegisterService<IWindowService>(_serviceWindow);
-            builder.AddModule(this);
+            builder.AddModule(this, new ScheduleOptions(orderUpdate: -63));
         }
         
         /// <inheritdoc />

@@ -33,13 +33,6 @@ namespace MonoGameLibrary.Extensions.Networking {
         }
         
         /// <inheritdoc />
-        public int Order {
-            get {
-                return _order;
-            }
-        }
-        
-        /// <inheritdoc />
         public bool Enabled {
             get {
                 return _flagEnabled;
@@ -55,7 +48,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 throw new ArgumentNullException(nameof(builder));
             }
             builder.RegisterService<IDiscoveryService>(_serviceDiscovery);
-            builder.AddModule(this);
+            builder.AddModule(this, new ScheduleOptions(orderUpdate: _order));
         }
         
         /// <inheritdoc />

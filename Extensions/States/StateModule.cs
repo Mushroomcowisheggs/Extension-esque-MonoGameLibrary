@@ -9,24 +9,19 @@ namespace MonoGameLibrary.Extensions.States {
     /// </summary>
     public sealed class StateModule : IUpdateable {
         private readonly IStateService _service;
-        private readonly int _order;
         // Read on the frame thread while the application writes it; a volatile gate keeps the write
         // visible without taking a lock on the per-frame path.
         private volatile bool _flagEnabled = true;
         
         /// <summary>Initializes the module around an existing state service.</summary>
         /// <param name="service">The state service to drive.</param>
-        /// <param name="order">The value reported by <see cref="Order"/>.</param>
-        public StateModule(IStateService service, int order = 0) {
+        public StateModule(IStateService service) {
             if (service == null) {
                 throw new ArgumentNullException(nameof(service));
             }
             _service = service;
-            _order = order;
         }
         
-        /// <summary>Gets the position this module occupies in the host's schedule.</summary>
-        public int Order { get { return _order; } }
         /// <summary>Gets or sets whether <see cref="Update"/> forwards to the state service.</summary>
         public bool Enabled {
             get { return _flagEnabled; }

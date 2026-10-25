@@ -165,8 +165,8 @@ public class BadAudioModule : ILoadable {
 ### Lifecycle Execution Order
 
 - `Initialize` phase: Calls `ILoadable.LoadContent` on all modules in the order they were added via `AddModule`.
-- `Update` phase: Calls `IUpdateable.Update` on all modules in ascending `Order`, resolving equal `Order` values by admission order, skipping any with `Enabled == false`.
-- `Draw` phase: Calls `IDrawable.Draw` on all modules in ascending `Order`, resolving equal `Order` values by admission order, skipping any with `Visible == false`.
+- `Update` phase: Calls `IUpdateable.Update` on all modules in the ascending update order supplied at admission, resolving equal values by admission order, skipping any with `Enabled == false`.
+- `Draw` phase: Calls `IDrawable.Draw` on all modules in the ascending draw order supplied at admission, resolving equal values by admission order, skipping any with `Visible == false`.
 
 **Admission is publish-after-load.** A module becomes visible to `Update` and `Draw` only once its `LoadContent` has returned successfully, so a frame on another thread never observes a participant whose load is still in progress. If the load throws, the module is withdrawn from the host and never becomes schedulable. Three consequences follow:
 
@@ -185,19 +185,15 @@ public class BadAudioModule : ILoadable {
 ```csharp
 // A physics module that must run before rendering
 public class PhysicsModule : IUpdateable, IDrawable {
-    private int _order;
     private bool _flagEnabled;
     private bool _flagVisible;
 
     public PhysicsModule() {
-        _order = 0;
         _flagEnabled = true;
         _flagVisible = false; // Physics does not draw anything.
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Enabled {
         get { return _flagEnabled; }
@@ -221,17 +217,13 @@ public class PhysicsModule : IUpdateable, IDrawable {
 
 // A debug overlay that draws after everything else
 public class DebugOverlay : IDrawable {
-    private int _order;
     private bool _flagVisible;
 
     public DebugOverlay() {
-        _order = 100; // Last
         _flagVisible = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Visible {
         get { return _flagVisible; }
@@ -306,9 +298,7 @@ public class AsyncWorker : IUpdateable {
         _pending = 0;
     }
 
-    public int Order {
-        get { return 0; }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Enabled {
         get { return true; }
@@ -385,9 +375,7 @@ public class SafeCounter : IUpdateable {
         }
     }
 
-    public int Order {
-        get { return 0; }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Enabled {
         get { return true; }
@@ -493,7 +481,7 @@ public class CompositeModule : IDisposable {
 
 ### Detailed Rules
 
-1. **`Order` determines execution sequence.** It should be a constant or configuration-based, but must be determined at construction time. The host caches the sorted schedule and rebuilds it when scheduling membership changes, not before every frame. A participant that changes `Order` at runtime must call `IGameHost.InvalidateSchedule` after the change; until it does, the cached sequence stays in force. Participants that share a value are ordered by admission order (the order of `AddModule` calls); that is reproducible, but it is not a way to express an intended sequence.
+1. **`ScheduleOptions` determines execution sequence.** The composition root supplies the update and draw order when it admits a participant through `AddModule`; the host copies those values into its schedule entry and never reads an order from the participant again. The values are therefore fixed for that admission, a participant cannot move itself by changing its own state, and there is no runtime invalidation call. The host rebuilds the sorted schedule when membership changes, not before every frame. Participants that share a value are ordered by admission order (the order of `AddModule` calls); that is reproducible, but it is not a way to express an intended sequence. The examples below show a participant's own members; its schedule key is not one of them.
 2. **`Enabled` and `Visible` must support dynamic runtime changes.** They are typically used for pause menus, screen transitions, etc.
 3. **Modules must not communicate through `Order`.** Ordering is purely for scheduling, not a communication mechanism.
 4. **If logical dependencies exist between modules (e.g., Input must update before Physics), establish an explicit partial order through the `Order` property.**
@@ -504,17 +492,13 @@ public class CompositeModule : IDisposable {
 
 ```csharp
 public class InputModule : IUpdateable {
-    private int _order;
     private bool _flagEnabled;
 
     public InputModule() {
-        _order = -100; // Earliest
         _flagEnabled = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Enabled {
         get { return _flagEnabled; }
@@ -525,17 +509,13 @@ public class InputModule : IUpdateable {
 }
 
 public class PhysicsModule : IUpdateable {
-    private int _order;
     private bool _flagEnabled;
 
     public PhysicsModule() {
-        _order = 0; // After input
         _flagEnabled = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Enabled {
         get { return _flagEnabled; }
@@ -546,17 +526,13 @@ public class PhysicsModule : IUpdateable {
 }
 
 public class RenderModule : IDrawable {
-    private int _order;
     private bool _flagVisible;
 
     public RenderModule() {
-        _order = 10; // After other drawables
         _flagVisible = true;
     }
 
-    public int Order {
-        get { return _order; }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Visible {
         get { return _flagVisible; }
@@ -707,12 +683,7 @@ public class SafeModule : ILoadable {
         }
     }
 
-    private int _order;
-    public int Order {
-        get {
-            return _order;
-        }
-    }
+    // Schedule order is supplied through ScheduleOptions when the composition root admits the module.
 
     public bool Enabled {
         get {
@@ -734,7 +705,6 @@ public class BadSafeModule {
         _texture?.Dispose();
     }
 
-    public int Order => 0; // Violates: expression-bodied property
 }
 ```
 
@@ -987,7 +957,7 @@ Before writing or integrating your extension module, confirm the following:
 
 - [ ] All external dependencies are passed via the constructor; no service locator. 
 - [ ] The necessary lifecycle interfaces are implemented (`ILoadable`, `IUpdateable`, `IDrawable`). 
-- [ ] `Order`, `Enabled`, `Visible` are provided (where applicable). 
+- [ ] `Enabled` and `Visible` are provided where applicable, and the composition root passes `ScheduleOptions` when it admits the participant. 
 - [ ] Exceptions are not silently swallowed; `try-finally` is used for cleanup. 
 - [ ] If `IThreadPool` is used, exceptions in asynchronous operations are properly handled. 
 - [ ] Shared state uses synchronization primitives (locks, interlocked, etc.). 
