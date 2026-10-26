@@ -80,7 +80,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets the number of milliseconds since the last payload arrived.
         /// </summary>
-        internal long IdleMilliseconds {
+        internal long MillisecondsIdle {
             get {
                 return Environment.TickCount64 - Interlocked.Read(ref _timestampLastReceived);
             }
@@ -89,14 +89,14 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Determines whether a probe is due and records that it is being sent.
         /// </summary>
-        /// <param name="millisecondsInterval">The probe interval.</param>
+        /// <param name="intervalMilliseconds">The probe interval.</param>
         /// <param name="timestampPayload">The payload to embed in the probe.</param>
         /// <returns><c>true</c> when the caller should send a probe now.</returns>
-        internal bool TryBeginPing(int millisecondsInterval, out long timestampPayload) {
+        internal bool TryBeginPing(int intervalMilliseconds, out long timestampPayload) {
             timestampPayload = 0;
             long timestampNow = Environment.TickCount64;
             long timestampPrevious = Interlocked.Read(ref _timestampPingSent);
-            if (timestampNow - timestampPrevious < millisecondsInterval) {
+            if (timestampNow - timestampPrevious < intervalMilliseconds) {
                 return false;
             }
             Interlocked.Exchange(ref _timestampPingSent, timestampNow);

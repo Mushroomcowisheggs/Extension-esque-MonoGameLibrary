@@ -143,16 +143,16 @@ namespace MonoGameLibrary.Extensions.Graphics {
                     if (string.IsNullOrWhiteSpace(name)) {
                         throw new InvalidOperationException("Animation missing 'name' attribute.");
                     }
-                    int millisecondsDelay = 100;
+                    int delayMilliseconds = 100;
                     string attributeDelay = GetAttribute(nodeAnimation, "delay");
                     if (!string.IsNullOrWhiteSpace(attributeDelay)) {
-                        if (!int.TryParse(attributeDelay, out millisecondsDelay) || millisecondsDelay <= 0) {
-                            millisecondsDelay = 100;
+                        if (!int.TryParse(attributeDelay, out delayMilliseconds) || delayMilliseconds <= 0) {
+                            delayMilliseconds = 100;
                         }
                     }
                     
                     Animation animation = new Animation();
-                    animation.Delay = TimeSpan.FromMilliseconds(millisecondsDelay);
+                    animation.Delay = TimeSpan.FromMilliseconds(delayMilliseconds);
                     
                     foreach (XmlNode nodeFrame in nodeAnimation.ChildNodes) {
                         if (nodeFrame.NodeType != XmlNodeType.Element) { continue; }

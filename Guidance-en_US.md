@@ -791,7 +791,7 @@ public class SceneLoadedEventArgs : EventArgs {
     public string SceneName { get; set; }
 }
 public interface ISceneService {
-    event EventHandler<SceneLoadedEventArgs> SceneLoaded;
+    event EventHandler<SceneLoadedEventArgs> SceneLoadedHandler;
 }
 
 // In Game Application (Composition Root)
@@ -799,14 +799,14 @@ public class Game1 {
     public Game1(ISceneService scenes, IUIService ui) {
         // Wire modules together at the highest level
         // Correct: use delegate
-        scenes.SceneLoaded += delegate(object scene, SceneLoadedEventArgs argumentsEvent) {
+        scenes.SceneLoadedHandler += delegate(object scene, SceneLoadedEventArgs argumentsEvent) {
             ui.ShowLoadingScreen(false);
         };
     }
 }
 
-// Another correct approach: scenes.SceneLoaded += OnSceneLoaded; private void OnSceneLoaded(object scene, SceneLoadedEventArgs argumentsEvent) { ui.ShowLoadingScreen(false); }
-// Wrong: scenes.SceneLoaded += (scene, argumentsEvent) => ui.ShowLoadingScreen(false);
+// Another correct approach: scenes.SceneLoadedHandler += OnSceneLoaded; private void OnSceneLoaded(object scene, SceneLoadedEventArgs argumentsEvent) { ui.ShowLoadingScreen(false); }
+// Wrong: scenes.SceneLoadedHandler += (scene, argumentsEvent) => ui.ShowLoadingScreen(false);
 ```
 
 ## 13. Performance-Oriented Static Dispatch Principle

@@ -63,11 +63,11 @@ namespace MonoGameLibrary.Extensions.Window {
         /// Raised during the update pass whenever the client area or the render surface
         /// changed since the previous frame.
         /// </summary>
-        event EventHandler<WindowBoundsChangedEventArgs> BoundsChanged;
+        event EventHandler<WindowBoundsChangedEventArgs> BoundsChangedHandler;
         
         /// <summary>
         /// Requests a new client area size. The request is clamped to the configured
-        /// minimum; the resulting metrics are reported through <see cref="BoundsChanged"/>
+        /// minimum; the resulting metrics are reported through <see cref="BoundsChangedHandler"/>
         /// on the next update pass. A window the user shrank below the minimum is
         /// restored once per size change rather than once per frame.
         /// </summary>

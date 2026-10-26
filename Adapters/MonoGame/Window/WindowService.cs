@@ -25,7 +25,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
         private bool _flagDisposed;
         
         /// <inheritdoc />
-        public event EventHandler<WindowBoundsChangedEventArgs> BoundsChanged;
+        public event EventHandler<WindowBoundsChangedEventArgs> BoundsChangedHandler;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="WindowService"/> class.
@@ -203,7 +203,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
         
         /// <summary>
         /// Restores the minimum size once per observed size change, records the current
-        /// metrics, and raises <see cref="BoundsChanged"/> when they differ from the
+        /// metrics, and raises <see cref="BoundsChangedHandler"/> when they differ from the
         /// previous frame. The event is raised outside the lock so that a handler may
         /// call back into this service.
         /// </summary>
@@ -251,7 +251,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
                 _heightPixel = heightPixel;
                 argumentsEvent = new WindowBoundsChangedEventArgs(widthClient, heightClient, widthPixel, heightPixel);
             }
-            EventHandler<WindowBoundsChangedEventArgs> handler = BoundsChanged;
+            EventHandler<WindowBoundsChangedEventArgs> handler = BoundsChangedHandler;
             if (handler == null) {
                 return;
             }
@@ -268,7 +268,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
                 }
                 _flagDisposed = true;
             }
-            BoundsChanged = null;
+            BoundsChangedHandler = null;
             GC.SuppressFinalize(this);
         }
     }

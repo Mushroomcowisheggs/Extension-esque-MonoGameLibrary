@@ -22,7 +22,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         private readonly Dictionary<Microsoft.Xna.Framework.PlayerIndex, GamePadState> _dictionaryPreviousGamePadStates;
         private int _countFrame;
         private bool _flagDisposed = false;
-        private readonly Game _game;
+        private readonly IWindowFocusSource _sourceFocus;
         private bool _flagFocused;
         private KeyboardState _stateKeyboardCurrent;
         private KeyboardState _stateKeyboardPrevious;
@@ -35,16 +35,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// <summary>
         /// Initializes a new instance of the <see cref="InputService"/> class.
         /// </summary>
-        public InputService() : this(null) {
+        public InputService() : this(new AlwaysFocusedWindowFocusSource()) {
         }
         
         /// <summary>
-        /// Initializes a new instance of the <see cref="InputService"/> class that observes
-        /// window focus so that a key held across a focus change cannot stay latched.
+        /// Initializes a new instance of the <see cref="InputService"/> class over a focus source.
         /// </summary>
-        /// <param name="game">The running game, or null to keep every key accepted.</param>
-        public InputService(Game game) {
-            _game = game;
+        /// <param name="sourceFocus">The focus source consulted before a key is accepted. </param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="sourceFocus"/> is null. </exception>
+        public InputService(IWindowFocusSource sourceFocus) {
+            if (sourceFocus == null) {
+                throw new ArgumentNullException(nameof(sourceFocus));
+            }
+            _sourceFocus = sourceFocus;
             _dictionaryCurrentGamePadStates = new Dictionary<Microsoft.Xna.Framework.PlayerIndex, GamePadState>();
             _dictionaryPreviousGamePadStates = new Dictionary<Microsoft.Xna.Framework.PlayerIndex, GamePadState>();
             
@@ -73,10 +76,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// <param name="timeFrame">Timing information for the current frame. </param>
         public void Update(FrameTime timeFrame) {
             lock (_lock) {
-                bool flagFocused = true;
-                if (_game != null) {
-                    flagFocused = _game.IsActive;
-                }
+                bool flagFocused = _sourceFocus.IsActive;
                 if (!flagFocused || !_flagFocused) {
                     // Losing focus must not leave a key latched down, and the frame that regains
                     // focus only re-baselines, so neither a press nor a release edge is reported.

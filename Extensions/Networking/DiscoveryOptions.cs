@@ -19,18 +19,18 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets or sets how often a host repeats its advert.
         /// </summary>
-        public int AnnouncementIntervalMilliseconds { get; set; } = 1500;
+        public int MillisecondsAnnouncementInterval { get; set; } = 1500;
         
         /// <summary>
         /// Gets or sets how often a browser asks every room to identify itself.
         /// </summary>
-        public int ProbeIntervalMilliseconds { get; set; } = 1500;
+        public int MillisecondsProbeInterval { get; set; } = 1500;
         
         /// <summary>
         /// Gets or sets how long an entry survives without a fresh advert. Three missed announcements is the
         /// shortest value that tolerates a single dropped datagram.
         /// </summary>
-        public int RoomExpiryMilliseconds { get; set; } = 5000;
+        public int MillisecondsRoomExpiry { get; set; } = 5000;
         
         /// <summary>
         /// Gets or sets a value indicating whether adverts are sent to the limited broadcast address
@@ -89,14 +89,14 @@ namespace MonoGameLibrary.Extensions.Networking {
             if (DiscoveryPort < 1 || DiscoveryPort > 65535) {
                 throw new ArgumentOutOfRangeException(nameof(DiscoveryPort), "A port must be between 1 and 65535.");
             }
-            if (AnnouncementIntervalMilliseconds < 100) {
-                throw new ArgumentOutOfRangeException(nameof(AnnouncementIntervalMilliseconds), "The announcement interval must be at least 100 milliseconds.");
+            if (MillisecondsAnnouncementInterval < 100) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsAnnouncementInterval), "The announcement interval must be at least 100 milliseconds.");
             }
-            if (ProbeIntervalMilliseconds < 100) {
-                throw new ArgumentOutOfRangeException(nameof(ProbeIntervalMilliseconds), "The probe interval must be at least 100 milliseconds.");
+            if (MillisecondsProbeInterval < 100) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsProbeInterval), "The probe interval must be at least 100 milliseconds.");
             }
-            if (RoomExpiryMilliseconds <= AnnouncementIntervalMilliseconds) {
-                throw new ArgumentOutOfRangeException(nameof(RoomExpiryMilliseconds), "A room entry must outlive at least one announcement interval.");
+            if (MillisecondsRoomExpiry <= MillisecondsAnnouncementInterval) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsRoomExpiry), "A room entry must outlive at least one announcement interval.");
             }
             if (MaxPacketBytes < 256) {
                 throw new ArgumentOutOfRangeException(nameof(MaxPacketBytes), "The datagram limit is too small to carry a room advert.");

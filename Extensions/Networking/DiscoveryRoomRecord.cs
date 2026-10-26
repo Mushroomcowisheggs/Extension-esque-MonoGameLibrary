@@ -13,7 +13,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         internal int Port;
         
         /// <summary>The measured round-trip time, or -1 when only unsolicited adverts arrived.</summary>
-        internal int LatencyMilliseconds = -1;
+        internal int MillisecondsLatency = -1;
         
         /// <summary>The monotonic timestamp of the last advert, used for expiry.</summary>
         internal long TimestampSeenUtcTicks;

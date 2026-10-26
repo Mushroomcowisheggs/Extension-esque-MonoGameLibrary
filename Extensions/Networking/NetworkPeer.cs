@@ -9,7 +9,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private readonly Guid _identifier;
         private readonly string _nameDisplay;
         private readonly string _address;
-        private readonly int _millisecondsLatency;
+        private readonly int _latencyMilliseconds;
         private readonly bool _flagHost;
         private readonly bool _flagLocal;
         
@@ -19,10 +19,10 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="identifier">The stable identifier of the peer.</param>
         /// <param name="nameDisplay">The display name announced during the handshake.</param>
         /// <param name="address">The remote endpoint in <c>host:port</c> form, or an empty string for the local peer.</param>
-        /// <param name="millisecondsLatency">The measured round-trip time, or -1 when it has not been measured.</param>
+        /// <param name="latencyMilliseconds">The measured round-trip time, or -1 when it has not been measured.</param>
         /// <param name="flagHost">True when the peer is the session host.</param>
         /// <param name="flagLocal">True when the peer is the local process.</param>
-        public NetworkPeer(Guid identifier, string nameDisplay, string address, int millisecondsLatency, bool flagHost, bool flagLocal) {
+        public NetworkPeer(Guid identifier, string nameDisplay, string address, int latencyMilliseconds, bool flagHost, bool flagLocal) {
             if (nameDisplay == null) {
                 throw new ArgumentNullException(nameof(nameDisplay));
             }
@@ -32,7 +32,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             _identifier = identifier;
             _nameDisplay = nameDisplay;
             _address = address;
-            _millisecondsLatency = millisecondsLatency;
+            _latencyMilliseconds = latencyMilliseconds;
             _flagHost = flagHost;
             _flagLocal = flagLocal;
         }
@@ -69,9 +69,9 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets the last measured round-trip time in milliseconds, or -1 when it is not known yet.
         /// </summary>
-        public int LatencyMilliseconds {
+        public int MillisecondsLatency {
             get {
-                return _millisecondsLatency;
+                return _latencyMilliseconds;
             }
         }
         

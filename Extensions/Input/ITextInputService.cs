@@ -14,7 +14,7 @@ namespace MonoGameLibrary.Extensions.Input {
         /// <summary>
         /// Raised once per entered character during <see cref="Update"/>.
         /// </summary>
-        event EventHandler<TextEnteredEventArgs> TextEntered;
+        event EventHandler<TextEnteredEventArgs> TextEnteredHandler;
         
         /// <summary>
         /// Gets or sets a value indicating whether entered characters are buffered

@@ -222,22 +222,27 @@ namespace MonoGameLibrary.Extensions.Screens {
         }
         
         private void SubscribeScreen(Screen screen) {
-            screen.ScreenChangeRequested += OnScreenChangeRequested;
+            screen.ScreenChangeRequestedHandler += OnScreenChangeRequested;
         }
         
         private void UnsubscribeScreen(Screen screen) {
-            screen.ScreenChangeRequested -= OnScreenChangeRequested;
+            screen.ScreenChangeRequestedHandler -= OnScreenChangeRequested;
         }
         
-        private void OnScreenChangeRequested(object sender, ScreenChangeEventArguments arguments) {
-            if (arguments.ChangeType == ScreenChangeType.Push) {
-                Push(arguments.NewScreen);
+        private void OnScreenChangeRequested(object sender, ScreenTransitionRequest request) {
+            ScreenPushRequest requestPush = request as ScreenPushRequest;
+            if (requestPush != null) {
+                Push(requestPush.Screen);
+                return;
             }
-            else if (arguments.ChangeType == ScreenChangeType.Pop) {
+            ScreenChangeRequest requestChange = request as ScreenChangeRequest;
+            if (requestChange != null) {
+                Change(requestChange.Screen);
+                return;
+            }
+            ScreenPopRequest requestPop = request as ScreenPopRequest;
+            if (requestPop != null) {
                 Pop();
-            }
-            else if (arguments.ChangeType == ScreenChangeType.Change) {
-                Change(arguments.NewScreen);
             }
         }
         

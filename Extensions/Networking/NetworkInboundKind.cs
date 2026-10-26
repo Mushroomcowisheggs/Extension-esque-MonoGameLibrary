@@ -4,13 +4,13 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// </summary>
     internal enum NetworkInboundKind {
         /// <summary>A session state transition.</summary>
-        StatusChanged = 0,
+        StatusChangedHandler = 0,
         
         /// <summary>A remote peer joined.</summary>
-        PeerJoined = 1,
+        PeerJoinedHandler = 1,
         
         /// <summary>A remote peer left.</summary>
-        PeerLeft = 2,
+        PeerLeftHandler = 2,
         
         /// <summary>An application message arrived.</summary>
         Message = 3

@@ -32,7 +32,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private const string OperationDiscovery = "Network.Discovery";
         
         /// <summary>The time a shutdown waits for a background loop to observe its cancellation.</summary>
-        private const int ShutdownWaitMilliseconds = 500;
+        private const int MillisecondsShutdownWait = 500;
         
         private readonly NetworkOptions _optionsNetwork;
         private readonly DiscoveryOptions _optionsDiscovery;
@@ -112,13 +112,13 @@ namespace MonoGameLibrary.Extensions.Networking {
         }
         
         /// <inheritdoc />
-        public event EventHandler<DiscoveredRoomEventArgs> RoomDiscovered;
+        public event EventHandler<DiscoveredRoomEventArgs> RoomDiscoveredHandler;
         
         /// <inheritdoc />
-        public event EventHandler<DiscoveredRoomEventArgs> RoomUpdated;
+        public event EventHandler<DiscoveredRoomEventArgs> RoomUpdatedHandler;
         
         /// <inheritdoc />
-        public event EventHandler<DiscoveredRoomEventArgs> RoomLost;
+        public event EventHandler<DiscoveredRoomEventArgs> RoomLostHandler;
         
         /// <inheritdoc />
         public bool IsBrowsing {
@@ -286,7 +286,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 StopBrowsing();
                 StopAnnouncing();
                 CloseSocketIfIdle();
-                WaitForTask(_taskReceive, ShutdownWaitMilliseconds);
+                WaitForTask(_taskReceive, MillisecondsShutdownWait);
                 _taskReceive = null;
             } finally {
                 GC.SuppressFinalize(this);
@@ -512,7 +512,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 record.HostAddress = addressHost;
                 record.Port = advertisement.Port;
                 if (latency >= 0) {
-                    record.LatencyMilliseconds = latency;
+                    record.MillisecondsLatency = latency;
                 }
                 record.SeenTimestamp = Environment.TickCount64;
                 record.TimestampSeenUtcTicks = DateTime.UtcNow.Ticks;
@@ -602,7 +602,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                             return;
                         }
                     }
-                    if (!await TryDelayAsync(_optionsDiscovery.AnnouncementIntervalMilliseconds, token).ConfigureAwait(false)) {
+                    if (!await TryDelayAsync(_optionsDiscovery.MillisecondsAnnouncementInterval, token).ConfigureAwait(false)) {
                         return;
                     }
                 }
@@ -646,7 +646,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     if (socket != null && !await TryProbeAsync(socket, token).ConfigureAwait(false)) {
                         return;
                     }
-                    if (!await TryDelayAsync(_optionsDiscovery.ProbeIntervalMilliseconds, token).ConfigureAwait(false)) {
+                    if (!await TryDelayAsync(_optionsDiscovery.MillisecondsProbeInterval, token).ConfigureAwait(false)) {
                         return;
                     }
                 }
@@ -740,7 +740,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             lock (_lock) {
                 List<Guid> listExpired = new List<Guid>();
                 foreach (KeyValuePair<Guid, DiscoveryRoomRecord> pair in _rooms) {
-                    if (Environment.TickCount64 - pair.Value.SeenTimestamp > _optionsDiscovery.RoomExpiryMilliseconds) {
+                    if (Environment.TickCount64 - pair.Value.SeenTimestamp > _optionsDiscovery.MillisecondsRoomExpiry) {
                         listExpired.Add(pair.Key);
                     }
                 }
@@ -768,20 +768,20 @@ namespace MonoGameLibrary.Extensions.Networking {
             while (countDispatched < _optionsDiscovery.MaxDispatchPerUpdate && _queueNotifications.TryDequeue(out notification)) {
                 countDispatched += 1;
                 if (notification.Kind == DiscoveryNotificationKind.Discovered) {
-                    EventHandler<DiscoveredRoomEventArgs> handler = RoomDiscovered;
-                    if (handler != null) {
-                        handler(this, new DiscoveredRoomEventArgs(notification.Room));
+                    EventHandler<DiscoveredRoomEventArgs> handlerDiscovered = RoomDiscoveredHandler;
+                    if (handlerDiscovered != null) {
+                        handlerDiscovered(this, new DiscoveredRoomEventArgs(notification.Room));
                     }
                     continue;
                 }
                 if (notification.Kind == DiscoveryNotificationKind.Updated) {
-                    EventHandler<DiscoveredRoomEventArgs> handler = RoomUpdated;
-                    if (handler != null) {
-                        handler(this, new DiscoveredRoomEventArgs(notification.Room));
+                    EventHandler<DiscoveredRoomEventArgs> handlerUpdated = RoomUpdatedHandler;
+                    if (handlerUpdated != null) {
+                        handlerUpdated(this, new DiscoveredRoomEventArgs(notification.Room));
                     }
                     continue;
                 }
-                EventHandler<DiscoveredRoomEventArgs> handlerLost = RoomLost;
+                EventHandler<DiscoveredRoomEventArgs> handlerLost = RoomLostHandler;
                 if (handlerLost != null) {
                     handlerLost(this, new DiscoveredRoomEventArgs(notification.Room));
                 }
@@ -795,7 +795,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <returns>The snapshot.</returns>
         private static DiscoveredRoom CreateSnapshot(DiscoveryRoomRecord record) {
             NetworkRoomInfo room = record.Advertisement.Info;
-            return new DiscoveredRoom(record.Advertisement.RoomIdentifier, record.HostAddress, record.Port, room, record.LatencyMilliseconds, record.TimestampSeenUtcTicks, record.FlagIsCompatible);
+            return new DiscoveredRoom(record.Advertisement.RoomIdentifier, record.HostAddress, record.Port, room, record.MillisecondsLatency, record.TimestampSeenUtcTicks, record.FlagIsCompatible);
         }
         
         /// <summary>

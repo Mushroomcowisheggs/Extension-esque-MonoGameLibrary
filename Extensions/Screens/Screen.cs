@@ -23,7 +23,7 @@ namespace MonoGameLibrary.Extensions.Screens {
         public Action<FrameTime> InputAction { get; set; }
         
         /// <inheritdoc />
-        public event EventHandler<ScreenChangeEventArguments> ScreenChangeRequested;
+        public event EventHandler<ScreenTransitionRequest> ScreenChangeRequestedHandler;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="Screen"/> class.
@@ -44,20 +44,20 @@ namespace MonoGameLibrary.Extensions.Screens {
         }
         
         protected void RequestPush(Screen screenNew) {
-            if (ScreenChangeRequested != null) {
-                ScreenChangeRequested(this, new ScreenChangeEventArguments(ScreenChangeType.Push, screenNew));
+            if (ScreenChangeRequestedHandler != null) {
+                ScreenChangeRequestedHandler(this, new ScreenPushRequest(screenNew));
             }
         }
         
         protected void RequestPop() {
-            if (ScreenChangeRequested != null) {
-                ScreenChangeRequested(this, new ScreenChangeEventArguments(ScreenChangeType.Pop, null));
+            if (ScreenChangeRequestedHandler != null) {
+                ScreenChangeRequestedHandler(this, new ScreenPopRequest());
             }
         }
         
         protected void RequestChange(Screen screenNew) {
-            if (ScreenChangeRequested != null) {
-                ScreenChangeRequested(this, new ScreenChangeEventArguments(ScreenChangeType.Change, screenNew));
+            if (ScreenChangeRequestedHandler != null) {
+                ScreenChangeRequestedHandler(this, new ScreenChangeRequest(screenNew));
             }
         }
         

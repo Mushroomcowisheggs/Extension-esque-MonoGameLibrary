@@ -26,7 +26,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         private bool _flagDisposed;
         
         /// <inheritdoc />
-        public event EventHandler<TextEnteredEventArgs> TextEntered;
+        public event EventHandler<TextEnteredEventArgs> TextEnteredHandler;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="TextInputService"/> class.
@@ -82,7 +82,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 _queueCharacters.CopyTo(_bufferCharacters, 0);
                 _queueCharacters.Clear();
             }
-            EventHandler<TextEnteredEventArgs> handler = TextEntered;
+            EventHandler<TextEnteredEventArgs> handler = TextEnteredHandler;
             if (handler == null) {
                 return;
             }

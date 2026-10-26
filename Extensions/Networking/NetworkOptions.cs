@@ -40,23 +40,23 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets or sets the time budget of a connection attempt, including name resolution.
         /// </summary>
-        public int ConnectTimeoutMilliseconds { get; set; } = 5000;
+        public int MillisecondsConnectTimeout { get; set; } = 5000;
         
         /// <summary>
         /// Gets or sets the time budget of the handshake that follows a connection.
         /// </summary>
-        public int HandshakeTimeoutMilliseconds { get; set; } = 5000;
+        public int MillisecondsHandshakeTimeout { get; set; } = 5000;
         
         /// <summary>
         /// Gets or sets how often a round-trip probe is sent to every peer. The probe doubles as the
         /// keep-alive that proves a peer is still reachable.
         /// </summary>
-        public int KeepAliveIntervalMilliseconds { get; set; } = 2000;
+        public int MillisecondsKeepAliveInterval { get; set; } = 2000;
         
         /// <summary>
         /// Gets or sets how long a peer may stay silent before the session treats it as lost.
         /// </summary>
-        public int IdleTimeoutMilliseconds { get; set; } = 15000;
+        public int MillisecondsIdleTimeout { get; set; } = 15000;
         
         /// <summary>
         /// Gets or sets the largest number of received messages that a single update dispatches. The limit
@@ -78,7 +78,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets or sets the delay before the first reconnect attempt and between consecutive attempts.
         /// </summary>
-        public int ReconnectDelayMilliseconds { get; set; } = 1500;
+        public int MillisecondsReconnectDelay { get; set; } = 1500;
         
         /// <summary>
         /// Verifies that every value can be used to open a session.
@@ -101,17 +101,17 @@ namespace MonoGameLibrary.Extensions.Networking {
             if (MaxMessageBytes < 64) {
                 throw new ArgumentOutOfRangeException(nameof(MaxMessageBytes), "The message limit is too small to carry a control message.");
             }
-            if (ConnectTimeoutMilliseconds < 1) {
-                throw new ArgumentOutOfRangeException(nameof(ConnectTimeoutMilliseconds), "The connect budget must be positive.");
+            if (MillisecondsConnectTimeout < 1) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsConnectTimeout), "The connect budget must be positive.");
             }
-            if (HandshakeTimeoutMilliseconds < 1) {
-                throw new ArgumentOutOfRangeException(nameof(HandshakeTimeoutMilliseconds), "The handshake budget must be positive.");
+            if (MillisecondsHandshakeTimeout < 1) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsHandshakeTimeout), "The handshake budget must be positive.");
             }
-            if (KeepAliveIntervalMilliseconds < 100) {
-                throw new ArgumentOutOfRangeException(nameof(KeepAliveIntervalMilliseconds), "The keep-alive interval must be at least 100 milliseconds.");
+            if (MillisecondsKeepAliveInterval < 100) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsKeepAliveInterval), "The keep-alive interval must be at least 100 milliseconds.");
             }
-            if (IdleTimeoutMilliseconds <= KeepAliveIntervalMilliseconds) {
-                throw new ArgumentOutOfRangeException(nameof(IdleTimeoutMilliseconds), "The idle timeout must exceed the keep-alive interval.");
+            if (MillisecondsIdleTimeout <= MillisecondsKeepAliveInterval) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsIdleTimeout), "The idle timeout must exceed the keep-alive interval.");
             }
             if (MaxDispatchPerUpdate < 1) {
                 throw new ArgumentOutOfRangeException(nameof(MaxDispatchPerUpdate), "At least one message must be dispatched per update.");
@@ -119,8 +119,8 @@ namespace MonoGameLibrary.Extensions.Networking {
             if (MaxReconnectAttempts < 0) {
                 throw new ArgumentOutOfRangeException(nameof(MaxReconnectAttempts), "The reconnect attempt count cannot be negative.");
             }
-            if (ReconnectDelayMilliseconds < 0) {
-                throw new ArgumentOutOfRangeException(nameof(ReconnectDelayMilliseconds), "The reconnect delay cannot be negative.");
+            if (MillisecondsReconnectDelay < 0) {
+                throw new ArgumentOutOfRangeException(nameof(MillisecondsReconnectDelay), "The reconnect delay cannot be negative.");
             }
         }
     }

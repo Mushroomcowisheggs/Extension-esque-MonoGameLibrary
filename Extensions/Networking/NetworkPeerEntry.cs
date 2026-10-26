@@ -24,6 +24,6 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets or sets the last measured round-trip time in milliseconds, or -1 when it is unknown.
         /// </summary>
-        public int LatencyMilliseconds { get; set; } = -1;
+        public int MillisecondsLatency { get; set; } = -1;
     }
 }

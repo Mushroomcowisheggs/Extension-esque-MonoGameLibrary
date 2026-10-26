@@ -7,7 +7,7 @@ namespace MonoGameLibrary.Extensions.Screens {
     /// </summary>
     public interface IScreen : IDisposable {
         /// <summary>Occurs when a screen change (push, pop, or change) is requested.</summary>
-        event EventHandler<ScreenChangeEventArguments> ScreenChangeRequested;
+        event EventHandler<ScreenTransitionRequest> ScreenChangeRequestedHandler;
         
         /// <summary>Called once to load content. </summary>
         void LoadContent();

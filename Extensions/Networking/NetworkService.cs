@@ -28,7 +28,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// </remarks>
     public sealed class NetworkService : INetworkService, INetworkProbe {
         /// <summary>The period of the watchdog that drives keep-alive, idle detection, and reconnection.</summary>
-        private const int WatchdogIntervalMilliseconds = 250;
+        private const int MillisecondsWatchdogInterval = 250;
         
         /// <summary>The cancellation operation key this service registers with <see cref="ICancellationService"/>.</summary>
         private const string OperationSession = "Network.Session";
@@ -118,16 +118,16 @@ namespace MonoGameLibrary.Extensions.Networking {
         }
         
         /// <inheritdoc />
-        public event EventHandler<NetworkMessageEventArgs> MessageReceived;
+        public event EventHandler<NetworkMessageEventArgs> MessageReceivedHandler;
         
         /// <inheritdoc />
-        public event EventHandler<NetworkPeerEventArgs> PeerJoined;
+        public event EventHandler<NetworkPeerEventArgs> PeerJoinedHandler;
         
         /// <inheritdoc />
-        public event EventHandler<NetworkPeerEventArgs> PeerLeft;
+        public event EventHandler<NetworkPeerEventArgs> PeerLeftHandler;
         
         /// <inheritdoc />
-        public event EventHandler<NetworkStatusChangedEventArgs> StatusChanged;
+        public event EventHandler<NetworkStatusChangedEventArgs> StatusChangedHandler;
         
         /// <inheritdoc />
         public NetworkStatus Status {
@@ -349,10 +349,10 @@ namespace MonoGameLibrary.Extensions.Networking {
             Stopwatch watch = Stopwatch.StartNew();
             try {
                 using (CancellationTokenSource sourceProbe = CancellationTokenSource.CreateLinkedTokenSource(token)) {
-                    sourceProbe.CancelAfter(_optionsNetwork.ConnectTimeoutMilliseconds + _optionsNetwork.HandshakeTimeoutMilliseconds);
+                    sourceProbe.CancelAfter(_optionsNetwork.MillisecondsConnectTimeout + _optionsNetwork.MillisecondsHandshakeTimeout);
                     channel = await _transportNetwork.ConnectAsync(addressHost.Trim(), port, sourceProbe.Token).ConfigureAwait(false);
                     if (channel == null) {
-                        return new NetworkProbeResult(addressReported, false, false, -1, null, "The endpoint did not accept a connection.");
+                        return new UnreachableNetworkProbeResult(addressReported, "The endpoint did not accept a connection.");
                     }
                     
                     NetworkHelloMessage hello = new NetworkHelloMessage();
@@ -367,35 +367,45 @@ namespace MonoGameLibrary.Extensions.Networking {
                     byte[] payload = await ReadFrameAsync(channel, _optionsNetwork.MaxMessageBytes, sourceProbe.Token).ConfigureAwait(false);
                     int latency = (int)watch.ElapsedMilliseconds;
                     if (payload == null) {
-                        return new NetworkProbeResult(addressReported, false, false, -1, null, "The endpoint closed the connection during the handshake.");
+                        return new UnreachableNetworkProbeResult(addressReported, "The endpoint closed the connection during the handshake.");
                     }
                     
                     string kindRead;
                     INetworkMessage message;
                     if (!_serializerNetwork.TryDeserialize(payload, out kindRead, out message)) {
-                        return new NetworkProbeResult(addressReported, false, false, -1, null, "The endpoint answered with an unreadable payload.");
+                        return new UnreachableNetworkProbeResult(addressReported, "The endpoint answered with an unreadable payload.");
                     }
                     
                     NetworkWelcomeMessage welcome = message as NetworkWelcomeMessage;
                     if (welcome != null) {
-                        bool flagIsCompatible = welcome.ProtocolVersion == _optionsNetwork.ProtocolVersion;
-                        string errorCompatible = flagIsCompatible ? "" : $"The room speaks protocol version {welcome.ProtocolVersion} while this peer speaks {_optionsNetwork.ProtocolVersion}.";
-                        return new NetworkProbeResult(addressReported, true, flagIsCompatible, latency, welcome.Info, errorCompatible);
+                        NetworkRoomInfo infoWelcome = welcome.Info;
+                        if (infoWelcome == null) {
+                            return new UnreachableNetworkProbeResult(addressReported, "The endpoint answered without room information.");
+                        }
+                        if (welcome.ProtocolVersion == _optionsNetwork.ProtocolVersion) {
+                            return new CompatibleNetworkProbeResult(addressReported, latency, infoWelcome);
+                        }
+                        string errorCompatible = $"The room speaks protocol version {welcome.ProtocolVersion} while this peer speaks {_optionsNetwork.ProtocolVersion}.";
+                        return new IncompatibleNetworkProbeResult(addressReported, latency, infoWelcome, errorCompatible);
                     }
                     
                     NetworkRefusedMessage refused = message as NetworkRefusedMessage;
                     if (refused != null) {
-                        return new NetworkProbeResult(addressReported, true, false, latency, null, refused.Reason);
+                        string reasonRefused = refused.Reason;
+                        if (reasonRefused == null) {
+                            reasonRefused = "";
+                        }
+                        return new RefusedNetworkProbeResult(addressReported, latency, reasonRefused);
                     }
                     
-                    return new NetworkProbeResult(addressReported, false, false, -1, null, "The endpoint answered with an unexpected handshake.");
+                    return new UnreachableNetworkProbeResult(addressReported, "The endpoint answered with an unexpected handshake.");
                 }
             } catch (OperationCanceledException) {
-                return new NetworkProbeResult(addressReported, false, false, -1, null, "The endpoint did not answer in time.");
+                return new UnreachableNetworkProbeResult(addressReported, "The endpoint did not answer in time.");
             } catch (NetworkProtocolException exception) {
-                return new NetworkProbeResult(addressReported, false, false, -1, null, exception.Message);
+                return new UnreachableNetworkProbeResult(addressReported, exception.Message);
             } catch (IOException exception) {
-                return new NetworkProbeResult(addressReported, false, false, -1, null, exception.Message);
+                return new UnreachableNetworkProbeResult(addressReported, exception.Message);
             } finally {
                 if (channel != null) {
                     channel.Close();
@@ -432,12 +442,12 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// The time a farewell message is given to reach its peers before the sockets close.
         /// </summary>
-        private const int DisconnectFlushMilliseconds = 150;
+        private const int MillisecondsDisconnectFlush = 150;
         
         /// <summary>
         /// The time a shutdown waits for a background loop to observe its cancellation.
         /// </summary>
-        private const int ShutdownWaitMilliseconds = 500;
+        private const int MillisecondsShutdownWait = 500;
         
         /// <summary>
         /// The longest display name the service accepts from a remote peer.
@@ -466,30 +476,30 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// </summary>
         /// <param name="notification">The notification to report.</param>
         private void DispatchNotification(NetworkInboundEvent notification) {
-            if (notification.Kind == NetworkInboundKind.StatusChanged) {
-                EventHandler<NetworkStatusChangedEventArgs> handlerStatus = StatusChanged;
+            if (notification.Kind == NetworkInboundKind.StatusChangedHandler) {
+                EventHandler<NetworkStatusChangedEventArgs> handlerStatus = StatusChangedHandler;
                 if (handlerStatus != null) {
                     handlerStatus(this, new NetworkStatusChangedEventArgs(notification.StatusPrevious, notification.CurrentStatus, notification.Reason));
                 }
                 return;
             }
-            if (notification.Kind == NetworkInboundKind.PeerJoined) {
-                EventHandler<NetworkPeerEventArgs> handlerJoined = PeerJoined;
-                if (handlerJoined != null) {
-                    handlerJoined(this, new NetworkPeerEventArgs(notification.Peer));
+            if (notification.Kind == NetworkInboundKind.PeerJoinedHandler) {
+                EventHandler<NetworkPeerEventArgs> handlerPeerJoined = PeerJoinedHandler;
+                if (handlerPeerJoined != null) {
+                    handlerPeerJoined(this, new NetworkPeerEventArgs(notification.Peer));
                 }
                 return;
             }
-            if (notification.Kind == NetworkInboundKind.PeerLeft) {
-                EventHandler<NetworkPeerEventArgs> handlerLeft = PeerLeft;
-                if (handlerLeft != null) {
-                    handlerLeft(this, new NetworkPeerEventArgs(notification.Peer));
+            if (notification.Kind == NetworkInboundKind.PeerLeftHandler) {
+                EventHandler<NetworkPeerEventArgs> handlerPeerLeft = PeerLeftHandler;
+                if (handlerPeerLeft != null) {
+                    handlerPeerLeft(this, new NetworkPeerEventArgs(notification.Peer));
                 }
                 return;
             }
-            EventHandler<NetworkMessageEventArgs> handlerMessage = MessageReceived;
-            if (handlerMessage != null) {
-                handlerMessage(this, new NetworkMessageEventArgs(notification.Peer, notification.Message));
+            EventHandler<NetworkMessageEventArgs> handlerMessageReceived = MessageReceivedHandler;
+            if (handlerMessageReceived != null) {
+                handlerMessageReceived(this, new NetworkMessageEventArgs(notification.Peer, notification.Message));
             }
         }
         
@@ -577,7 +587,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private async Task<NetworkConnection> RunAcceptedPeerAsync(INetworkChannel channel, CancellationToken token) {
             byte[] payload;
             using (CancellationTokenSource sourceHandshake = CancellationTokenSource.CreateLinkedTokenSource(token)) {
-                sourceHandshake.CancelAfter(_optionsNetwork.HandshakeTimeoutMilliseconds);
+                sourceHandshake.CancelAfter(_optionsNetwork.MillisecondsHandshakeTimeout);
                 payload = await ReadFrameAsync(channel, _optionsNetwork.MaxMessageBytes, sourceHandshake.Token).ConfigureAwait(false);
             }
             
@@ -727,7 +737,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     return;
                 }
                 TransitionStatus(NetworkStatus.Connecting, $"Reconnecting to the room (attempt {countAttempts}).");
-                await Task.Delay(_optionsNetwork.ReconnectDelayMilliseconds, token).ConfigureAwait(false);
+                await Task.Delay(_optionsNetwork.MillisecondsReconnectDelay, token).ConfigureAwait(false);
             }
         }
         
@@ -752,7 +762,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             try {
                 Stopwatch watchHandshake = Stopwatch.StartNew();
                 using (CancellationTokenSource sourceConnect = CancellationTokenSource.CreateLinkedTokenSource(token)) {
-                    sourceConnect.CancelAfter(_optionsNetwork.ConnectTimeoutMilliseconds);
+                    sourceConnect.CancelAfter(_optionsNetwork.MillisecondsConnectTimeout);
                     channel = await _transportNetwork.ConnectAsync(addressTarget, portTarget, sourceConnect.Token).ConfigureAwait(false);
                 }
                 if (channel == null) {
@@ -762,7 +772,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 
                 NetworkWelcomeMessage welcome;
                 using (CancellationTokenSource sourceHandshake = CancellationTokenSource.CreateLinkedTokenSource(token)) {
-                    sourceHandshake.CancelAfter(_optionsNetwork.HandshakeTimeoutMilliseconds);
+                    sourceHandshake.CancelAfter(_optionsNetwork.MillisecondsHandshakeTimeout);
                     NetworkHelloMessage hello = new NetworkHelloMessage();
                     hello.ProtocolVersion = _optionsNetwork.ProtocolVersion;
                     hello.ApplicationName = _optionsNetwork.ApplicationName;
@@ -851,20 +861,20 @@ namespace MonoGameLibrary.Extensions.Networking {
         private async Task RunWatchdogAsync(CancellationToken token) {
             try {
                 while (!token.IsCancellationRequested) {
-                    await Task.Delay(WatchdogIntervalMilliseconds, token).ConfigureAwait(false);
+                    await Task.Delay(MillisecondsWatchdogInterval, token).ConfigureAwait(false);
                     foreach (NetworkConnection connection in _connections.Values) {
                         if (connection.QueueOverflowedFlag) {
                             _logger.Warning($"The peer at '{connection.Address}' cannot keep up with the traffic.");
                             HandleLinkLost(connection, "The remote peer could not keep up with the traffic.");
                             continue;
                         }
-                        if (connection.IdleMilliseconds > _optionsNetwork.IdleTimeoutMilliseconds) {
+                        if (connection.MillisecondsIdle > _optionsNetwork.MillisecondsIdleTimeout) {
                             _logger.Warning($"The peer at '{connection.Address}' stopped answering.");
                             HandleLinkLost(connection, "The remote peer stopped answering.");
                             continue;
                         }
                         long timestampPayload;
-                        if (connection.TryBeginPing(_optionsNetwork.KeepAliveIntervalMilliseconds, out timestampPayload)) {
+                        if (connection.TryBeginPing(_optionsNetwork.MillisecondsKeepAliveInterval, out timestampPayload)) {
                             NetworkPingMessage ping = new NetworkPingMessage();
                             ping.TimestampTicks = timestampPayload;
                             connection.EnqueueFrame(SerializeToFrame(ping));
@@ -1038,7 +1048,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     flagHost = Role == NetworkRole.Host;
                 }
                 string addressEntry = flagLocal ? "" : connection.Address;
-                AddOrUpdatePeer(entry.Identifier, entry.DisplayName, addressEntry, entry.LatencyMilliseconds, flagHost, flagLocal, true);
+                AddOrUpdatePeer(entry.Identifier, entry.DisplayName, addressEntry, entry.MillisecondsLatency, flagHost, flagLocal, true);
             }
             
             List<Guid> listRemoved = new List<Guid>();
@@ -1093,8 +1103,8 @@ namespace MonoGameLibrary.Extensions.Networking {
             NetworkPeerRecord record;
             if (_peersKnown.TryGetValue(identifier, out record)) {
                 int latencyEffective = latencyMilliseconds;
-                if (identifier == HostLinkIdentifier && record.Peer.LatencyMilliseconds >= 0) {
-                    latencyEffective = record.Peer.LatencyMilliseconds;
+                if (identifier == HostLinkIdentifier && record.Peer.MillisecondsLatency >= 0) {
+                    latencyEffective = record.Peer.MillisecondsLatency;
                 }
                 record.Peer = new NetworkPeer(identifier, nameEffective, addressEffective, latencyEffective, flagHost, flagLocal);
                 return;
@@ -1108,7 +1118,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             if (flagNotify && !flagLocal) {
                 NetworkInboundEvent notification = new NetworkInboundEvent();
-                notification.Kind = NetworkInboundKind.PeerJoined;
+                notification.Kind = NetworkInboundKind.PeerJoinedHandler;
                 notification.Peer = recordNew.Peer;
                 _queueInbound.Enqueue(notification);
             }
@@ -1126,7 +1136,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             if (flagNotify && !record.Peer.IsLocal) {
                 NetworkInboundEvent notification = new NetworkInboundEvent();
-                notification.Kind = NetworkInboundKind.PeerLeft;
+                notification.Kind = NetworkInboundKind.PeerLeftHandler;
                 notification.Peer = record.Peer;
                 _queueInbound.Enqueue(notification);
             }
@@ -1176,7 +1186,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 entry.Identifier = peer.Identifier;
                 entry.DisplayName = peer.DisplayName;
                 entry.IsHost = peer.IsHost;
-                entry.LatencyMilliseconds = peer.LatencyMilliseconds;
+                entry.MillisecondsLatency = peer.MillisecondsLatency;
                 roster.Add(entry);
             }
             return roster;
@@ -1370,7 +1380,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             _logger.Info($"The network session moved from '{statusPrevious}' to '{statusCurrent}'. {reasonReported}");
             NetworkInboundEvent notification = new NetworkInboundEvent();
-            notification.Kind = NetworkInboundKind.StatusChanged;
+            notification.Kind = NetworkInboundKind.StatusChangedHandler;
             notification.StatusPrevious = statusPrevious;
             notification.CurrentStatus = statusCurrent;
             notification.Reason = reasonReported;
@@ -1536,8 +1546,8 @@ namespace MonoGameLibrary.Extensions.Networking {
             _peersKnown.Clear();
             _sequencePeer = 0;
             
-            WaitForTask(_taskSession, ShutdownWaitMilliseconds);
-            WaitForTask(_taskWatchdog, ShutdownWaitMilliseconds);
+            WaitForTask(_taskSession, MillisecondsShutdownWait);
+            WaitForTask(_taskWatchdog, MillisecondsShutdownWait);
             lock (_lock) {
                 _taskSession = null;
                 _taskWatchdog = null;
@@ -1593,7 +1603,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="reason">The reason reported to the game.</param>
         private async Task CloseSessionAfterFlushAsync(string reason) {
             try {
-                await Task.Delay(DisconnectFlushMilliseconds, CancellationToken.None).ConfigureAwait(false);
+                await Task.Delay(MillisecondsDisconnectFlush, CancellationToken.None).ConfigureAwait(false);
                 CloseSession(reason, NetworkStatus.Disconnected);
             } catch (Exception exception) {
                 // Nothing observes this task, so it reports its own failure instead of faulting.

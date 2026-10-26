@@ -9,7 +9,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private readonly string _addressHost;
         private readonly int _port;
         private readonly NetworkRoomInfo _info;
-        private readonly int _millisecondsLatency;
+        private readonly int _latencyMilliseconds;
         private readonly long _ticksTimestampSeenUtc;
         private readonly bool _flagIsCompatible;
         
@@ -20,11 +20,11 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="addressHost">The address the advert came from, as reported by the network stack.</param>
         /// <param name="port">The port at which the room accepts connections.</param>
         /// <param name="room">The description the host published.</param>
-        /// <param name="millisecondsLatency">The measured round-trip time, or -1 when it is not known.</param>
+        /// <param name="latencyMilliseconds">The measured round-trip time, or -1 when it is not known.</param>
         /// <param name="ticksTimestampSeenUtc">The UTC timestamp of the advert that produced this snapshot.</param>
         /// <param name="flagIsCompatible">True when the room speaks the same protocol version as the local peer.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="addressHost"/> or <paramref name="room"/> is null.</exception>
-        public DiscoveredRoom(Guid identifier, string addressHost, int port, NetworkRoomInfo info, int millisecondsLatency, long ticksTimestampSeenUtc, bool flagIsCompatible) {
+        public DiscoveredRoom(Guid identifier, string addressHost, int port, NetworkRoomInfo info, int latencyMilliseconds, long ticksTimestampSeenUtc, bool flagIsCompatible) {
             if (addressHost == null) {
                 throw new ArgumentNullException(nameof(addressHost));
             }
@@ -35,7 +35,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             _addressHost = addressHost;
             _port = port;
             _info = info;
-            _millisecondsLatency = millisecondsLatency;
+            _latencyMilliseconds = latencyMilliseconds;
             _ticksTimestampSeenUtc = ticksTimestampSeenUtc;
             _flagIsCompatible = flagIsCompatible;
         }
@@ -82,9 +82,9 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// Gets the measured round-trip time in milliseconds, or -1 when the room only announced itself and
         /// never answered a probe.
         /// </summary>
-        public int LatencyMilliseconds {
+        public int MillisecondsLatency {
             get {
-                return _millisecondsLatency;
+                return _latencyMilliseconds;
             }
         }
         

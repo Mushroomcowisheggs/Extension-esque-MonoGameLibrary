@@ -64,22 +64,22 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// Raised for every application message received from a remote peer. Control messages that belong to
         /// the session itself are consumed by the service and never reach this event.
         /// </summary>
-        event EventHandler<NetworkMessageEventArgs> MessageReceived;
+        event EventHandler<NetworkMessageEventArgs> MessageReceivedHandler;
         
         /// <summary>
         /// Raised when a remote peer joins the session.
         /// </summary>
-        event EventHandler<NetworkPeerEventArgs> PeerJoined;
+        event EventHandler<NetworkPeerEventArgs> PeerJoinedHandler;
         
         /// <summary>
         /// Raised when a remote peer leaves the session, whether it disconnected or was lost.
         /// </summary>
-        event EventHandler<NetworkPeerEventArgs> PeerLeft;
+        event EventHandler<NetworkPeerEventArgs> PeerLeftHandler;
         
         /// <summary>
         /// Raised when <see cref="Status"/>, and possibly <see cref="Peers"/>, changed.
         /// </summary>
-        event EventHandler<NetworkStatusChangedEventArgs> StatusChanged;
+        event EventHandler<NetworkStatusChangedEventArgs> StatusChangedHandler;
         
         /// <summary>
         /// Opens a room and starts accepting connections.

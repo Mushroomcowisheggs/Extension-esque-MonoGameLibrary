@@ -41,18 +41,18 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Raised when a room appears in the list.
         /// </summary>
-        event EventHandler<DiscoveredRoomEventArgs> RoomDiscovered;
+        event EventHandler<DiscoveredRoomEventArgs> RoomDiscoveredHandler;
         
         /// <summary>
         /// Raised when the published description of a known room changes, for example because a player joined
         /// or left it. A change of measured latency does not raise this event; read <see cref="Rooms"/> instead.
         /// </summary>
-        event EventHandler<DiscoveredRoomEventArgs> RoomUpdated;
+        event EventHandler<DiscoveredRoomEventArgs> RoomUpdatedHandler;
         
         /// <summary>
         /// Raised when a room stops announcing itself and is dropped from the list.
         /// </summary>
-        event EventHandler<DiscoveredRoomEventArgs> RoomLost;
+        event EventHandler<DiscoveredRoomEventArgs> RoomLostHandler;
         
         /// <summary>
         /// Starts looking for rooms and keeps the list fresh until <see cref="StopBrowsing"/> is called.
@@ -68,7 +68,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         void StopBrowsing();
         
         /// <summary>
-        /// Empties the list of found rooms without raising <see cref="RoomLost"/>.
+        /// Empties the list of found rooms without raising <see cref="RoomLostHandler"/>.
         /// </summary>
         void ClearRooms();
         

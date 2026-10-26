@@ -49,7 +49,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 throw new InvalidOperationException("Game service is not registered.");
             }
             
-            _serviceInput = new InputService(game);
+            _serviceInput = new InputService(new GameWindowFocusSource(game));
             _servicePointer = new PointerInputService(game);
             _serviceText = new TextInputService(game);
             builder.RegisterService<IInputService>(_serviceInput);
