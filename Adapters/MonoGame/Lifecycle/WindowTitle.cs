@@ -8,11 +8,18 @@ namespace MonoGameLibrary.Adapters.MonoGame.Lifecycle {
     /// Puts the title on the operating-system window.
     /// </summary>
     /// <remarks>
-    /// MonoGame's DesktopGL platform hands the title to SDL through <c>Marshal.StringToHGlobalAnsi</c>, which
-    /// encodes it with the process ANSI code page, while SDL reads it back as UTF-8. Any title outside that code
-    /// page — every Chinese, Japanese or Korean title on a machine whose code page is not UTF-8 — therefore
-    /// reaches the window as a row of placeholder characters. The title is set again here through the Unicode
-    /// entry point of the platform, which takes the string exactly as it is.
+    /// A title has to be written to the window here, because the framework applies the one given before
+    /// the window exists through the process ANSI code page. The reach of that is any title carrying a
+    /// character the page cannot represent: a non-Latin script on a Western page, Hangul or kana on a
+    /// Chinese or Japanese one, emoji on all of them. Such characters reach the window as replacement
+    /// bytes and question marks, and the damage is silent — the title simply looks wrong.
+    /// 
+    /// Measured on MonoGame.Framework.DesktopGL 3.8.4.1: a title set in the constructor is mangled,
+    /// setting it again from Initialize does not repair it, and writing it through the Unicode entry
+    /// point does. The framework keeps the correct string throughout — <see cref="GameWindow.Title"/>
+    /// reads back intact — so what is broken is where the string is applied, not what it holds. Setting
+    /// the title from the first Update also works; the Unicode entry point is used because it corrects
+    /// the window that already exists instead of depending on when the framework next applies the value.
     /// </remarks>
     internal static class WindowTitle {
         /// <summary>The window class SDL registers for the window it creates.</summary>
