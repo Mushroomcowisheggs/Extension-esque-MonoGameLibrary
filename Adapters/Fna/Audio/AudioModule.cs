@@ -42,12 +42,12 @@ namespace MonoGameLibrary.Adapters.Fna.Audio {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            IContentBackend content = builder.GetService<IContentBackend>();
-            if (content == null) {
+            IContentBackend backendContent = builder.GetService<IContentBackend>();
+            if (backendContent == null) {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
-            content.RegisterScoped<IClipAudio>(AudioLoaders.Load<IClipAudio>);
-            content.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
+            backendContent.RegisterScoped<IClipAudio>(AudioLoaders.Load<IClipAudio>);
+            backendContent.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
             
             _serviceAudio = new AudioService();
             _factoryPcm = new PcmAudioOutputFactory();

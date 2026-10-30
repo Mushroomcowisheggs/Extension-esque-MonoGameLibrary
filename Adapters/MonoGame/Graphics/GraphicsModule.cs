@@ -36,19 +36,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
             if (game == null) {
                 throw new InvalidOperationException("Game service is not registered.");
             }
-            IContentBackend content = builder.GetService<IContentBackend>();
-            if (content == null) {
+            IContentBackend backendContent = builder.GetService<IContentBackend>();
+            if (backendContent == null) {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
             
-            content.RegisterScoped<ITwoDimensionalTexture>(
+            backendContent.RegisterScoped<ITwoDimensionalTexture>(
                 GraphicsLoaders.Load<ITwoDimensionalTexture>
             );
-            content.RegisterScoped<IFont>(GraphicsLoaders.Load<IFont>);
-            content.RegisterScoped<ISpriteFont>(GraphicsLoaders.Load<ISpriteFont>);
-            content.RegisterScoped<IEffect>(GraphicsLoaders.Load<IEffect>);
-            content.RegisterScoped<TextureAtlas>(GraphicsLoaders.Load<TextureAtlas>);
-            content.RegisterScoped<Tilemap>(GraphicsLoaders.Load<Tilemap>);
+            backendContent.RegisterScoped<IFont>(GraphicsLoaders.Load<IFont>);
+            backendContent.RegisterScoped<ISpriteFont>(GraphicsLoaders.Load<ISpriteFont>);
+            backendContent.RegisterScoped<IEffect>(GraphicsLoaders.Load<IEffect>);
+            backendContent.RegisterScoped<TextureAtlas>(GraphicsLoaders.Load<TextureAtlas>);
+            backendContent.RegisterScoped<Tilemap>(GraphicsLoaders.Load<Tilemap>);
             
             _batchSprite = new SpriteBatch(game.GraphicsDevice);
             _contextRender = new RenderContext(_batchSprite);

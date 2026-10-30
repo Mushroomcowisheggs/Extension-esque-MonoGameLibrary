@@ -6,7 +6,6 @@ using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Graphics;
-using Rectangle = MonoGameLibrary.Core.Primitives.Rectangle;
 
 namespace MonoGameLibrary.Adapters.Kni.Graphics {
     /// <summary>
@@ -54,10 +53,10 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
         }
         
         /// <inheritdoc />
-        public Rectangle ViewportBounds {
+        public MonoGameLibrary.Core.Primitives.Rectangle ViewportBounds {
             get {
                 Microsoft.Xna.Framework.Graphics.Viewport viewport = _batchSprite.GraphicsDevice.Viewport;
-                return new Rectangle(viewport.X, viewport.Y, viewport.Width, viewport.Height);
+                return new MonoGameLibrary.Core.Primitives.Rectangle(viewport.X, viewport.Y, viewport.Width, viewport.Height);
             }
         }
         
@@ -67,7 +66,7 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
         internal void DrawTextureInternal(
             Texture2D texture,
             TwoDimensionalVector position,
-            OptionalValue<Rectangle> rectangleSource,
+            OptionalValue<MonoGameLibrary.Core.Primitives.Rectangle> rectangleSource,
             MonoGameLibrary.Core.Primitives.Color color,
             float rotation,
             TwoDimensionalVector origin,
@@ -97,8 +96,8 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
         /// </summary>
         internal void DrawTextureRegionInternal(
             Texture2D texture,
-            Rectangle rectangleDestination,
-            OptionalValue<Rectangle> rectangleSource,
+            MonoGameLibrary.Core.Primitives.Rectangle rectangleDestination,
+            OptionalValue<MonoGameLibrary.Core.Primitives.Rectangle> rectangleSource,
             MonoGameLibrary.Core.Primitives.Color color
         ) {
             Microsoft.Xna.Framework.Rectangle destination = new Microsoft.Xna.Framework.Rectangle(
@@ -321,7 +320,7 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
         public void DrawTexture(
             ITwoDimensionalTexture texture,
             TwoDimensionalVector position,
-            OptionalValue<Rectangle> rectangleSource,
+            OptionalValue<MonoGameLibrary.Core.Primitives.Rectangle> rectangleSource,
             MonoGameLibrary.Core.Primitives.Color color,
             float rotation,
             TwoDimensionalVector origin,
@@ -344,8 +343,8 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
         /// <inheritdoc />
         public void DrawTextureRegion(
             ITwoDimensionalTexture texture,
-            Rectangle rectangleDestination,
-            OptionalValue<Rectangle> rectangleSource,
+            MonoGameLibrary.Core.Primitives.Rectangle rectangleDestination,
+            OptionalValue<MonoGameLibrary.Core.Primitives.Rectangle> rectangleSource,
             MonoGameLibrary.Core.Primitives.Color color
         ) {
             VerifyAccess();

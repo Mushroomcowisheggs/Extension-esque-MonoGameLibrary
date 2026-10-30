@@ -6,20 +6,19 @@ using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.Input;
-using IUpdateable = MonoGameLibrary.Core.Lifecycle.IUpdateable;
 using MonoGameLibrary.Adapters.Kni.Input;
 using MonoGameLibrary.Adapters.Kni.Lifecycle;
 
 namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Input {
     /// <summary>
     /// Platform-specific module that registers the KNI input services. 
-    /// Implements <see cref="IModule"/> for automatic discovery and <see cref="IUpdateable"/>
+    /// Implements <see cref="IModule"/> for automatic discovery and <see cref="MonoGameLibrary.Core.Lifecycle.IUpdateable"/>
     /// to forward per-frame updates to the keyboard, gamepad, pointer and text services. 
     /// All three services are sampled at the same instant so that a frame never mixes
     /// pointer state from one instant with keyboard state from another.
     /// </summary>
     [ModuleRegistration(-430)]
-    public sealed class InputModule : IModule, IUpdateable, IDisposable {
+    public sealed class InputModule : IModule, MonoGameLibrary.Core.Lifecycle.IUpdateable, IDisposable {
         private IInputService _serviceInput;
         private IPointerInputService _servicePointer;
         private ITextInputService _serviceText;

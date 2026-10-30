@@ -6,7 +6,6 @@ using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.Window;
-using IUpdateable = MonoGameLibrary.Core.Lifecycle.IUpdateable;
 
 namespace MonoGameLibrary.Adapters.MonoGame.Window {
     /// <summary>
@@ -15,7 +14,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
     /// been observed, and before the modules that translate coordinates or drive the pointer.
     /// </summary>
     [ModuleRegistration(-320)]
-    public sealed class WindowModule : IModule, IUpdateable, IDisposable {
+    public sealed class WindowModule : IModule, MonoGameLibrary.Core.Lifecycle.IUpdateable, IDisposable {
         private WindowService _serviceWindow;
         private readonly object _lock = new object();
         private bool _flagEnabled = true;

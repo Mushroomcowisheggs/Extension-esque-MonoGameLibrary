@@ -6,7 +6,6 @@ using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.Window;
-using IUpdateable = MonoGameLibrary.Core.Lifecycle.IUpdateable;
 using MonoGameLibrary.Adapters.Kni.Input;
 using MonoGameLibrary.Adapters.Kni.Lifecycle;
 
@@ -17,7 +16,7 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Window {
     /// been observed, and before the modules that translate coordinates or drive the pointer.
     /// </summary>
     [ModuleRegistration(-320)]
-    public sealed class WindowModule : IModule, IUpdateable, IDisposable {
+    public sealed class WindowModule : IModule, MonoGameLibrary.Core.Lifecycle.IUpdateable, IDisposable {
         private WindowService _serviceWindow;
         private readonly object _lock = new object();
         private bool _flagEnabled = true;
