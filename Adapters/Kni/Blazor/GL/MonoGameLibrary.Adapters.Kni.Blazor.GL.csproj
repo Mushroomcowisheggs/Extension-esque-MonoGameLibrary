@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-browser</TargetFramework>
+    <AssemblyName>MonoGameLibrary.Adapters.Kni.Blazor.GL</AssemblyName>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="nkast.Xna.Framework.Blazor" Version="3.14.9001" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Shared\**\*.cs" Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Core\MonoGameLibrary.Core.csproj" />
+    <ProjectReference Include="..\..\..\..\Extensions\MonoGameLibrary.Extensions.csproj" />
+  </ItemGroup>
+</Project>

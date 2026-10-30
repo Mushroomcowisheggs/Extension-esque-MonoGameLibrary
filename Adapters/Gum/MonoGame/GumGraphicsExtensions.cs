@@ -22,7 +22,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (bridges == null) {
                 throw new ArgumentNullException(nameof(bridges));
             }
-            bridges.Texture.ApplyToNineSlice(runtime, texture);
+            bridges.TextureBridge.ApplyToNineSlice(runtime, texture);
         }
         
         /// <summary>Applies a neutral colour to a Gum nine-slice.</summary>
@@ -37,7 +37,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (bridges == null) {
                 throw new ArgumentNullException(nameof(bridges));
             }
-            bridges.Texture.ApplyColorToNineSlice(runtime, color);
+            bridges.TextureBridge.ApplyColorToNineSlice(runtime, color);
         }
         
         /// <summary>Applies a neutral colour to a Gum coloured rectangle.</summary>
@@ -52,7 +52,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (bridges == null) {
                 throw new ArgumentNullException(nameof(bridges));
             }
-            bridges.Texture.ApplyColorToColoredRectangle(runtime, color);
+            bridges.TextureBridge.ApplyColorToColoredRectangle(runtime, color);
         }
         
         /// <summary>Applies a neutral colour to a Gum text runtime.</summary>
@@ -67,7 +67,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (bridges == null) {
                 throw new ArgumentNullException(nameof(bridges));
             }
-            bridges.Texture.ApplyColorToText(runtime, color);
+            bridges.TextureBridge.ApplyColorToText(runtime, color);
         }
         
         /// <summary>Creates a Gum animation frame from a neutral texture region.</summary>
@@ -82,7 +82,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (bridges == null) {
                 throw new ArgumentNullException(nameof(bridges));
             }
-            return bridges.Texture.CreateAnimationFrame(region, lengthFrame);
+            return bridges.TextureBridge.CreateAnimationFrame(region, lengthFrame);
         }
     }
 }

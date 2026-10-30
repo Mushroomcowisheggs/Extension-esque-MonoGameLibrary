@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using MonoGameGum;
 using MonoGameGum.GueDeriving;
-using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
+using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.Graphics;
 using MonoGameLibrary.Extensions.Input;
@@ -45,7 +45,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         public GumService(
             Game game, 
             DefaultVisualsVersion version,
-            IGumTextureBridge<
+            ITextureBridge<
                 NineSliceRuntime,
                 ColoredRectangleRuntime,
                 TextRuntime,
@@ -53,7 +53,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
                 TextureRegion,
                 AnimationFrame
             > bridgeTexture,
-            IGumInputBridge<KeyEventArgs, KeyCode> bridgeInput,
+            IInputBridge<KeyEventArgs, KeyCode> bridgeInput,
             IEnumerable<Keys> keysTabForward = null, 
             IEnumerable<Keys> keysTabReverse = null
         ) {

@@ -1,5 +1,5 @@
 # Extension-esque-MonoGameLibrary
-A modular, dependency-injected game framework built on **MonoGame**. Designed for maintainability, testability, and platform abstraction.
+A modular, dependency-injected game framework: games grow out of **MonoGameLibrary**. Designed for maintainability, testability, and platform abstraction.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8.0-blue)](https://dotnet.microsoft.com/)
@@ -33,7 +33,7 @@ The MonoGameLibrary provides a clean separation of concerns with Core (platform-
 
 ### Prerequisites
 - [.NET 8.0 SDK or higher](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
-- [MonoGame 3.8+](https://www.monogame.net/)
+- [MonoGame 3.8+](https://www.monogame.net/) - only for the MonoGame adapters; `Core` needs no platform package
 
 ### Installation
 
@@ -52,10 +52,11 @@ The MonoGameLibrary provides a clean separation of concerns with Core (platform-
    is the whole mandatory surface. Everything else is added on demand, along the same direction:
    `Extensions` (the optional modules — audio, input, scenes, screens, graphics, networking) and
    `Utilities` build on `Core`; an adapter builds on `Core` and `Extensions` plus one platform's
-   packages and binds the library to that platform — `Adapters/MonoGame` and
-   `Adapters/Gum/MonoGame` are the two in this repository, so MonoGame is one platform among them
-   rather than a requirement. Project references are transitive, so an adapter also brings `Core`
-   and `Extensions` into the game.
+   packages and binds the library to that platform — `Adapters/MonoGame`, `Adapters/Gum/MonoGame`,
+   `Adapters/Fna` and `Adapters/Kni/Blazor/GL` are the ones in this repository. The KNI backend
+   compiles the shared source under `Adapters/Kni/Shared` into its own assembly, so the family adds
+   no project dependency. MonoGame is one platform among them rather than a requirement. Project
+   references are transitive, so an adapter also brings `Core` and `Extensions` into the game.
 
 ### Basic Usage (Composition Root)
 ```csharp
@@ -90,12 +91,15 @@ For a full example, see the [Samples](https://github.com/mushroomcowisheggs/Exte
 ```
 MonoGameLibrary/
 ├── Core/                 # Platform-agnostic interfaces and base classes
-├── Adapters/             # MonoGame-specific implementations
+├── Adapters/             # One binding per platform
 │   ├── MonoGame/         # Content, Input, Audio, Render context
+│   ├── Fna/              # FNA binding
 │   ├── Gum/MonoGame/     # Gum UI integration hosted by MonoGame
+│   ├── Kni/Blazor/GL/    # KNI backend; compiles Kni/Shared into this assembly
 │   └── ...
 ├── Extensions/           # Optional modules
 │   ├── Audio/
+│   ├── Bridge/           # Adapter-facing bridge contracts
 │   ├── Input/
 │   ├── Scenes/
 │   ├── Graphics/         # Sprite, Atlas, Tilemap
@@ -152,7 +156,7 @@ This project is licensed under the MIT License – see the [LICENSE](LICENSE.txt
 
 ## Acknowledgments
 
-- Mainly built on [MonoGame](https://www.monogame.net/) and inspired by its samples [MonoGame.Samples](https://github.com/MonoGame/MonoGame.Samples)
+- The adapters bind [MonoGame](https://www.monogame.net/)'s API, and its samples [MonoGame.Samples](https://github.com/MonoGame/MonoGame.Samples) inspired this library's shape
 - Inspired by clean architecture and dependency injection patterns
 
 ## Third-Party Licenses

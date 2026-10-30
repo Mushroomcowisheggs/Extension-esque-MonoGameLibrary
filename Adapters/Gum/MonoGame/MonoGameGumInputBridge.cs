@@ -1,7 +1,7 @@
 using System;
 using Gum.Forms.Controls;
 using Microsoft.Xna.Framework.Input;
-using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
+using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Extensions.Input;
 
 namespace MonoGameLibrary.Adapters.Gum.MonoGame {
@@ -11,7 +11,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <see cref="INativeKeyProvider{TKey}"/> so this assembly keeps no private key table.
     /// </summary>
     public sealed class MonoGameGumInputBridge :
-        IGumInputBridge<KeyEventArgs, KeyCode> {
+        IInputBridge<KeyEventArgs, KeyCode> {
         private readonly INativeKeyProvider<Keys> _providerKey;
         
         /// <summary>Initializes a new instance of the <see cref="MonoGameGumInputBridge"/> class.</summary>

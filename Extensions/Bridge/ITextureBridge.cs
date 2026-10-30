@@ -1,13 +1,13 @@
 using MonoGameLibrary.Core.Primitives;
 
-namespace MonoGameLibrary.Adapters.Gum.MonoGame.Bridge {
+namespace MonoGameLibrary.Extensions.Bridge {
     /// <summary>
-    /// Applies platform-neutral graphics values to Gum's MonoGame runtime types. The
-    /// contract lives with the Gum adapter that both implements and consumes it; the
-    /// generic target types keep it free of concrete Gum and rendering-backend types,
-    /// so a composition root can substitute another implementation.
+    /// Applies platform-neutral graphics values to a Gum runtime. The contract is an
+    /// adapter-facing bridge in the Extensions.Bridge anchor; the generic target types keep
+    /// it free of concrete Gum and rendering-backend types, so an adapter can substitute its
+    /// implementation.
     /// </summary>
-    public interface IGumTextureBridge<
+    public interface ITextureBridge<
         in TNineSlice,
         in TColoredRectangle,
         in TText,
@@ -19,16 +19,16 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame.Bridge {
             TNineSlice target,
             TTexture texture
         );
-
+        
         void ApplyColorToNineSlice(TNineSlice target, Color color);
-
+        
         void ApplyColorToColoredRectangle(
             TColoredRectangle target,
             Color color
         );
-
+        
         void ApplyColorToText(TText target, Color color);
-
+        
         TAnimationFrame CreateAnimationFrame(
             TTextureRegion region,
             float lengthFrame

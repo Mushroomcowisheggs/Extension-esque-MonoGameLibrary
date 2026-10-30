@@ -2,16 +2,15 @@ using System;
 using Gum.Graphics.Animation;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGameGum.GueDeriving;
-using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
-using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Extensions.Bridge;
+using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Extensions.Graphics;
 
 namespace MonoGameLibrary.Adapters.Gum.MonoGame {
     /// <summary>
     /// Applies platform-neutral graphics values to Gum's MonoGame runtime types.
     /// </summary>
-    public sealed class MonoGameGumTextureBridge : IGumTextureBridge<
+    public sealed class MonoGameGumTextureBridge : ITextureBridge<
         NineSliceRuntime,
         ColoredRectangleRuntime,
         TextRuntime,

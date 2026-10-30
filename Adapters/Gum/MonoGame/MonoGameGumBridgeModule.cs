@@ -3,7 +3,7 @@ using Gum.Forms.Controls;
 using Gum.Graphics.Animation;
 using Microsoft.Xna.Framework.Input;
 using MonoGameGum.GueDeriving;
-using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
+using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Extensions.Graphics;
@@ -28,7 +28,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            IGumTextureBridge<
+            ITextureBridge<
                 NineSliceRuntime,
                 ColoredRectangleRuntime,
                 TextRuntime,
@@ -41,7 +41,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
                 builder.RegisterService(bridgeTexture);
             }
             
-            IGumInputBridge<KeyEventArgs, KeyCode> bridgeInput;
+            IInputBridge<KeyEventArgs, KeyCode> bridgeInput;
             if (!builder.TryGetService(out bridgeInput)) {
                 INativeKeyProvider<Keys> providerKey;
                 if (!builder.TryGetService(out providerKey)) {

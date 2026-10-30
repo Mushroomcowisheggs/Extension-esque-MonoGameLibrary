@@ -31,7 +31,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         private bool _flagSuppressEdges;
         private bool _flagFocused;
         private bool _flagDisposed;
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="PointerInputService"/> class.
         /// </summary>
@@ -44,7 +44,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
             _game = game;
             _stateMousePrevious = Mouse.GetState();
         }
-
+        
         /// <inheritdoc />
         public bool IsAvailable {
             get {
@@ -55,7 +55,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool IsFocused {
             get {
@@ -73,7 +73,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public int Y {
             get {
@@ -82,7 +82,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public int ScrollDelta {
             get {
@@ -91,7 +91,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool IsLeftButtonDown {
             get {
@@ -100,7 +100,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool IsRightButtonDown {
             get {
@@ -109,7 +109,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool IsMiddleButtonDown {
             get {
@@ -118,7 +118,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool WasLeftButtonJustPressed {
             get {
@@ -127,7 +127,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool WasLeftButtonJustReleased {
             get {
@@ -136,7 +136,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool WasRightButtonJustPressed {
             get {
@@ -145,7 +145,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool WasRightButtonJustReleased {
             get {
@@ -154,7 +154,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool WasMiddleButtonJustPressed {
             get {
@@ -163,7 +163,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public bool WasMiddleButtonJustReleased {
             get {
@@ -172,7 +172,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 }
             }
         }
-
+        
         /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
             lock (_lock) {
@@ -217,7 +217,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
                 _stateMousePrevious = stateCurrent;
             }
         }
-
+        
         private void ClearEdges() {
             _flagLeftPressed = false;
             _flagLeftReleased = false;
@@ -226,11 +226,11 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
             _flagMiddlePressed = false;
             _flagMiddleReleased = false;
         }
-
+        
         private static bool IsPressed(ButtonState stateButton) {
             return stateButton == ButtonState.Pressed;
         }
-
+        
         /// <summary>
         /// Releases the service. The pointer backend holds no resource owned by this instance.
         /// </summary>

@@ -20,7 +20,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (bridges == null) {
                 throw new ArgumentNullException(nameof(bridges));
             }
-            return bridges.Input.IsKeyPressed(arguments, codeKey);
+            return bridges.InputBridge.IsKeyPressed(arguments, codeKey);
         }
     }
 }

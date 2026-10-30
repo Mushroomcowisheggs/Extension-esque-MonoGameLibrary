@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Input;
 using MonoGameGum.GueDeriving;
-using MonoGameLibrary.Adapters.Gum.MonoGame.Bridge;
+using MonoGameLibrary.Extensions.Bridge;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Extensions.Graphics;
@@ -56,7 +56,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
                 throw new InvalidOperationException("ContentManager service not registered. Please register ContentManager before loading GumModule.");
             }
             
-            var bridgeTexture = builder.GetService<IGumTextureBridge<
+            var bridgeTexture = builder.GetService<ITextureBridge<
                 NineSliceRuntime,
                 ColoredRectangleRuntime,
                 TextRuntime,
@@ -64,7 +64,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
                 TextureRegion,
                 AnimationFrame
             >>();
-            var bridgeInput = builder.GetService<IGumInputBridge<KeyEventArgs, KeyCode>>();
+            var bridgeInput = builder.GetService<IInputBridge<KeyEventArgs, KeyCode>>();
             var serviceGum = new GumService(
                 game,
                 _version,
