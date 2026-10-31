@@ -2,19 +2,14 @@ using MonoGameLibrary.Core.Content;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// <summary>
-    /// Describes a renderable three-dimensional mesh asset.
+    /// Describes a platform-neutral three-dimensional mesh asset.
     /// </summary>
+    /// <remarks>
+    /// Geometry data is portable. The selected adapter uploads it to its own graphics device;
+    /// the interface itself carries no native handle.
+    /// </remarks>
     public interface IMesh : IAsset, System.IDisposable {
-        /// <summary>Gets the vertex count.</summary>
-        int VertexCount { get; }
-        
-        /// <summary>Gets the index count.</summary>
-        int IndexCount { get; }
-        
-        /// <summary>Gets the primitive count.</summary>
-        int PrimitiveCount { get; }
-        
-        /// <summary>Gets a conservative local-space bounding sphere.</summary>
-        BoundingSphere Bounds { get; }
+        /// <summary>Gets the immutable geometry data.</summary>
+        MeshData Data { get; }
     }
 }

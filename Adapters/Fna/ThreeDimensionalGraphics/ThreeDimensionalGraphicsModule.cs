@@ -8,13 +8,12 @@ using MonoGameLibrary.Extensions.ThreeDimensionalGraphics;
 
 namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
     /// <summary>
-    /// Registers FNA three-dimensional camera and mesh rendering services,
+    /// Registers MonoGame three-dimensional camera and mesh rendering services,
     /// model loaders, and their lifecycle participants.
     /// </summary>
     [ModuleRegistration(-445)]
     public sealed class ThreeDimensionalGraphicsModule :
         IModule,
-        MonoGameLibrary.Core.Lifecycle.IUpdateable,
         MonoGameLibrary.Core.Lifecycle.IDrawable,
         IDisposable {
         private readonly int _orderUpdate;
@@ -22,26 +21,18 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
         private MeshRenderService _serviceRender;
         private ThreeDimensionalCameraModule _moduleCamera;
         private readonly object _lock = new object();
-        private bool _flagEnabled;
         private bool _flagVisible;
         private bool _flagDisposed;
         
         /// <summary>
         /// Initializes a three-dimensional graphics module.
         /// </summary>
-        /// <param name="orderUpdate">The renderer update order.</param>
+        /// <param name="orderUpdate">The camera update order.</param>
         /// <param name="orderDraw">The renderer draw order.</param>
         public ThreeDimensionalGraphicsModule(int orderUpdate = 0, int orderDraw = 0) {
             _orderUpdate = orderUpdate;
             _orderDraw = orderDraw;
-            _flagEnabled = true;
             _flagVisible = true;
-        }
-        
-        /// <inheritdoc />
-        public bool Enabled {
-            get { lock (_lock) { return _flagEnabled; } }
-            set { lock (_lock) { _flagEnabled = value; } }
         }
         
         /// <inheritdoc />
@@ -64,9 +55,10 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
             
+            backendContent.RegisterScoped<IMesh>(new MeshLoader().Load);
             backendContent.RegisterScoped<IModel>(ThreeDimensionalGraphicsLoaders.Load<IModel>);
-            ThreeDimensionalCameraService serviceCamera =
-                new ThreeDimensionalCameraService(game.GraphicsDevice);
+            ThreeDimensionalViewport viewport = new ThreeDimensionalViewport(game.GraphicsDevice);
+            ThreeDimensionalCameraService serviceCamera = new ThreeDimensionalCameraService(viewport);
             _moduleCamera = new ThreeDimensionalCameraModule(
                 serviceCamera,
                 _orderUpdate - 1,
@@ -79,19 +71,8 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
             builder.RegisterService<IMeshRenderService>(_serviceRender);
             builder.AddModule(
                 this,
-                new ScheduleOptions(orderUpdate: _orderUpdate, orderDraw: _orderDraw)
+                new ScheduleOptions(orderDraw: _orderDraw)
             );
-        }
-        
-        /// <inheritdoc />
-        public void Update(FrameTime timeFrame) {
-            bool flagShouldUpdate;
-            lock (_lock) {
-                flagShouldUpdate = _flagEnabled && !_flagDisposed && _serviceRender != null;
-            }
-            if (flagShouldUpdate) {
-                _serviceRender.Update(timeFrame);
-            }
         }
         
         /// <inheritdoc />

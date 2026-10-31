@@ -6,6 +6,11 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// <summary>
     /// Queues three-dimensional assets and renders the queue during the host draw pass.
     /// </summary>
+    /// <remarks>
+    /// Mesh and model implementations are supplied by the selected platform adapter; the renderer
+    /// does not accept arbitrary third-party implementations. The draw pass owns vertex-buffer
+    /// binding, so a subsequent pass must bind its own buffers.
+    /// </remarks>
     public interface IMeshRenderService : IDisposable {
         /// <summary>
         /// Submits a mesh for the next draw pass.
@@ -20,10 +25,6 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
         /// <param name="model">The model to submit.</param>
         /// <param name="matrixWorld">The world transform applied to the model.</param>
         void Submit(IModel model, Matrix4x4 matrixWorld);
-        
-        /// <summary>Updates renderer-owned frame state.</summary>
-        /// <param name="timeFrame">Timing information for the current frame.</param>
-        void Update(FrameTime timeFrame);
         
         /// <summary>Draws and clears the submissions accumulated for the current frame.</summary>
         /// <param name="timeFrame">Timing information for the current frame.</param>

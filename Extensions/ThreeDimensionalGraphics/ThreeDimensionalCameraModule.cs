@@ -7,7 +7,7 @@ using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// <summary>
-    /// Forwards host lifecycle callbacks to a three-dimensional camera service.
+    /// Forwards host update and draw callbacks to a three-dimensional camera service.
     /// </summary>
     public sealed class ThreeDimensionalCameraModule :
         IModule,

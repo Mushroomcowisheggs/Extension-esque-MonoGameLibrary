@@ -10,7 +10,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
         /// Registers the three-dimensional graphics module and its services.
         /// </summary>
         /// <param name="builder">The game builder.</param>
-        /// <param name="orderUpdate">The renderer update order.</param>
+        /// <param name="orderUpdate">The camera update order.</param>
         /// <param name="orderDraw">The renderer draw order.</param>
         /// <returns>The game builder.</returns>
         public static GameBuilder UseThreeDimensionalGraphics(

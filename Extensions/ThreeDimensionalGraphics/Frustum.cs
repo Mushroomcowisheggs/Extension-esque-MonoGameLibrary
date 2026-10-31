@@ -39,10 +39,10 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
                     matrixViewProjection.M44 - matrixViewProjection.M42
                 )),
                 Normalize(new Plane(
-                    matrixViewProjection.M14 + matrixViewProjection.M13,
-                    matrixViewProjection.M24 + matrixViewProjection.M23,
-                    matrixViewProjection.M34 + matrixViewProjection.M33,
-                    matrixViewProjection.M44 + matrixViewProjection.M43
+                    matrixViewProjection.M13,
+                    matrixViewProjection.M23,
+                    matrixViewProjection.M33,
+                    matrixViewProjection.M43
                 )),
                 Normalize(new Plane(
                     matrixViewProjection.M14 - matrixViewProjection.M13,
