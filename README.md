@@ -1,5 +1,5 @@
 # Extension-esque-MonoGameLibrary
-A modular, dependency-injected game framework: games grow out of **MonoGameLibrary**. Designed for maintainability, testability, and platform abstraction.
+A modular, dependency-injected game framework grow out of **MonoGameLibrary**. Designed for maintainability, testability, and platform abstraction.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8.0-blue)](https://dotnet.microsoft.com/)

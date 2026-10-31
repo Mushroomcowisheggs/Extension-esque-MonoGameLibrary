@@ -37,7 +37,7 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
                 throw new InvalidOperationException("Game service is not registered.");
             }
             IContentBackend backendContent = builder.GetService<IContentBackend>();
-            if (content == null) {
+            if (backendContent == null) {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
             
