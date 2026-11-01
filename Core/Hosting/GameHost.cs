@@ -96,6 +96,9 @@ namespace MonoGameLibrary.Core.Hosting {
         private bool _flagDisposing = false;
         private bool _flagDisposed = false;
         
+        private readonly FailurePolicy _policyFailure;
+        private LifecycleFailure _failure;
+        
         // Dirty flags
         private bool _flagUpdateOrderDirty = true;
         private bool _flagDrawOrderDirty = true;
@@ -135,15 +138,34 @@ namespace MonoGameLibrary.Core.Hosting {
         }
         
         /// <summary>
+        /// Gets the failure policy selected when the host was built.
+        /// </summary>
+        public FailurePolicy FailurePolicy {
+            get { return _policyFailure; }
+        }
+        
+        /// <summary>
+        /// Gets the diagnostic record of the last failed initialization or admission, or null.
+        /// </summary>
+        public LifecycleFailure Failure {
+            get { lock (_lock) { return _failure; } }
+        }
+        
+        /// <summary>
         /// Initializes a new instance of the <see cref="GameHost"/> class. 
         /// </summary>
+        /// <param name="policyFailure">The required failure policy. </param>
         /// <remarks>
         /// The host is constructed without the service registry on purpose. The capability set is
         /// resolved and wired by the composition root before the host exists, and a participant
         /// receives what it needs through constructor injection; there is deliberately no path from a
         /// participant back to the registry at run time.
         /// </remarks>
-        public GameHost() {
+        public GameHost(FailurePolicy policyFailure) {
+            if (policyFailure != FailurePolicy.Release && policyFailure != FailurePolicy.Retain) {
+                throw new ArgumentOutOfRangeException(nameof(policyFailure));
+            }
+            _policyFailure = policyFailure;
         }
         
         /// <summary>
@@ -157,12 +179,11 @@ namespace MonoGameLibrary.Core.Hosting {
         /// participation a successful load could publish scheduling membership into a host whose lists
         /// were already cleared.
         /// <para>
-        /// A failed late load withdraws the module from membership and rethrows; the host does not call
-        /// <see cref="IDisposable.Dispose"/> on it. The host never owned the object — it only scheduled
-        /// it — and the caller that received the exception still holds the reference, so releasing what
-        /// the failed load acquired is the caller's decision, not a silent ownership transfer. A
-        /// participant whose <c>LoadContent</c> can fail should release what it acquired before it
-        /// throws.
+        /// A failed late load withdraws the module from membership and rethrows. Under
+        /// <see cref="FailurePolicy.Release"/> the host disposes it; under
+        /// <see cref="FailurePolicy.Retain"/> the module stays in <see cref="Failure"/> and the caller
+        /// owns it. The host remains initialized in both cases. A disposal or cleanup failure during
+        /// release is reported through <see cref="OnError"/>.
         /// </para>
         /// </remarks>
         public void AddModule(object module) {
@@ -247,9 +268,29 @@ namespace MonoGameLibrary.Core.Hosting {
                 if (moduleLoadableToLoad != null) {
                     try {
                         SafeExecute("LoadContent", moduleLoadableToLoad, moduleLoadableToLoad.LoadContent);
-                    } catch (Exception) {
-                        // A failed late admission must not leave an unloaded module behind.
+                    } catch (Exception exception) {
+                        // Withdraw the module before deciding what the explicit policy does with it.
                         RemoveModuleCore(module);
+                        if (_policyFailure == FailurePolicy.Release) {
+                            OwnershipRelease.ReleaseModule(
+                                module,
+                                ReportCleanupFailure,
+                                $"{GetType().Name}.AddModule"
+                            );
+                        }
+                        List<object> listRetained = new List<object>();
+                        if (_policyFailure == FailurePolicy.Retain) {
+                            listRetained.Add(module);
+                        }
+                        lock (_lock) {
+                            _failure = new LifecycleFailure(
+                                "GameHost.AddModule",
+                                exception,
+                                _policyFailure,
+                                listRetained,
+                                new List<Exception>()
+                            );
+                        }
                         throw;
                     }
                     // The load succeeded, so the module may now join the per-frame schedule.
@@ -395,12 +436,11 @@ namespace MonoGameLibrary.Core.Hosting {
                     lock (_lock) {
                         _flagIsInitialized = true;
                     }
-                } catch (Exception) {
-                    // Fault the host on any failure. Release is deferred to Dispose: a failed
-                    // initialization does not transfer ownership and therefore does not release
-                    // content on its own.
-                    lock (_lock) {
-                        _flagIsFaulted = true;
+                } catch (Exception exception) {
+                    if (_policyFailure == FailurePolicy.Release) {
+                        ReleaseAfterFailedInitialization(exception);
+                    } else {
+                        RetainAfterFailedInitialization(exception);
                     }
                     throw;
                 } finally {
@@ -650,14 +690,16 @@ namespace MonoGameLibrary.Core.Hosting {
         }
         
         /// <summary>
-        /// Drops admissions without releasing them. Used by a failed <see cref="GameBuilder.Build"/>,
-        /// where ownership never transferred to the host; no participant or content is disposed.
+        /// Detaches all admissions without releasing them and returns them in admission order.
+        /// Used by a failed <see cref="GameBuilder.Build"/>, where the builder and the aborted host
+        /// must release the union of their admissions exactly once.
         /// </summary>
-        internal void AbandonAdmissions() {
+        internal object[] DetachAdmissions() {
             lock (_lock) {
                 if (_flagDisposed) {
-                    return;
+                    return new object[0];
                 }
+                object[] modules = _listAllModules.ToArray();
                 _flagDisposed = true;
                 _flagDisposing = false;
                 _setModule.Clear();
@@ -668,6 +710,108 @@ namespace MonoGameLibrary.Core.Hosting {
                 _listDrawEntries.Clear();
                 _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
                 _listDrawEntriesPublished = new List<ScheduleDrawEntry>();
+                return modules;
+            }
+        }
+        
+        /// <summary>
+        /// Releases the modules and content the host owns. Callers guarantee this is entered once.
+        /// </summary>
+        /// <param name="context">The operation context used for reporting. </param>
+        private void ReleaseOwnedResources(string context) {
+            object[] modules;
+            Optional<IContentService> serviceContent;
+            lock (_lock) {
+                modules = _listAllModules.ToArray();
+                serviceContent = _serviceContent;
+            }
+            
+            OwnershipRelease.ReleaseModules(modules, ReportCleanupFailure, context);
+            
+            if (serviceContent.HasValue) {
+                try {
+                    serviceContent.Value.Unload();
+                } catch (Exception exception) {
+                    ReportCleanupFailure(exception, $"{context} (Content.Unload)");
+                }
+                try {
+                    serviceContent.Value.Dispose();
+                } catch (Exception exception) {
+                    ReportCleanupFailure(exception, $"{context} (Content.Dispose)");
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Releases everything a failed <see cref="Initialize"/> accepted, then marks the host
+        /// disposed. If another caller is already elected to dispose, that caller performs the
+        /// release after this operation exits.
+        /// </summary>
+        private void ReleaseAfterFailedInitialization(Exception exception) {
+            int idCurrentThread = Thread.CurrentThread.ManagedThreadId;
+            lock (_lock) {
+                _failure = new LifecycleFailure(
+                    "GameHost.Initialize",
+                    exception,
+                    FailurePolicy.Release,
+                    new List<object>(),
+                    new List<Exception>()
+                );
+                _flagIsFaulted = true;
+                if (_flagDisposed) {
+                    return;
+                }
+                if (Interlocked.CompareExchange(ref _markDisposalElected, 1, 0) != 0) {
+                    return;
+                }
+                _idDisposer = idCurrentThread;
+                _flagDisposing = true;
+            }
+            
+            try {
+                ReleaseOwnedResources($"{GetType().Name}.Initialize");
+            } finally {
+                lock (_lock) {
+                    _flagIsInitialized = false;
+                    _flagIsFaulted = true;
+                    _flagDisposing = false;
+                    _flagDisposed = true;
+                    _serviceContent = default;
+                    _setModule.Clear();
+                    _listAllModules.Clear();
+                    _indexAdmission.Clear();
+                    _listLoadableModules.Clear();
+                    _listUpdateEntries.Clear();
+                    _listDrawEntries.Clear();
+                    _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
+                    _listDrawEntriesPublished = new List<ScheduleDrawEntry>();
+                    _flagUpdateOrderDirty = true;
+                    _flagDrawOrderDirty = true;
+                    _generationSchedule += 1;
+                }
+                _eventDisposeComplete.Set();
+            }
+        }
+        
+        /// <summary>
+        /// Retains everything a failed <see cref="Initialize"/> accepted and records the failure.
+        /// The caller inspects the retained objects and must call <see cref="Dispose"/> to release them.
+        /// </summary>
+        private void RetainAfterFailedInitialization(Exception exception) {
+            lock (_lock) {
+                _flagIsFaulted = true;
+                _flagIsInitialized = false;
+                List<object> listRetained = new List<object>(_listAllModules);
+                if (_serviceContent.HasValue) {
+                    listRetained.Add(_serviceContent.Value);
+                }
+                _failure = new LifecycleFailure(
+                    "GameHost.Initialize",
+                    exception,
+                    FailurePolicy.Retain,
+                    listRetained,
+                    new List<Exception>()
+                );
             }
         }
         
@@ -675,7 +819,10 @@ namespace MonoGameLibrary.Core.Hosting {
         /// Disposes the host and all disposable modules, and unloads content. 
         /// Exactly one caller performs the release and every other caller waits for it to finish; each
         /// release is attempted even when an earlier one fails, and a release failure is reported rather
-        /// than propagated. 
+        /// than propagated. Under <see cref="FailurePolicy.Release"/>, a host whose
+        /// <see cref="Initialize"/> failed is already disposed and this method is a no-op. Under
+        /// <see cref="FailurePolicy.Retain"/>, this method is the release point for the retained
+        /// modules and content.
         /// </summary>
         public void Dispose() {
             Dispose(true);
@@ -724,48 +871,9 @@ namespace MonoGameLibrary.Core.Hosting {
                 // Wait for all currently active operations to finish without burning CPU cycles.
                 _eventOperationsIdle.Wait();
                 
-                // Dispose all modules that implement IDisposable.
+                // Dispose all modules that implement IDisposable, then unload and dispose content.
                 if (flagDisposing) {
-                    // Step 1: Dispose all modules first (they may hold references to content resources).
-                    // Modules are released in reverse registration order so that a module registered
-                    // early, such as the content module, outlives everything that uses it. The list is
-                    // snapshotted first so that a participant's cleanup cannot disturb the loop that is
-                    // releasing it.
-                    object[] modules;
-                    lock (_lock) {
-                        modules = _listAllModules.ToArray();
-                    }
-                    for (int indexModule = modules.Length - 1; indexModule >= 0; indexModule -= 1) {
-                        object module = modules[indexModule];
-                        if (module is IDisposable disposable) {
-                            try {
-                                disposable.Dispose();
-                            } catch (Exception exception) {
-                                ReportCleanupFailure(
-                                    exception, 
-                                    $"{GetType().Name}.Dispose (Module: {module.GetType().Name})"
-                                );
-                            }
-                        }
-                    }
-                    
-                    // Step 2: Unload all content (modules have released their references)
-                    if (_serviceContent.HasValue) {
-                        try {
-                            _serviceContent.Value.Unload();
-                        } catch (Exception exception) {
-                            ReportCleanupFailure(exception, $"{GetType().Name}.Dispose (Content.Unload)");
-                        }
-                    }
-                    
-                    // Step 3: Dispose the content service itself
-                    if (_serviceContent.HasValue) {
-                        try {
-                            _serviceContent.Value.Dispose();
-                        } catch (Exception exception) {
-                            ReportCleanupFailure(exception, $"{GetType().Name}.Dispose (Content.Dispose)");
-                        }
-                    }
+                    ReleaseOwnedResources($"{GetType().Name}.Dispose");
                 }
             } finally {
                 // Finally mark as fully disposed and clear internal lists. The published schedules are
@@ -773,6 +881,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 // reference that outlived its traversal sees a consistent (stale) snapshot.
                 lock (_lock) {
                     _flagDisposed = true;
+                    _serviceContent = default;
                     _setModule.Clear();
                     _listAllModules.Clear();
                     _indexAdmission.Clear();

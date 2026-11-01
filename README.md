@@ -69,6 +69,7 @@ using MonoGameLibrary.Extensions;
 using MonoGameLibrary.Extensions.Scenes;         // SceneModule
 
 var builder = new GameBuilder();
+builder.FailurePolicy = FailurePolicy.Release; // explicit; Release or Retain
 builder.UseDefaultServices();
 builder.UseAudio();
 builder.UseInput();

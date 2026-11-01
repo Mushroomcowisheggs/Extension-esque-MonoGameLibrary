@@ -172,7 +172,7 @@ public class BadAudioModule : ILoadable {
 
 - **在添加模块之前先备齐它的依赖。** 不要在 `LoadContent` 内部添加模块：`Initialize` 运行期间 `AddModule` 会抛出异常，因为这样的模块会由调用线程加载，而不是由 `Initialize` 的循环加载，从而使两个线程同时进入内容服务。所有模块要么在 `Initialize` 之前添加，要么在它返回之后添加。
 - **`Initialize` 只运行一次、只在一个线程上运行。** 在第一次仍在加载时再次调用会抛出异常。
-- **失败的准入不转移所有权。** 宿主把该模块从成员中撤除并重新抛出异常；它不会调用 `Dispose`，因为宿主只是调度了这个对象，而收到异常的调用方仍持有该引用。`LoadContent` 可能失败的参与者必须在抛出前释放它已获取的资源。准入本身是受跟踪的宿主操作，因此正在进行的关闭会等待迟到的加载结束，而已开始的关闭会拒绝这次准入。
+- **失败处理遵循显式策略。** `FailurePolicy.Release` 释放已接受的模块/content；`Build` 失败时 builder 进入不可再用状态。`FailurePolicy.Retain` 把模块/content 留在 `GameBuilder.Failure` 或 `GameHost.Failure` 中，由调用方拥有并负责释放。策略必须在 `Build` 之前显式设置，没有隐式默认值。准入本身是受跟踪的宿主操作，因此正在进行的关闭会等待迟到的加载结束，而已开始的关闭会拒绝这次准入。
 
 ### 模块放置指引
 
@@ -422,6 +422,7 @@ public void Update(FrameTime time) {
 6. **宿主会在关闭时调用每个模块的 `Dispose`**，但模块不应该依赖宿主来释放，因为宿主可能崩溃或不调用。
 7. **不要在 `Dispose` 中抛出异常**。如果异常发生，宿主会捕获它并通过 `OnError` 报告，但不应影响其他模块的释放。
 8. **释放多个资源的清理必须尝试每一次释放。** 抛出异常的释放只消耗它自己：逐项捕获、经 `ILogger` 报告、然后继续。用单个外层 `try` 会在第一次失败后放弃其余释放，而方法已经置位的释放标志又使调用方无法重试。宿主在参与者之间适用同一规则，参与者在自己的资源之间适用它。
+9. **失败清理遵循显式的 `FailurePolicy`。** `Release` 由 builder/host 释放已接受的资源；`Retain` 把资源留在 `Failure` 记录中，并把所有权交给调用方。两种行为都不是隐式的：策略必须在 `Build` 之前设置。
 
 ### 示例
 
@@ -608,6 +609,7 @@ var logger = new ConsoleLogger();
 var profiler = new MyProfiler();
 
 var builder = new GameBuilder();
+builder.FailurePolicy = FailurePolicy.Release;
 builder.UseLogger(logger);
 builder.UseProfiler(profiler);
 builder.AddModule(new MyModule(logger, profiler));

@@ -194,9 +194,20 @@ namespace MonoGameLibrary.Core.Modularity {
             
             IModule module = moduleInstance as IModule;
             if (module == null) {
-                throw new InvalidOperationException(
+                InvalidOperationException exceptionType = new InvalidOperationException(
                     $"Type '{typeModule.FullName}' did not create an IModule instance."
                 );
+                builder.HandleRegistrationFailure(
+                    moduleInstance,
+                    exceptionType,
+                    delegate(Exception exceptionRelease) {
+                        logger.Error(
+                            $"ModuleLoader: Failed to release module '{typeModule.FullName}' after a type mismatch.",
+                            exceptionRelease
+                        );
+                    }
+                );
+                throw exceptionType;
             }
             
             try {
@@ -206,6 +217,16 @@ namespace MonoGameLibrary.Core.Modularity {
                 );
                 return true;
             } catch (Exception exception) {
+                builder.HandleRegistrationFailure(
+                    moduleInstance,
+                    exception,
+                    delegate(Exception exceptionRelease) {
+                        logger.Error(
+                            $"ModuleLoader: Failed to release module '{typeModule.FullName}' after a registration failure.",
+                            exceptionRelease
+                        );
+                    }
+                );
                 logger.Error(
                     $"ModuleLoader: Failed to register module '{typeModule.FullName}'.",
                     exception

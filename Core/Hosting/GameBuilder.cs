@@ -11,6 +11,8 @@ namespace MonoGameLibrary.Core.Hosting {
     /// Each instance can only build one host; subsequent calls to <see cref="Build"/> will throw.
     /// Every member, resolution included, is a composition-phase operation: once the builder has
     /// built, it neither accepts registrations nor resolves services.
+    /// <see cref="FailurePolicy"/> is required and decides whether a failed Build releases the
+    /// accepted modules or retains them in <see cref="Failure"/> for the caller.
     /// </summary>
     public class GameBuilder : IGameBuilder<GameBuilder> {
         private readonly object _lockBuilder = new object();
@@ -20,6 +22,52 @@ namespace MonoGameLibrary.Core.Hosting {
         private Action<GameHost> _actionConfigHost = delegate { };
         private bool _flagIsBuilding = false;
         private bool _flagIsBuilt = false;
+        private bool _flagFailed = false;
+        private FailurePolicy _policyFailure = FailurePolicy.Unspecified;
+        private LifecycleFailure _failure;
+        
+        /// <summary>
+        /// Gets or sets the failure policy used by <see cref="Build"/>. The policy is required;
+        /// <see cref="FailurePolicy.Unspecified"/> is rejected by Build.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown after Build started or completed. </exception>
+        public FailurePolicy FailurePolicy {
+            get {
+                lock (_lockBuilder) {
+                    return _policyFailure;
+                }
+            }
+            set {
+                if (value != FailurePolicy.Release && value != FailurePolicy.Retain) {
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                }
+                lock (_lockBuilder) {
+                    if (_flagIsBuilding || _flagIsBuilt || _flagFailed) {
+                        throw new InvalidOperationException("FailurePolicy cannot be changed after Build starts.");
+                    }
+                    _policyFailure = value;
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Gets the diagnostic record of the last failed composition or registration, or null.
+        /// </summary>
+        public LifecycleFailure Failure {
+            get {
+                lock (_lockBuilder) {
+                    return _failure;
+                }
+            }
+        }
+        
+        private void ThrowIfUnusable() {
+            if (_flagFailed) {
+                throw new InvalidOperationException(
+                    "Build previously failed. This builder has released its modules and cannot be reused."
+                );
+            }
+        }
         
         /// <summary>
         /// One admitted module together with the schedule keys it was registered under. 
@@ -55,6 +103,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                ThrowIfUnusable();
                 
                 if (flagOverwrite) {
                     _registryService.TryRegister(instance, flagOverwrite: true);
@@ -65,6 +114,63 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
             }
             return this;
+        }
+        
+        /// <summary>
+        /// Handles a module constructed by <see cref="Modularity.ModuleLoader"/> whose registration
+        /// failed. If the module already entered this builder, it is removed first so a later Build
+        /// cannot release it twice. <see cref="FailurePolicy.Retain"/> leaves the module in
+        /// <see cref="Failure"/>; otherwise construction cleanup releases it.
+        /// </summary>
+        /// <param name="module">The constructed module. </param>
+        /// <param name="exception">The registration failure. </param>
+        /// <param name="report">Receives a release failure without propagating it. </param>
+        internal void HandleRegistrationFailure(
+            object module,
+            Exception exception,
+            Action<Exception> report
+        ) {
+            FailurePolicy policyFailure;
+            lock (_lockBuilder) {
+                policyFailure = _policyFailure;
+                if (_setModule.Remove(module)) {
+                    _listModules.RemoveAll(delegate(ModuleEntry entry) {
+                        return ReferenceEquals(entry.Module, module);
+                    });
+                }
+                if (policyFailure == FailurePolicy.Retain) {
+                    List<object> listRetained = new List<object>();
+                    listRetained.Add(module);
+                    _failure = new LifecycleFailure(
+                        "ModuleLoader.Register",
+                        exception,
+                        policyFailure,
+                        listRetained,
+                        new List<Exception>()
+                    );
+                    return;
+                }
+            }
+            
+            List<Exception> listReleaseFailure = new List<Exception>();
+            IDisposable disposable = module as IDisposable;
+            if (disposable != null) {
+                try {
+                    disposable.Dispose();
+                } catch (Exception exceptionRelease) {
+                    listReleaseFailure.Add(exceptionRelease);
+                    report(exceptionRelease);
+                }
+            }
+            lock (_lockBuilder) {
+                _failure = new LifecycleFailure(
+                    "ModuleLoader.Register",
+                    exception,
+                    policyFailure,
+                    new List<object>(),
+                    listReleaseFailure
+                );
+            }
         }
         
         /// <inheritdoc />
@@ -87,6 +193,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                ThrowIfUnusable();
                 
                 if (_setModule.Contains(module)) {
                     throw new InvalidOperationException($"Module {module.GetType().FullName} already added.");
@@ -102,6 +209,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                ThrowIfUnusable();
                 if (actionConfigure == null) { throw new ArgumentNullException(nameof(actionConfigure)); }
                 _actionConfigHost = actionConfigure;
             }
@@ -145,6 +253,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                ThrowIfUnusable();
                 return _registryService.Get<TService>();
             }
         }
@@ -158,6 +267,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                ThrowIfUnusable();
                 return _registryService.TryGet<TService>(out instance);
             }
         }
@@ -167,6 +277,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already called."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                ThrowIfUnusable();
                 _registryService.Clear();
             }
         }
@@ -180,11 +291,17 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lockBuilder) {
                 if (_flagIsBuilt) { throw new InvalidOperationException("Build already completed."); }
                 if (_flagIsBuilding) { throw new InvalidOperationException("Build in progress."); }
+                ThrowIfUnusable();
+                if (_policyFailure == FailurePolicy.Unspecified) {
+                    throw new InvalidOperationException(
+                        "FailurePolicy must be set to Release or Retain before Build."
+                    );
+                }
                 
                 _flagIsBuilding = true;
                 // The host is constructed without the registry: after this point the capability set is
                 // closed and there is no path from a participant back to it.
-                host = new GameHost();
+                host = new GameHost(_policyFailure);
                 actionToRunConfig = _actionConfigHost;
                 listModulesSnapshot = new List<ModuleEntry>(_listModules);
             }
@@ -203,13 +320,71 @@ namespace MonoGameLibrary.Core.Hosting {
                     host.AddModule(entry.Module, entry.Options);
                 }
                 
-                lock (_lockBuilder) { _flagIsBuilt = true; }
-                return host;
-            } catch (Exception) {
-                try { host.AbandonAdmissions(); } catch (Exception) { }
                 lock (_lockBuilder) {
+                    _failure = null;
+                    _flagIsBuilt = true;
+                    _listModules.Clear();
+                    _setModule.Clear();
+                }
+                return host;
+            } catch (Exception exception) {
+                object[] arrayAdmitted;
+                FailurePolicy policyFailure;
+                try {
+                    arrayAdmitted = host.DetachAdmissions();
+                } catch (Exception) {
+                    arrayAdmitted = new object[0];
+                }
+                
+                List<ModuleEntry> listSubmitted;
+                lock (_lockBuilder) {
+                    policyFailure = _policyFailure;
+                    listSubmitted = new List<ModuleEntry>(_listModules);
+                    _listModules.Clear();
+                    _setModule.Clear();
                     _registryService.Clear();
                     _flagIsBuilding = false;
+                    _flagFailed = true;
+                }
+                
+                List<object> listOwned = new List<object>();
+                HashSet<object> setOwned = new HashSet<object>();
+                foreach (object module in arrayAdmitted) {
+                    if (setOwned.Add(module)) {
+                        listOwned.Add(module);
+                    }
+                }
+                foreach (ModuleEntry entry in listSubmitted) {
+                    if (setOwned.Add(entry.Module)) {
+                        listOwned.Add(entry.Module);
+                    }
+                }
+                
+                List<Exception> listReleaseFailure = new List<Exception>();
+                List<object> listRetained = new List<object>();
+                if (policyFailure == FailurePolicy.Release) {
+                    OwnershipRelease.ReleaseModules(
+                        listOwned,
+                        delegate(Exception exceptionRelease, string context) {
+                            listReleaseFailure.Add(new InvalidOperationException(context, exceptionRelease));
+                        },
+                        "GameBuilder.Build"
+                    );
+                    if (listReleaseFailure.Count > 0) {
+                        exception.Data["ReleaseFailures"] = new AggregateException(listReleaseFailure);
+                    }
+                } else {
+                    listRetained.AddRange(listOwned);
+                }
+                
+                lock (_lockBuilder) {
+                    _failure = new LifecycleFailure(
+                        "GameBuilder.Build",
+                        exception,
+                        policyFailure,
+                        listRetained,
+                        listReleaseFailure
+                    );
                 }
                 throw;
             }

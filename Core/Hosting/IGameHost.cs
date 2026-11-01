@@ -10,6 +10,16 @@ namespace MonoGameLibrary.Core.Hosting {
     /// </summary>
     public interface IGameHost : IDisposable {
         /// <summary>
+        /// Gets the failure policy selected when the host was built.
+        /// </summary>
+        FailurePolicy FailurePolicy { get; }
+        
+        /// <summary>
+        /// Gets the diagnostic record of the last failed initialization or admission, or null.
+        /// </summary>
+        LifecycleFailure Failure { get; }
+        
+        /// <summary>
         /// Gets or sets a callback that is invoked when an unhandled exception occurs in any module. 
         /// If not set, exceptions are rethrown. 
         /// </summary>
@@ -21,9 +31,10 @@ namespace MonoGameLibrary.Core.Hosting {
         /// <see cref="Initialize"/>. A module added afterwards is loaded immediately: its
         /// <c>LoadContent</c> runs before this method returns, and the admission is a tracked host
         /// operation, so a disposal in progress waits for that load to finish. If the late load fails,
-        /// the module is removed again and the exception is rethrown; the host itself stays initialized,
-        /// and it does not dispose the withdrawn module. The caller received the exception and still
-        /// holds the reference, so releasing what the failed load acquired is the caller's decision.
+        /// the module is removed again and the exception is rethrown; the host itself stays initialized.
+        /// <see cref="FailurePolicy.Release"/> disposes the withdrawn module; 
+        /// <see cref="FailurePolicy.Retain"/> leaves it in <see cref="Failure"/> for the caller.
+        /// Under Retain the failed module is caller-owned and is not reusable.
         /// Modules are picked up by <see cref="Update"/>/<see cref="Draw"/> on the next frame. 
         /// A participant that implements <see cref="Lifecycle.IUpdateable"/> or <see cref="Lifecycle.IDrawable"/>
         /// takes part in a schedule and must use <see cref="AddModule(object, ScheduleOptions)"/>; this overload
@@ -48,6 +59,19 @@ namespace MonoGameLibrary.Core.Hosting {
         /// </remarks>
         void AddModule(object module, ScheduleOptions options);
         
+        /// <summary>
+        /// Initializes the host and loads every admitted <see cref="Lifecycle.ILoadable"/> module.
+        /// </summary>
+        /// <param name="serviceContent">The content service used by the host; ownership transfers to the host. </param>
+        /// <remarks>
+        /// After this call the host owns the content service and the admitted modules. If loading
+        /// fails, <see cref="FailurePolicy.Release"/> releases every admitted module and the content
+        /// service, then the host becomes disposed. <see cref="FailurePolicy.Retain"/> leaves the
+        /// host faulted and retains the modules and content in <see cref="Failure"/>; the caller must
+        /// then call <see cref="Dispose"/>. In both cases the original exception is rethrown and a
+        /// disposed or faulted host cannot be reused.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceContent"/> is null. </exception>
         void Initialize(IContentService serviceContent);
         
         void Update(FrameTime timeFrame);

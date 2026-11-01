@@ -10,6 +10,16 @@ namespace MonoGameLibrary.Core.Hosting {
     /// </summary>
     public interface IGameBuilder<TBuilder> where TBuilder : IGameBuilder<TBuilder> {
         /// <summary>
+        /// Gets or sets the required failure policy. It must be set before <see cref="Build"/>.
+        /// </summary>
+        FailurePolicy FailurePolicy { get; set; }
+        
+        /// <summary>
+        /// Gets the diagnostic record of the last failed composition or registration, or null.
+        /// </summary>
+        LifecycleFailure Failure { get; }
+        
+        /// <summary>
         /// Registers a service instance, optionally overwriting an existing registration. 
         /// </summary>
         /// <typeparam name="TService">The type of the service. </typeparam>
@@ -127,7 +137,20 @@ namespace MonoGameLibrary.Core.Hosting {
         /// This method can only be called once per builder instance. 
         /// </summary>
         /// <returns>An initialized <see cref="IGameHost"/>. </returns>
-        /// <exception cref="InvalidOperationException">Thrown if <see cref="Build"/> has already been called. </exception>
+        /// <remarks>
+        /// On success the builder transfers ownership of every submitted module to the host and
+        /// clears its own module references. <see cref="FailurePolicy"/> must be set before this
+        /// call. If construction fails, <see cref="FailurePolicy.Release"/> releases every module
+        /// accepted by the builder or by the aborted host, while
+        /// <see cref="FailurePolicy.Retain"/> leaves those modules in
+        /// <see cref="LifecycleFailure.RetainedObjects"/> for the caller. Either way the builder
+        /// clears its registrations and becomes unusable. The original exception is rethrown; under
+        /// Release, release failures are attached as <c>ReleaseFailures</c> in
+        /// <see cref="Exception.Data"/>.
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">Thrown if <see cref="Build"/> has already been called,
+        /// is in progress, previously failed, or <see cref="FailurePolicy"/> is
+        /// <see cref="FailurePolicy.Unspecified"/>. </exception>
         IGameHost Build();
     }
 }

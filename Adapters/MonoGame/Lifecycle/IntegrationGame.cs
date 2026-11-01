@@ -48,6 +48,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Lifecycle {
         
         protected override void LoadContent() {
             GameBuilder builder = new GameBuilder();
+            builder.FailurePolicy = FailurePolicy.Release;
             builder.RegisterService<Game>(this);
             builder.RegisterService<ContentManager>(Content);
             builder.RegisterService<IGameApplicationService>(new GameApplicationService(this));

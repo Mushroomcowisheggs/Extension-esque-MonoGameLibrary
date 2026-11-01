@@ -172,7 +172,7 @@ public class BadAudioModule : ILoadable {
 
 - **Supply a module's dependencies before adding it.** Do not add modules from inside a `LoadContent`: `AddModule` throws while `Initialize` is running, because such a module would be loaded by the calling thread rather than by `Initialize`'s loop, putting two threads inside the content services at once. Add every module either before `Initialize` or after it returns.
 - **`Initialize` runs once, on one thread.** A second call while the first is still loading throws.
-- **A failed admission transfers no ownership.** The host removes the module from membership and rethrows; it does not call `Dispose`, because it only scheduled the object and the caller that received the exception still holds the reference. A participant whose `LoadContent` can fail must release what it acquired before it throws. Admission is a tracked host operation, so a disposal in progress waits for a late load to finish and a disposal already started rejects the admission.
+- **Failure handling follows the explicit policy.** `FailurePolicy.Release` releases the accepted modules/content and, for a failed `Build`, makes the builder unusable. `FailurePolicy.Retain` leaves the modules/content in `GameBuilder.Failure` or `GameHost.Failure`; the caller owns them and must release them. The policy is required before `Build`; there is no implicit default. Admission is a tracked host operation, so a disposal in progress waits for a late load to finish and a disposal already started rejects the admission.
 
 ### Module Placement Guideline
 
@@ -422,6 +422,7 @@ public void Update(FrameTime time) {
 6. **The host will call `Dispose` on each module during shutdown**, but a module must not rely on the host to release its resources, as the host may crash or fail to invoke cleanup.
 7. **Do not throw exceptions from `Dispose`**. If an exception occurs, the host will catch it and report it via `OnError`, but it must not prevent other modules from being disposed.
 8. **A cleanup that releases several resources must attempt every release.** A release that throws consumes only itself: catch it per resource, report it through `ILogger`, and continue. One surrounding `try` abandons the remaining releases after the first failure, and the disposed flag the method has already set prevents a caller from retrying them. The host applies the same rule between participants; a participant applies it between its own resources.
+9. **Failure cleanup follows the explicit `FailurePolicy`.** `Release` lets the builder/host release the resources it accepted; `Retain` leaves them in the `Failure` record and transfers ownership to the caller. Neither behavior is implicit: the policy is required before `Build`.
 
 ### Example
 
@@ -608,6 +609,7 @@ var logger = new ConsoleLogger();
 var profiler = new MyProfiler();
 
 var builder = new GameBuilder();
+builder.FailurePolicy = FailurePolicy.Release;
 builder.UseLogger(logger);
 builder.UseProfiler(profiler);
 builder.AddModule(new MyModule(logger, profiler));
