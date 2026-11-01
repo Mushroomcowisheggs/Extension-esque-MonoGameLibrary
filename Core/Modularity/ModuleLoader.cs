@@ -162,13 +162,32 @@ namespace MonoGameLibrary.Core.Modularity {
             ILogger logger
         ) {
             object moduleInstance;
-            List<string> dependenciesMissing;
-            if (!TryCreateModule(builder, typeModule, out moduleInstance, out dependenciesMissing)) {
+            List<string> listMissingDependencies;
+            bool flagCreated;
+            try {
+                flagCreated = TryCreateModule(
+                    builder,
+                    typeModule,
+                    out moduleInstance,
+                    out listMissingDependencies
+                );
+            } catch (Exception exception) {
+                Exception exceptionReported = exception;
+                if (exception is TargetInvocationException && exception.InnerException != null) {
+                    exceptionReported = exception.InnerException;
+                }
+                logger.Error(
+                    $"ModuleLoader: Failed to construct module '{typeModule.FullName}'.",
+                    exceptionReported
+                );
+                return false;
+            }
+            if (!flagCreated) {
                 logger.Warning(
                     $"ModuleLoader: Skipped module '{typeModule.FullName}' because it cannot be " +
                     "constructed. Register the missing service(s) before calling " +
                     "LoadModulesFrom(), or register the module explicitly: " +
-                    string.Join(", ", dependenciesMissing) + "."
+                    string.Join(", ", listMissingDependencies) + "."
                 );
                 return false;
             }
@@ -202,7 +221,7 @@ namespace MonoGameLibrary.Core.Modularity {
             GameBuilder builder,
             Type typeModule,
             out object moduleInstance,
-            out List<string> dependenciesMissing
+            out List<string> listMissingDependencies
         ) {
             ConstructorInfo[] constructors = typeModule.GetConstructors();
             Array.Sort(
@@ -214,7 +233,7 @@ namespace MonoGameLibrary.Core.Modularity {
                 }
             );
             
-            dependenciesMissing = new List<string>();
+            listMissingDependencies = new List<string>();
             foreach (ConstructorInfo constructor in constructors) {
                 ParameterInfo[] parameters = constructor.GetParameters();
                 bool flagCanInvoke = true;
@@ -228,7 +247,7 @@ namespace MonoGameLibrary.Core.Modularity {
                         arguments[index] = parameter.DefaultValue;
                     } else {
                         flagCanInvoke = false;
-                        dependenciesMissing.Add(
+                        listMissingDependencies.Add(
                             $"{parameter.ParameterType.FullName} ({parameter.Name})"
                         );
                     }

@@ -115,7 +115,14 @@ namespace MonoGameLibrary.Core.Hosting {
         public GameBuilder UseProfiler(IProfiler profiler, bool flagOverwrite = false) { RegisterService(profiler, flagOverwrite); return this; }
         
         /// <inheritdoc />
-        public GameBuilder UseThreadPool(IThreadPool poolThread, bool flagOverwrite = false) { RegisterService(poolThread, flagOverwrite); return this; }
+        public GameBuilder UseThreadPool(IThreadPool poolThread, bool flagOverwrite = false) {
+            RegisterService(poolThread, flagOverwrite);
+            DefaultThreadPool poolDefault = poolThread as DefaultThreadPool;
+            if (poolDefault != null) {
+                RegisterService<DefaultThreadPool>(poolDefault, flagOverwrite);
+            }
+            return this;
+        }
         
         /// <inheritdoc />
         public GameBuilder UseCancellationService(ICancellationService serviceCancellation, bool flagOverwrite = false) { RegisterService(serviceCancellation, flagOverwrite); return this; }
@@ -199,7 +206,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 lock (_lockBuilder) { _flagIsBuilt = true; }
                 return host;
             } catch (Exception) {
-                try { host.Dispose(); } catch (Exception) { }
+                try { host.AbandonAdmissions(); } catch (Exception) { }
                 lock (_lockBuilder) {
                     _registryService.Clear();
                     _flagIsBuilding = false;

@@ -44,6 +44,10 @@ namespace MonoGameLibrary.Extensions {
             RegisterIfAbsent<ILogger>(builder, loggerResolved);
             RegisterIfAbsent<IProfiler>(builder, profilerResolved);
             RegisterIfAbsent<IThreadPool>(builder, poolResolvedThread);
+            DefaultThreadPool poolDefaultThread = poolResolvedThread as DefaultThreadPool;
+            if (poolDefaultThread != null) {
+                RegisterIfAbsent<DefaultThreadPool>(builder, poolDefaultThread);
+            }
             RegisterIfAbsent<ICancellationService>(builder, serviceResolvedCancellation);
             RegisterIfAbsent<ILoadingProgress>(builder, progressResolvedLoading);
             RegisterIfAbsent<IObjectPoolFactory>(builder, factoryResolvedObjectPool);

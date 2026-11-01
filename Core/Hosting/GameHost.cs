@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -396,15 +396,11 @@ namespace MonoGameLibrary.Core.Hosting {
                         _flagIsInitialized = true;
                     }
                 } catch (Exception) {
-                    // Fault the host on any failure.
+                    // Fault the host on any failure. Release is deferred to Dispose: a failed
+                    // initialization does not transfer ownership and therefore does not release
+                    // content on its own.
                     lock (_lock) {
                         _flagIsFaulted = true;
-                    }
-                    
-                    // Attempt to roll back any partially loaded content.
-                    if (_serviceContent.HasValue) {
-                        try { _serviceContent.Value.Dispose(); } catch (Exception) { }
-                        _serviceContent = default;
                     }
                     throw;
                 } finally {
@@ -611,15 +607,15 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
                 try {
                     OnError(exception, context);
-                } catch (Exception handlerException) {
+                } catch (Exception exceptionHandler) {
                     // Store the handler's exception as an object, preserving full stack and inner exceptions.
                     if (!exception.Data.Contains("HandlerException")) {
-                        exception.Data["HandlerException"] = handlerException;
+                        exception.Data["HandlerException"] = exceptionHandler;
                     }
                     
                     // Write a diagnostic trace; does not block the process.
                     System.Diagnostics.Trace.TraceError(
-                        $"Error handler threw an exception while processing original error [{exception}] in {context}: {handlerException}"
+                        $"Error handler threw an exception while processing original error [{exception}] in {context}: {exceptionHandler}"
                     );
                 }
                 
@@ -643,13 +639,35 @@ namespace MonoGameLibrary.Core.Hosting {
         private void ReportCleanupFailure(Exception exception, string context) {
             try {
                 OnError(exception, context);
-            } catch (Exception handlerException) {
+            } catch (Exception exceptionHandler) {
                 if (!exception.Data.Contains("HandlerException")) {
-                    exception.Data["HandlerException"] = handlerException;
+                    exception.Data["HandlerException"] = exceptionHandler;
                 }
                 System.Diagnostics.Trace.TraceError(
-                    $"Error handler threw an exception while processing cleanup failure [{exception}] in {context}: {handlerException}"
+                    $"Error handler threw an exception while processing cleanup failure [{exception}] in {context}: {exceptionHandler}"
                 );
+            }
+        }
+        
+        /// <summary>
+        /// Drops admissions without releasing them. Used by a failed <see cref="GameBuilder.Build"/>,
+        /// where ownership never transferred to the host; no participant or content is disposed.
+        /// </summary>
+        internal void AbandonAdmissions() {
+            lock (_lock) {
+                if (_flagDisposed) {
+                    return;
+                }
+                _flagDisposed = true;
+                _flagDisposing = false;
+                _setModule.Clear();
+                _listAllModules.Clear();
+                _listLoadableModules.Clear();
+                _indexAdmission.Clear();
+                _listUpdateEntries.Clear();
+                _listDrawEntries.Clear();
+                _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
+                _listDrawEntriesPublished = new List<ScheduleDrawEntry>();
             }
         }
         
