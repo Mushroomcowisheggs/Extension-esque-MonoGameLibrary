@@ -9,6 +9,9 @@ namespace MonoGameLibrary.Extensions.Input {
         /// <summary>
         /// Returns true if the key is currently held down (continuous state).
         /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <param name="code">The key to inspect.</param>
+        /// <returns><c>true</c> while the key is held; otherwise <c>false</c>.</returns>
         public static bool IsKeyHeld(this IInputService service, KeyCode code) {
             if (service == null) {
                 throw new ArgumentNullException(nameof(service));
@@ -19,6 +22,9 @@ namespace MonoGameLibrary.Extensions.Input {
         /// <summary>
         /// Returns true only on the frame the key was pressed (edge‑triggered).
         /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <param name="code">The key to inspect.</param>
+        /// <returns><c>true</c> on the press frame; otherwise <c>false</c>.</returns>
         public static bool IsKeyPressed(this IInputService service, KeyCode code) {
             if (service == null) {
                 throw new ArgumentNullException(nameof(service));
@@ -29,6 +35,10 @@ namespace MonoGameLibrary.Extensions.Input {
         /// <summary>
         /// Returns true if the button is currently held down (continuous state).
         /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <param name="indexPlayer">The player whose controller is inspected.</param>
+        /// <param name="button">The button to inspect.</param>
+        /// <returns><c>true</c> while the button is held; otherwise <c>false</c>.</returns>
         public static bool IsButtonHeld(
             this IInputService service,
             PlayerIndex indexPlayer,
@@ -43,6 +53,10 @@ namespace MonoGameLibrary.Extensions.Input {
         /// <summary>
         /// Returns true only on the frame the button was pressed (edge‑triggered).
         /// </summary>
+        /// <param name="service">The input service to query.</param>
+        /// <param name="indexPlayer">The player whose controller is inspected.</param>
+        /// <param name="button">The button to inspect.</param>
+        /// <returns><c>true</c> on the press frame; otherwise <c>false</c>.</returns>
         public static bool IsButtonPressed(
             this IInputService service,
             PlayerIndex indexPlayer,

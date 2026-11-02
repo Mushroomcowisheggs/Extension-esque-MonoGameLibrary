@@ -217,6 +217,9 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// <summary>
         /// Gets the tile index at the specified position (layer 0).
         /// </summary>
+        /// <param name="column">The tile column.</param>
+        /// <param name="row">The tile row.</param>
+        /// <returns>The tile index, or -1 when the position is out of range.</returns>
         public int GetTileIndex(int column, int row) {
             return GetTileIndex(0, column, row);
         }
@@ -225,6 +228,10 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// Gets the tile index at the specified position and layer.
         /// Only layer 0 exists today; any other <paramref name="indexLayer"/> returns -1.
         /// </summary>
+        /// <param name="indexLayer">The layer index.</param>
+        /// <param name="column">The tile column.</param>
+        /// <param name="row">The tile row.</param>
+        /// <returns>The tile index, or -1 when the layer or position is out of range.</returns>
         public int GetTileIndex(int indexLayer, int column, int row) {
             if (indexLayer < 0 || indexLayer >= _layers.Count) { return -1; }
             if (column < 0 || column >= _columns || row < 0 || row >= _rows) { return -1; }
@@ -234,6 +241,9 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// <summary>
         /// Sets the tile index (layer 0).
         /// </summary>
+        /// <param name="column">The tile column.</param>
+        /// <param name="row">The tile row.</param>
+        /// <param name="indexTile">The tile index to store.</param>
         public void SetTileIndex(int column, int row, int indexTile) {
             SetTileIndex(0, column, row, indexTile);
         }
@@ -242,6 +252,10 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// Sets the tile index for a specific layer.
         /// Only layer 0 exists today; any other <paramref name="indexLayer"/> is ignored.
         /// </summary>
+        /// <param name="indexLayer">The layer index.</param>
+        /// <param name="column">The tile column.</param>
+        /// <param name="row">The tile row.</param>
+        /// <param name="indexTile">The tile index to store.</param>
         public void SetTileIndex(int indexLayer, int column, int row, int indexTile) {
             if (indexLayer < 0 || indexLayer >= _layers.Count) { return; }
             if (column < 0 || column >= _columns || row < 0 || row >= _rows) { return; }

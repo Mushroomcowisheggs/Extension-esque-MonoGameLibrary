@@ -499,7 +499,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 foreach (ScheduleUpdateEntry entry in listToIterate) {
                     IUpdateable moduleUpdateable = entry.UpdateableModule;
                     if (!moduleUpdateable.Enabled) { continue; }
-                    SafeExecute("Update", moduleUpdateable, delegate { moduleUpdateable.Update(timeFrame); });
+                    SafeExecute("Update", moduleUpdateable, timeFrame, moduleUpdateable.Update);
                 }
             } finally {
                 ExitOperation();
@@ -543,7 +543,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 foreach (ScheduleDrawEntry entry in listToIterate) {
                     IDrawable moduleDrawable = entry.DrawableModule;
                     if (!moduleDrawable.Visible) { continue; }
-                    SafeExecute("Draw", moduleDrawable, delegate { moduleDrawable.Draw(timeFrame); });
+                    SafeExecute("Draw", moduleDrawable, timeFrame, moduleDrawable.Draw);
                 }
             } finally {
                 ExitOperation();
@@ -642,27 +642,38 @@ namespace MonoGameLibrary.Core.Hosting {
             try {
                 actionToExecute();
             } catch (Exception exception) {
-                // Build context string
-                string context = $"{GetType().Name}.{nameOperation}";
-                if (module != null) {
-                    context = $"{context} (Module: {module.GetType().Name})";
-                }
-                try {
-                    OnError(exception, context);
-                } catch (Exception exceptionHandler) {
-                    // Store the handler's exception as an object, preserving full stack and inner exceptions.
-                    if (!exception.Data.Contains("HandlerException")) {
-                        exception.Data["HandlerException"] = exceptionHandler;
-                    }
-                    
-                    // Write a diagnostic trace; does not block the process.
-                    System.Diagnostics.Trace.TraceError(
-                        $"Error handler threw an exception while processing original error [{exception}] in {context}: {exceptionHandler}"
-                    );
+                ReportSafeExecuteFailure(nameOperation, module, exception);
+                throw;
+            }
+        }
+        
+        private void SafeExecute<T>(string nameOperation, object module, T argument, Action<T> actionToExecute) {
+            try {
+                actionToExecute(argument);
+            } catch (Exception exception) {
+                ReportSafeExecuteFailure(nameOperation, module, exception);
+                throw;
+            }
+        }
+        
+        private void ReportSafeExecuteFailure(string nameOperation, object module, Exception exception) {
+            // Build context string
+            string context = $"{GetType().Name}.{nameOperation}";
+            if (module != null) {
+                context = $"{context} (Module: {module.GetType().Name})";
+            }
+            try {
+                OnError(exception, context);
+            } catch (Exception exceptionHandler) {
+                // Store the handler's exception as an object, preserving full stack and inner exceptions.
+                if (!exception.Data.Contains("HandlerException")) {
+                    exception.Data["HandlerException"] = exceptionHandler;
                 }
                 
-                // Always rethrow the original exception – the error handler is only a notification.
-                throw;
+                // Write a diagnostic trace; does not block the process.
+                System.Diagnostics.Trace.TraceError(
+                    $"Error handler threw an exception while processing original error [{exception}] in {context}: {exceptionHandler}"
+                );
             }
         }
         
