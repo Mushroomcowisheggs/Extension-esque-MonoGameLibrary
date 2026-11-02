@@ -81,7 +81,9 @@ namespace MonoGameLibrary.Core.Hosting {
             public int AdmissionIndex { get; }
         }
         
-        private Optional<IContentService> _serviceContent;
+        // Late-bound lifecycle input. Optional<T> belongs on dependency-facing APIs, not on a field
+        // that Initialize assigns once and Dispose clears.
+        private IContentService _serviceContent;
         
         // The schedule's tie-break key: for each admitted participant, the position at which the
         // composition root admitted it. The entries copy it when they are published, so the traversal
@@ -421,7 +423,7 @@ namespace MonoGameLibrary.Core.Hosting {
                         );
                     }
                     
-                    _serviceContent = new Optional<IContentService>(serviceContent);
+                    _serviceContent = serviceContent;
                     _flagIsLoading = true;
                     // Snapshot to allow concurrent AddModule calls during loading.
                     modulesToLoad = new List<ILoadable>(_listLoadableModules);
@@ -720,7 +722,7 @@ namespace MonoGameLibrary.Core.Hosting {
         /// <param name="context">The operation context used for reporting. </param>
         private void ReleaseOwnedResources(string context) {
             object[] modules;
-            Optional<IContentService> serviceContent;
+            IContentService serviceContent;
             lock (_lock) {
                 modules = _listAllModules.ToArray();
                 serviceContent = _serviceContent;
@@ -728,14 +730,14 @@ namespace MonoGameLibrary.Core.Hosting {
             
             OwnershipRelease.ReleaseModules(modules, ReportCleanupFailure, context);
             
-            if (serviceContent.HasValue) {
+            if (serviceContent != null) {
                 try {
-                    serviceContent.Value.Unload();
+                    serviceContent.Unload();
                 } catch (Exception exception) {
                     ReportCleanupFailure(exception, $"{context} (Content.Unload)");
                 }
                 try {
-                    serviceContent.Value.Dispose();
+                    serviceContent.Dispose();
                 } catch (Exception exception) {
                     ReportCleanupFailure(exception, $"{context} (Content.Dispose)");
                 }
@@ -776,7 +778,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     _flagIsFaulted = true;
                     _flagDisposing = false;
                     _flagDisposed = true;
-                    _serviceContent = default;
+                    _serviceContent = null;
                     _setModule.Clear();
                     _listAllModules.Clear();
                     _indexAdmission.Clear();
@@ -802,8 +804,8 @@ namespace MonoGameLibrary.Core.Hosting {
                 _flagIsFaulted = true;
                 _flagIsInitialized = false;
                 List<object> listRetained = new List<object>(_listAllModules);
-                if (_serviceContent.HasValue) {
-                    listRetained.Add(_serviceContent.Value);
+                if (_serviceContent != null) {
+                    listRetained.Add(_serviceContent);
                 }
                 _failure = new LifecycleFailure(
                     "GameHost.Initialize",
@@ -842,9 +844,13 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
                 // Reentrant call from within an active operation is forbidden.
                 if (_setActiveThreads.Contains(idCurrentThread)) {
-                    throw new InvalidOperationException(
-                        "Cannot dispose GameHost from within Update, Draw, Initialize or a module admission. "
+                    ReportCleanupFailure(
+                        new InvalidOperationException(
+                            "Cannot dispose GameHost from within Update, Draw, Initialize or a module admission. "
+                        ),
+                        "GameHost.Dispose (reentrant)"
                     );
+                    return;
                 }
                 // A participant whose own Dispose calls back into Dispose on this thread must not wait
                 // for the cleanup it is itself running.
@@ -881,7 +887,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 // reference that outlived its traversal sees a consistent (stale) snapshot.
                 lock (_lock) {
                     _flagDisposed = true;
-                    _serviceContent = default;
+                    _serviceContent = null;
                     _setModule.Clear();
                     _listAllModules.Clear();
                     _indexAdmission.Clear();

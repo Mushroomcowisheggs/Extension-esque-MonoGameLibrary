@@ -12,7 +12,9 @@ namespace MonoGameLibrary.Core.Concurrency {
         private int _markDispose;
         private int _countPendingWork;
         private readonly ILogger _logger;
-        private Optional<Func<Action<Exception, string>>> _exceptionHandler;
+        // Late-bound handler provider. The Optional<T> shape stays on the constructor/setter API;
+        // storing an Optional<T> field would make the field itself mutable after construction.
+        private Func<Action<Exception, string>> _exceptionHandler;
         
         /// <summary>
         /// Gets the current exception handler by invoking the provider.
@@ -20,11 +22,11 @@ namespace MonoGameLibrary.Core.Concurrency {
         /// </summary>
         /// <returns>An action that handles exceptions.</returns>
         private Action<Exception, string> GetCurrentExceptionHandler() {
-            if (!_exceptionHandler.HasValue) {
+            Func<Action<Exception, string>> provider = _exceptionHandler;
+            if (provider == null) {
                 return delegate(Exception exception, string context) { };
             }
             
-            Func<Action<Exception, string>> provider = _exceptionHandler.Value;
             Action<Exception, string> handler;
             if (provider == null) {
                 handler = delegate(Exception exception, string context) { };
@@ -83,7 +85,7 @@ namespace MonoGameLibrary.Core.Concurrency {
             if (provider == null) {
                 throw new ArgumentNullException(nameof(provider));
             }
-            _exceptionHandler = new Optional<Func<Action<Exception, string>>>(provider);
+            _exceptionHandler = provider;
         }
         
         /// <summary>
@@ -97,7 +99,7 @@ namespace MonoGameLibrary.Core.Concurrency {
             } else {
                 _logger = NullLogger.Instance;
             }
-            _exceptionHandler = exceptionHandler;
+            _exceptionHandler = exceptionHandler.HasValue ? exceptionHandler.Value : null;
         }
         
         /// <inheritdoc />

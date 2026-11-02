@@ -10,7 +10,7 @@ namespace MonoGameLibrary.Utilities {
     /// Framework modules must perform explicit cleanup in Dispose.
     /// </summary>
     public sealed class CompensationStack : IDisposable {
-        private readonly Stack<Action> _actionsCompensation;
+        private readonly Stack<Action> _stackCompensationActions;
         private readonly ILogger _logger;
         private bool _flagDisposed;
         
@@ -19,7 +19,7 @@ namespace MonoGameLibrary.Utilities {
         /// </summary>
         /// <param name="logger">Optional logger for diagnostic output.</param>
         public CompensationStack(Optional<ILogger> logger = default) {
-            _actionsCompensation = new Stack<Action>();
+            _stackCompensationActions = new Stack<Action>();
             _flagDisposed = false;
             if (logger.HasValue) {
                 _logger = logger.Value;
@@ -42,7 +42,7 @@ namespace MonoGameLibrary.Utilities {
             if (_flagDisposed) {
                 throw new ObjectDisposedException(nameof(CompensationStack));
             }
-            _actionsCompensation.Push(actionCompensation);
+            _stackCompensationActions.Push(actionCompensation);
         }
         
         /// <summary>
@@ -67,8 +67,8 @@ namespace MonoGameLibrary.Utilities {
                 return;
             }
             
-            while (_actionsCompensation.Count > 0) {
-                Action action = _actionsCompensation.Pop();
+            while (_stackCompensationActions.Count > 0) {
+                Action action = _stackCompensationActions.Pop();
                 try {
                     if (action != null) {
                         action.Invoke();

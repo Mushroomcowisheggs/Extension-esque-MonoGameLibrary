@@ -86,7 +86,9 @@ namespace MonoGameLibrary.Adapters.Fna.Lifecycle {
                 _flagDisposed = true;
                 if (_host != null) {
                     _host.Dispose();
+                    _host = null;
                 }
+                _flagHostInitialized = false;
             }
             base.Dispose(flagDisposing);
         }

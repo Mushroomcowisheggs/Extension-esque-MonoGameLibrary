@@ -97,7 +97,9 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Lifecycle {
                 _flagDisposed = true;
                 if (_host != null) {
                     _host.Dispose();
+                    _host = null;
                 }
+                _flagHostInitialized = false;
             }
             base.Dispose(flagDisposing);
         }

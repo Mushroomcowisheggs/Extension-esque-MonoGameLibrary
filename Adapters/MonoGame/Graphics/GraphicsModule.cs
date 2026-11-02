@@ -2,6 +2,7 @@ using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGameLibrary.Core.Content;
+using MonoGameLibrary.Core.Diagnostics;
 using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Extensions.Graphics;
@@ -18,6 +19,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
         private RenderContext _contextRender;
         private TextureFactory _factoryTexture;
         private RenderTargetFactory _factoryRenderTarget;
+        private ILogger _logger;
         private bool _flagDisposed;
         
         /// <summary>
@@ -31,6 +33,10 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
         public void Register(GameBuilder builder) {
             if (builder == null) {
                 throw new ArgumentNullException(nameof(builder));
+            }
+            ILogger logger;
+            if (builder.TryGetService<ILogger>(out logger)) {
+                _logger = logger;
             }
             Game game = builder.GetService<Game>();
             if (game == null) {
@@ -69,17 +75,31 @@ namespace MonoGameLibrary.Adapters.MonoGame.Graphics {
                 return;
             }
             if (_contextRender != null) {
-                _contextRender.Dispose();
+                try {
+                    _contextRender.Dispose();
+                } catch (Exception exception) {
+                    ReportCleanupFailure(exception, "GraphicsModule.Dispose (RenderContext)");
+                }
                 _contextRender = null;
             }
             if (_batchSprite != null) {
-                _batchSprite.Dispose();
+                try {
+                    _batchSprite.Dispose();
+                } catch (Exception exception) {
+                    ReportCleanupFailure(exception, "GraphicsModule.Dispose (SpriteBatch)");
+                }
                 _batchSprite = null;
             }
             _factoryTexture = null;
             _factoryRenderTarget = null;
             _flagDisposed = true;
             GC.SuppressFinalize(this);
+        }
+        
+        private void ReportCleanupFailure(Exception exception, string context) {
+            if (_logger != null) {
+                _logger.Error(context, exception);
+            }
         }
     }
 }
