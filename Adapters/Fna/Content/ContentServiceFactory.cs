@@ -10,7 +10,7 @@ namespace MonoGameLibrary.Adapters.Fna.Content {
     /// backed by a fresh <see cref="ContentManager"/>. 
     /// </summary>
     public sealed class ContentServiceFactory : IContentServiceFactory {
-        private readonly ContentService _template;
+        private readonly ContentService _serviceContentTemplate;
         private readonly IServiceProvider _providerService;
         private readonly string _directoryRoot;
         
@@ -22,12 +22,12 @@ namespace MonoGameLibrary.Adapters.Fna.Content {
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceProvider"/> is null. </exception>
         /// <exception cref="ArgumentException">Thrown if <paramref name="rootDirectory"/> is null or whitespace. </exception>
         public ContentServiceFactory(
-            ContentService template,
+            ContentService serviceTemplate,
             IServiceProvider providerService,
             string directoryRoot
         ) {
-            if (template == null) {
-                throw new ArgumentNullException(nameof(template));
+            if (serviceTemplate == null) {
+                throw new ArgumentNullException(nameof(serviceTemplate));
             }
             if (providerService == null) {
                 throw new ArgumentNullException(nameof(providerService));
@@ -36,7 +36,7 @@ namespace MonoGameLibrary.Adapters.Fna.Content {
                 throw new ArgumentException("Root directory cannot be empty.", nameof(directoryRoot));
             }
             
-            _template = template;
+            _serviceContentTemplate = serviceTemplate;
             _providerService = providerService;
             _directoryRoot = directoryRoot;
         }
@@ -47,7 +47,7 @@ namespace MonoGameLibrary.Adapters.Fna.Content {
                 RootDirectory = _directoryRoot
             };
             ContentService serviceContent = new ContentService(managerContent);
-            _template.CopyLoadersTo(serviceContent);
+            _serviceContentTemplate.CopyLoadersTo(serviceContent);
             return serviceContent;
         }
     }

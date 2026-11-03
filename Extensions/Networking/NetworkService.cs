@@ -211,18 +211,18 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             EnsureNoSession();
             
-            NetworkRoomInfo roomHosted = room.Clone();
-            roomHosted.HostName = displayName;
-            roomHosted.ProtocolVersion = _optionsNetwork.ProtocolVersion;
-            roomHosted.ApplicationName = _optionsNetwork.ApplicationName;
-            roomHosted.ApplicationVersion = _optionsNetwork.ApplicationVersion;
-            roomHosted.Port = port;
-            roomHosted.PlayerCount = 1;
-            roomHosted.Validate();
+            NetworkRoomInfo infoRoomHosted = room.Clone();
+            infoRoomHosted.HostName = displayName;
+            infoRoomHosted.ProtocolVersion = _optionsNetwork.ProtocolVersion;
+            infoRoomHosted.ApplicationName = _optionsNetwork.ApplicationName;
+            infoRoomHosted.ApplicationVersion = _optionsNetwork.ApplicationVersion;
+            infoRoomHosted.Port = port;
+            infoRoomHosted.PlayerCount = 1;
+            infoRoomHosted.Validate();
             
             lock (_lock) {
                 _role = NetworkRole.Host;
-                _infoCurrent = roomHosted;
+                _infoCurrent = infoRoomHosted;
                 _nameLocal = displayName;
                 _identifierLocal = Guid.NewGuid();
                 _identifierHost = _identifierLocal;
@@ -355,14 +355,14 @@ namespace MonoGameLibrary.Extensions.Networking {
                         return new UnreachableNetworkProbeResult(addressReported, "The endpoint did not accept a connection.");
                     }
                     
-                    NetworkHelloMessage hello = new NetworkHelloMessage();
-                    hello.ProtocolVersion = _optionsNetwork.ProtocolVersion;
-                    hello.ApplicationName = _optionsNetwork.ApplicationName;
-                    hello.ApplicationVersion = _optionsNetwork.ApplicationVersion;
-                    hello.DisplayName = "probe";
-                    hello.Identifier = Guid.Empty;
-                    hello.IsProbe = true;
-                    await SendMessageAsync(channel, hello, sourceProbe.Token).ConfigureAwait(false);
+                    NetworkHelloMessage messageHello = new NetworkHelloMessage();
+                    messageHello.ProtocolVersion = _optionsNetwork.ProtocolVersion;
+                    messageHello.ApplicationName = _optionsNetwork.ApplicationName;
+                    messageHello.ApplicationVersion = _optionsNetwork.ApplicationVersion;
+                    messageHello.DisplayName = "probe";
+                    messageHello.Identifier = Guid.Empty;
+                    messageHello.IsProbe = true;
+                    await SendMessageAsync(channel, messageHello, sourceProbe.Token).ConfigureAwait(false);
                     
                     byte[] payload = await ReadFrameAsync(channel, _optionsNetwork.MaxMessageBytes, sourceProbe.Token).ConfigureAwait(false);
                     int latency = (int)watch.ElapsedMilliseconds;
@@ -376,22 +376,22 @@ namespace MonoGameLibrary.Extensions.Networking {
                         return new UnreachableNetworkProbeResult(addressReported, "The endpoint answered with an unreadable payload.");
                     }
                     
-                    NetworkWelcomeMessage welcome = message as NetworkWelcomeMessage;
-                    if (welcome != null) {
-                        NetworkRoomInfo infoWelcome = welcome.Info;
+                    NetworkWelcomeMessage messageWelcome = message as NetworkWelcomeMessage;
+                    if (messageWelcome != null) {
+                        NetworkRoomInfo infoWelcome = messageWelcome.Info;
                         if (infoWelcome == null) {
                             return new UnreachableNetworkProbeResult(addressReported, "The endpoint answered without room information.");
                         }
-                        if (welcome.ProtocolVersion == _optionsNetwork.ProtocolVersion) {
+                        if (messageWelcome.ProtocolVersion == _optionsNetwork.ProtocolVersion) {
                             return new CompatibleNetworkProbeResult(addressReported, latency, infoWelcome);
                         }
-                        string errorCompatible = $"The room speaks protocol version {welcome.ProtocolVersion} while this peer speaks {_optionsNetwork.ProtocolVersion}.";
+                        string errorCompatible = $"The room speaks protocol version {messageWelcome.ProtocolVersion} while this peer speaks {_optionsNetwork.ProtocolVersion}.";
                         return new IncompatibleNetworkProbeResult(addressReported, latency, infoWelcome, errorCompatible);
                     }
                     
-                    NetworkRefusedMessage refused = message as NetworkRefusedMessage;
-                    if (refused != null) {
-                        string reasonRefused = refused.Reason;
+                    NetworkRefusedMessage messageRefused = message as NetworkRefusedMessage;
+                    if (messageRefused != null) {
+                        string reasonRefused = messageRefused.Reason;
                         if (reasonRefused == null) {
                             reasonRefused = "";
                         }
@@ -461,12 +461,12 @@ namespace MonoGameLibrary.Extensions.Networking {
             int countDispatched = 0;
             int countLimit = _optionsNetwork.MaxDispatchPerUpdate;
             while (countDispatched < countLimit) {
-                NetworkInboundEvent notification;
-                if (!_queueInbound.TryDequeue(out notification)) {
+                NetworkInboundEvent eventNotification;
+                if (!_queueInbound.TryDequeue(out eventNotification)) {
                     return;
                 }
                 countDispatched += 1;
-                DispatchNotification(notification);
+                DispatchNotification(eventNotification);
             }
         }
         
@@ -475,31 +475,31 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// thread the game drives <see cref="Update"/> from.
         /// </summary>
         /// <param name="notification">The notification to report.</param>
-        private void DispatchNotification(NetworkInboundEvent notification) {
-            if (notification.Kind == NetworkInboundKind.StatusChangedHandler) {
+        private void DispatchNotification(NetworkInboundEvent eventNotification) {
+            if (eventNotification.Kind == NetworkInboundKind.StatusChangedHandler) {
                 EventHandler<NetworkStatusChangedEventArgs> handlerStatus = StatusChangedHandler;
                 if (handlerStatus != null) {
-                    handlerStatus(this, new NetworkStatusChangedEventArgs(notification.StatusPrevious, notification.CurrentStatus, notification.Reason));
+                    handlerStatus(this, new NetworkStatusChangedEventArgs(eventNotification.StatusPrevious, eventNotification.CurrentStatus, eventNotification.Reason));
                 }
                 return;
             }
-            if (notification.Kind == NetworkInboundKind.PeerJoinedHandler) {
+            if (eventNotification.Kind == NetworkInboundKind.PeerJoinedHandler) {
                 EventHandler<NetworkPeerEventArgs> handlerPeerJoined = PeerJoinedHandler;
                 if (handlerPeerJoined != null) {
-                    handlerPeerJoined(this, new NetworkPeerEventArgs(notification.Peer));
+                    handlerPeerJoined(this, new NetworkPeerEventArgs(eventNotification.Peer));
                 }
                 return;
             }
-            if (notification.Kind == NetworkInboundKind.PeerLeftHandler) {
+            if (eventNotification.Kind == NetworkInboundKind.PeerLeftHandler) {
                 EventHandler<NetworkPeerEventArgs> handlerPeerLeft = PeerLeftHandler;
                 if (handlerPeerLeft != null) {
-                    handlerPeerLeft(this, new NetworkPeerEventArgs(notification.Peer));
+                    handlerPeerLeft(this, new NetworkPeerEventArgs(eventNotification.Peer));
                 }
                 return;
             }
             EventHandler<NetworkMessageEventArgs> handlerMessageReceived = MessageReceivedHandler;
             if (handlerMessageReceived != null) {
-                handlerMessageReceived(this, new NetworkMessageEventArgs(notification.Peer, notification.Message));
+                handlerMessageReceived(this, new NetworkMessageEventArgs(eventNotification.Peer, eventNotification.Message));
             }
         }
         
@@ -591,31 +591,31 @@ namespace MonoGameLibrary.Extensions.Networking {
                 payload = await ReadFrameAsync(channel, _optionsNetwork.MaxMessageBytes, sourceHandshake.Token).ConfigureAwait(false);
             }
             
-            NetworkHelloMessage hello = null;
+            NetworkHelloMessage messageHello = null;
             if (payload != null) {
                 string kindRead;
                 INetworkMessage message;
                 if (_serializerNetwork.TryDeserialize(payload, out kindRead, out message)) {
-                    hello = message as NetworkHelloMessage;
+                    messageHello = message as NetworkHelloMessage;
                 }
             }
-            if (hello == null) {
+            if (messageHello == null) {
                 await RefuseAsync(channel, "The room expected a handshake first.", token).ConfigureAwait(false);
                 return null;
             }
-            if (hello.ProtocolVersion != _optionsNetwork.ProtocolVersion) {
-                string labelVersion = hello.ProtocolVersion < _optionsNetwork.ProtocolVersion ? "Outdated Client" : "Outdated Server";
-                string reasonVersion = $"{labelVersion}. The room speaks protocol version {_optionsNetwork.ProtocolVersion} while this player speaks {hello.ProtocolVersion}.";
+            if (messageHello.ProtocolVersion != _optionsNetwork.ProtocolVersion) {
+                string labelVersion = messageHello.ProtocolVersion < _optionsNetwork.ProtocolVersion ? "Outdated Client" : "Outdated Server";
+                string reasonVersion = $"{labelVersion}. The room speaks protocol version {_optionsNetwork.ProtocolVersion} while this player speaks {messageHello.ProtocolVersion}.";
                 await RefuseAsync(channel, reasonVersion, token).ConfigureAwait(false);
                 return null;
             }
             
             Guid identifierLocal = LocalIdentifier;
-            if (hello.IsProbe) {
+            if (messageHello.IsProbe) {
                 await AnswerProbeAsync(channel, token).ConfigureAwait(false);
                 return null;
             }
-            Guid identifierPeer = hello.Identifier;
+            Guid identifierPeer = messageHello.Identifier;
             if (identifierPeer == Guid.Empty || identifierPeer == identifierLocal) {
                 identifierPeer = Guid.NewGuid();
             }
@@ -636,7 +636,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             NetworkConnection connection = new NetworkConnection(new Optional<ILogger>(_logger));
             connection.Channel = channel;
             connection.Identifier = identifierPeer;
-            connection.DisplayName = SanitizeDisplayName(hello.DisplayName);
+            connection.DisplayName = SanitizeDisplayName(messageHello.DisplayName);
             connection.Address = channel.RemoteAddress;
             connection.HostFlag = false;
             if (!_connections.TryAdd(identifierPeer, connection)) {
@@ -647,19 +647,19 @@ namespace MonoGameLibrary.Extensions.Networking {
             AddOrUpdatePeer(connection.Identifier, connection.DisplayName, connection.Address, connection.MillisecondsLatency, false, false, true);
             UpdateRoomPlayerCount();
             
-            NetworkWelcomeMessage welcome = new NetworkWelcomeMessage();
-            welcome.ProtocolVersion = _optionsNetwork.ProtocolVersion;
-            welcome.PeerIdentifier = connection.Identifier;
-            welcome.HostIdentifier = identifierLocal;
+            NetworkWelcomeMessage messageWelcome = new NetworkWelcomeMessage();
+            messageWelcome.ProtocolVersion = _optionsNetwork.ProtocolVersion;
+            messageWelcome.PeerIdentifier = connection.Identifier;
+            messageWelcome.HostIdentifier = identifierLocal;
             lock (_lock) {
                 if (_infoCurrent != null) {
-                    welcome.Info = _infoCurrent.Clone();
+                    messageWelcome.Info = _infoCurrent.Clone();
                 } else {
-                    welcome.Info = new NetworkRoomInfo();
+                    messageWelcome.Info = new NetworkRoomInfo();
                 }
             }
-            welcome.Peers = BuildRoster();
-            connection.EnqueueFrame(SerializeToFrame(welcome));
+            messageWelcome.Peers = BuildRoster();
+            connection.EnqueueFrame(SerializeToFrame(messageWelcome));
             BroadcastRoster(connection.Identifier);
             _logger.Info($"Player '{connection.DisplayName}' joined from '{connection.Address}'.");
             
@@ -675,19 +675,19 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="channel">The channel of the probing peer.</param>
         /// <param name="token">The session token.</param>
         private async Task AnswerProbeAsync(INetworkChannel channel, CancellationToken token) {
-            NetworkWelcomeMessage welcome = new NetworkWelcomeMessage();
-            welcome.ProtocolVersion = _optionsNetwork.ProtocolVersion;
-            welcome.PeerIdentifier = Guid.Empty;
-            welcome.HostIdentifier = LocalIdentifier;
+            NetworkWelcomeMessage messageWelcome = new NetworkWelcomeMessage();
+            messageWelcome.ProtocolVersion = _optionsNetwork.ProtocolVersion;
+            messageWelcome.PeerIdentifier = Guid.Empty;
+            messageWelcome.HostIdentifier = LocalIdentifier;
             lock (_lock) {
                 if (_infoCurrent != null) {
-                    welcome.Info = _infoCurrent.Clone();
+                    messageWelcome.Info = _infoCurrent.Clone();
                 } else {
-                    welcome.Info = new NetworkRoomInfo();
+                    messageWelcome.Info = new NetworkRoomInfo();
                 }
             }
-            welcome.Peers = BuildRoster();
-            await SendMessageAsync(channel, welcome, token).ConfigureAwait(false);
+            messageWelcome.Peers = BuildRoster();
+            await SendMessageAsync(channel, messageWelcome, token).ConfigureAwait(false);
             _logger.Debug($"Answered a status probe from '{channel.RemoteAddress}'.");
             channel.Close();
         }
@@ -699,10 +699,10 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="reason">The human readable reason.</param>
         /// <param name="token">The session token.</param>
         private async Task RefuseAsync(INetworkChannel channel, string reason, CancellationToken token) {
-            NetworkRefusedMessage refused = new NetworkRefusedMessage();
-            refused.Reason = reason;
-            await SendMessageAsync(channel, refused, token).ConfigureAwait(false);
-            _logger.Info($"A joining player was refused: {reason}");
+            NetworkRefusedMessage messageRefused = new NetworkRefusedMessage();
+            messageRefused.Reason = reason;
+            await SendMessageAsync(channel, messageRefused, token).ConfigureAwait(false);
+            _logger.Info($"A joining player was messageRefused: {reason}");
             channel.Close();
         }
         
@@ -770,16 +770,16 @@ namespace MonoGameLibrary.Extensions.Networking {
                     return false;
                 }
                 
-                NetworkWelcomeMessage welcome;
+                NetworkWelcomeMessage messageWelcome;
                 using (CancellationTokenSource sourceHandshake = CancellationTokenSource.CreateLinkedTokenSource(token)) {
                     sourceHandshake.CancelAfter(_optionsNetwork.MillisecondsHandshakeTimeout);
-                    NetworkHelloMessage hello = new NetworkHelloMessage();
-                    hello.ProtocolVersion = _optionsNetwork.ProtocolVersion;
-                    hello.ApplicationName = _optionsNetwork.ApplicationName;
-                    hello.ApplicationVersion = _optionsNetwork.ApplicationVersion;
-                    hello.DisplayName = nameLocal;
-                    hello.Identifier = identifierLocal;
-                    await SendMessageAsync(channel, hello, sourceHandshake.Token).ConfigureAwait(false);
+                    NetworkHelloMessage messageHello = new NetworkHelloMessage();
+                    messageHello.ProtocolVersion = _optionsNetwork.ProtocolVersion;
+                    messageHello.ApplicationName = _optionsNetwork.ApplicationName;
+                    messageHello.ApplicationVersion = _optionsNetwork.ApplicationVersion;
+                    messageHello.DisplayName = nameLocal;
+                    messageHello.Identifier = identifierLocal;
+                    await SendMessageAsync(channel, messageHello, sourceHandshake.Token).ConfigureAwait(false);
                     
                     byte[] payload = await ReadFrameAsync(channel, _optionsNetwork.MaxMessageBytes, sourceHandshake.Token).ConfigureAwait(false);
                     if (payload == null) {
@@ -792,27 +792,27 @@ namespace MonoGameLibrary.Extensions.Networking {
                         TransitionStatus(NetworkStatus.Failed, "The room answered with an unreadable handshake.");
                         return false;
                     }
-                    NetworkRefusedMessage refused = message as NetworkRefusedMessage;
-                    if (refused != null) {
-                        TransitionStatus(NetworkStatus.Failed, refused.Reason);
+                    NetworkRefusedMessage messageRefused = message as NetworkRefusedMessage;
+                    if (messageRefused != null) {
+                        TransitionStatus(NetworkStatus.Failed, messageRefused.Reason);
                         return false;
                     }
-                    welcome = message as NetworkWelcomeMessage;
-                    if (welcome == null) {
+                    messageWelcome = message as NetworkWelcomeMessage;
+                    if (messageWelcome == null) {
                         TransitionStatus(NetworkStatus.Failed, "The room answered with an unexpected handshake.");
                         return false;
                     }
-                    if (welcome.ProtocolVersion != _optionsNetwork.ProtocolVersion) {
-                        string labelVersion = welcome.ProtocolVersion > _optionsNetwork.ProtocolVersion ? "Outdated Client" : "Outdated Server";
-                        TransitionStatus(NetworkStatus.Failed, $"{labelVersion}. The room speaks protocol version {welcome.ProtocolVersion} while this peer speaks {_optionsNetwork.ProtocolVersion}.");
+                    if (messageWelcome.ProtocolVersion != _optionsNetwork.ProtocolVersion) {
+                        string labelVersion = messageWelcome.ProtocolVersion > _optionsNetwork.ProtocolVersion ? "Outdated Client" : "Outdated Server";
+                        TransitionStatus(NetworkStatus.Failed, $"{labelVersion}. The room speaks protocol version {messageWelcome.ProtocolVersion} while this peer speaks {_optionsNetwork.ProtocolVersion}.");
                         return false;
                     }
                 }
                 
                 NetworkConnection connection = new NetworkConnection(new Optional<ILogger>(_logger));
                 connection.Channel = channel;
-                connection.Identifier = welcome.HostIdentifier;
-                connection.DisplayName = welcome.Info == null ? "" : welcome.Info.HostName;
+                connection.Identifier = messageWelcome.HostIdentifier;
+                connection.DisplayName = messageWelcome.Info == null ? "" : messageWelcome.Info.HostName;
                 connection.Address = channel.RemoteAddress;
                 connection.HostFlag = true;
                 if (watchHandshake.ElapsedMilliseconds > int.MaxValue) {
@@ -826,13 +826,13 @@ namespace MonoGameLibrary.Extensions.Networking {
                 }
                 lock (_lock) {
                     _identifierHost = connection.Identifier;
-                    if (welcome.Info != null) {
-                        _infoCurrent = welcome.Info.Clone();
-                        _infoCurrent.PlayerCount = welcome.Peers == null ? 1 : welcome.Peers.Count;
+                    if (messageWelcome.Info != null) {
+                        _infoCurrent = messageWelcome.Info.Clone();
+                        _infoCurrent.PlayerCount = messageWelcome.Peers == null ? 1 : messageWelcome.Peers.Count;
                     }
                 }
                 
-                ApplyRoster(welcome.Peers, connection);
+                ApplyRoster(messageWelcome.Peers, connection);
                 UpdatePeerLatency(connection.Identifier, connection.MillisecondsLatency);
                 TransitionStatus(NetworkStatus.Connected, "Joined the room at '" + addressTarget + ":" + portTarget + "'.");
                 _logger.Info($"Joined the room of '{connection.DisplayName}' at '{connection.Address}'.");
@@ -875,9 +875,9 @@ namespace MonoGameLibrary.Extensions.Networking {
                         }
                         long timestampPayload;
                         if (connection.TryBeginPing(_optionsNetwork.MillisecondsKeepAliveInterval, out timestampPayload)) {
-                            NetworkPingMessage ping = new NetworkPingMessage();
-                            ping.TimestampTicks = timestampPayload;
-                            connection.EnqueueFrame(SerializeToFrame(ping));
+                            NetworkPingMessage messagePing = new NetworkPingMessage();
+                            messagePing.TimestampTicks = timestampPayload;
+                            connection.EnqueueFrame(SerializeToFrame(messagePing));
                         }
                     }
                 }
@@ -982,31 +982,31 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="kindReceived">The kind identifier of the message.</param>
         /// <param name="message">The message.</param>
         private void HandleMessage(NetworkConnection connection, string kindReceived, INetworkMessage message) {
-            NetworkPingMessage ping = message as NetworkPingMessage;
-            if (ping != null) {
-                NetworkPongMessage pong = new NetworkPongMessage();
-                pong.TimestampTicks = ping.TimestampTicks;
-                connection.EnqueueFrame(SerializeToFrame(pong));
+            NetworkPingMessage messagePing = message as NetworkPingMessage;
+            if (messagePing != null) {
+                NetworkPongMessage messagePong = new NetworkPongMessage();
+                messagePong.TimestampTicks = messagePing.TimestampTicks;
+                connection.EnqueueFrame(SerializeToFrame(messagePong));
                 return;
             }
-            NetworkPongMessage pongReceived = message as NetworkPongMessage;
-            if (pongReceived != null) {
-                if (connection.TryCompletePing(pongReceived.TimestampTicks)) {
+            NetworkPongMessage messagePongReceived = message as NetworkPongMessage;
+            if (messagePongReceived != null) {
+                if (connection.TryCompletePing(messagePongReceived.TimestampTicks)) {
                     UpdatePeerLatency(connection.Identifier, connection.MillisecondsLatency);
                 }
                 return;
             }
-            NetworkRosterMessage roster = message as NetworkRosterMessage;
-            if (roster != null) {
-                ApplyRoster(roster.Peers, connection);
+            NetworkRosterMessage messageRoster = message as NetworkRosterMessage;
+            if (messageRoster != null) {
+                ApplyRoster(messageRoster.Peers, connection);
                 return;
             }
-            NetworkDisconnectMessage farewell = message as NetworkDisconnectMessage;
-            if (farewell != null) {
-                _logger.Info($"The peer at '{connection.Address}' disconnected: {farewell.Reason}");
-                TeardownConnection(connection, farewell.Reason);
+            NetworkDisconnectMessage messageFarewell = message as NetworkDisconnectMessage;
+            if (messageFarewell != null) {
+                _logger.Info($"The peer at '{connection.Address}' disconnected: {messageFarewell.Reason}");
+                TeardownConnection(connection, messageFarewell.Reason);
                 if (connection.HostFlag) {
-                    TransitionStatus(NetworkStatus.Disconnected, farewell.Reason);
+                    TransitionStatus(NetworkStatus.Disconnected, messageFarewell.Reason);
                 }
                 return;
             }
@@ -1016,11 +1016,11 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             
             NetworkPeer peer = EnsurePeerSnapshot(connection);
-            NetworkInboundEvent notification = new NetworkInboundEvent();
-            notification.Kind = NetworkInboundKind.Message;
-            notification.Peer = peer;
-            notification.Message = message;
-            _queueInbound.Enqueue(notification);
+            NetworkInboundEvent eventNotification = new NetworkInboundEvent();
+            eventNotification.Kind = NetworkInboundKind.Message;
+            eventNotification.Peer = peer;
+            eventNotification.Message = message;
+            _queueInbound.Enqueue(eventNotification);
         }
         
         /// <summary>
@@ -1117,10 +1117,10 @@ namespace MonoGameLibrary.Extensions.Networking {
                 return;
             }
             if (flagNotify && !flagLocal) {
-                NetworkInboundEvent notification = new NetworkInboundEvent();
-                notification.Kind = NetworkInboundKind.PeerJoinedHandler;
-                notification.Peer = recordNew.Peer;
-                _queueInbound.Enqueue(notification);
+                NetworkInboundEvent eventNotification = new NetworkInboundEvent();
+                eventNotification.Kind = NetworkInboundKind.PeerJoinedHandler;
+                eventNotification.Peer = recordNew.Peer;
+                _queueInbound.Enqueue(eventNotification);
             }
         }
         
@@ -1135,10 +1135,10 @@ namespace MonoGameLibrary.Extensions.Networking {
                 return;
             }
             if (flagNotify && !record.Peer.IsLocal) {
-                NetworkInboundEvent notification = new NetworkInboundEvent();
-                notification.Kind = NetworkInboundKind.PeerLeftHandler;
-                notification.Peer = record.Peer;
-                _queueInbound.Enqueue(notification);
+                NetworkInboundEvent eventNotification = new NetworkInboundEvent();
+                eventNotification.Kind = NetworkInboundKind.PeerLeftHandler;
+                eventNotification.Peer = record.Peer;
+                _queueInbound.Enqueue(eventNotification);
             }
         }
         
@@ -1179,7 +1179,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <returns>The roster entries in display order.</returns>
         private List<NetworkPeerEntry> BuildRoster() {
             IReadOnlyList<NetworkPeer> peers = Peers;
-            List<NetworkPeerEntry> roster = new List<NetworkPeerEntry>(peers.Count);
+            List<NetworkPeerEntry> messageRoster = new List<NetworkPeerEntry>(peers.Count);
             for (int index = 0; index < peers.Count; index += 1) {
                 NetworkPeer peer = peers[index];
                 NetworkPeerEntry entry = new NetworkPeerEntry();
@@ -1187,9 +1187,9 @@ namespace MonoGameLibrary.Extensions.Networking {
                 entry.DisplayName = peer.DisplayName;
                 entry.IsHost = peer.IsHost;
                 entry.MillisecondsLatency = peer.MillisecondsLatency;
-                roster.Add(entry);
+                messageRoster.Add(entry);
             }
-            return roster;
+            return messageRoster;
         }
         
         /// <summary>
@@ -1200,9 +1200,9 @@ namespace MonoGameLibrary.Extensions.Networking {
             if (Role != NetworkRole.Host) {
                 return;
             }
-            NetworkRosterMessage roster = new NetworkRosterMessage();
-            roster.Peers = BuildRoster();
-            byte[] frame = SerializeToFrame(roster);
+            NetworkRosterMessage messageRoster = new NetworkRosterMessage();
+            messageRoster.Peers = BuildRoster();
+            byte[] frame = SerializeToFrame(messageRoster);
             foreach (NetworkConnection connection in _connections.Values) {
                 if (connection.Identifier == identifierExcept) {
                     continue;
@@ -1379,12 +1379,12 @@ namespace MonoGameLibrary.Extensions.Networking {
                 reasonReported = "";
             }
             _logger.Info($"The network session moved from '{statusPrevious}' to '{statusCurrent}'. {reasonReported}");
-            NetworkInboundEvent notification = new NetworkInboundEvent();
-            notification.Kind = NetworkInboundKind.StatusChangedHandler;
-            notification.StatusPrevious = statusPrevious;
-            notification.CurrentStatus = statusCurrent;
-            notification.Reason = reasonReported;
-            _queueInbound.Enqueue(notification);
+            NetworkInboundEvent eventNotification = new NetworkInboundEvent();
+            eventNotification.Kind = NetworkInboundKind.StatusChangedHandler;
+            eventNotification.StatusPrevious = statusPrevious;
+            eventNotification.CurrentStatus = statusCurrent;
+            eventNotification.Reason = reasonReported;
+            _queueInbound.Enqueue(eventNotification);
         }
         
         /// <summary>
@@ -1450,8 +1450,8 @@ namespace MonoGameLibrary.Extensions.Networking {
             _connections.Clear();
             _peersKnown.Clear();
             _sequencePeer = 0;
-            NetworkInboundEvent notificationDiscarded;
-            while (_queueInbound.TryDequeue(out notificationDiscarded)) {
+            NetworkInboundEvent eventNotificationDiscarded;
+            while (_queueInbound.TryDequeue(out eventNotificationDiscarded)) {
                 // Notifications of the previous session are obsolete once a new one starts.
             }
         }
@@ -1566,8 +1566,8 @@ namespace MonoGameLibrary.Extensions.Networking {
                     _logger.Error("Releasing the session scope during teardown failed.", exception);
                 }
             }
-            NetworkInboundEvent notificationDiscarded;
-            while (_queueInbound.TryDequeue(out notificationDiscarded)) {
+            NetworkInboundEvent eventNotificationDiscarded;
+            while (_queueInbound.TryDequeue(out eventNotificationDiscarded)) {
                 // Notifications of the closed session are obsolete.
             }
             TransitionStatus(statusFinal, reason);
@@ -1607,7 +1607,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 CloseSession(reason, NetworkStatus.Disconnected);
             } catch (Exception exception) {
                 // Nothing observes this task, so it reports its own failure instead of faulting.
-                ReportFault("The session could not be closed after the farewell was sent.", exception);
+                ReportFault("The session could not be closed after the messageFarewell was sent.", exception);
             }
         }
     }

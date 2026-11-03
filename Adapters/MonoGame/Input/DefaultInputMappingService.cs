@@ -98,23 +98,23 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// <param name="left">The action that decreases X.</param>
         /// <param name="right">The action that increases X.</param>
         public TwoDimensionalVector GetActionDirection<T>(T up, T down, T left, T right) where T : Enum {
-            TwoDimensionalVector direction = TwoDimensionalVector.Zero;
+            TwoDimensionalVector vectorDirection = TwoDimensionalVector.Zero;
             if (IsActionHeld(up)) {
-                direction.Y -= 1f;
+                vectorDirection.Y -= 1f;
             }
             if (IsActionHeld(down)) {
-                direction.Y += 1f;
+                vectorDirection.Y += 1f;
             }
             if (IsActionHeld(left)) {
-                direction.X -= 1f;
+                vectorDirection.X -= 1f;
             }
             if (IsActionHeld(right)) {
-                direction.X += 1f;
+                vectorDirection.X += 1f;
             }
-            if (direction.LengthSquared() > 0f) {
-                direction = TwoDimensionalVector.Normalize(direction);
+            if (vectorDirection.LengthSquared() > 0f) {
+                vectorDirection = TwoDimensionalVector.Normalize(vectorDirection);
             }
-            return direction;
+            return vectorDirection;
         }
         
         /// <summary>Does nothing. Queries are forwarded to the input service, so there is no cached state to advance; the method exists for the lifecycle contract.</summary>

@@ -49,16 +49,16 @@ namespace MonoGameLibrary.Core.Hosting {
         /// One update participant together with the fixed keys the host admitted it under. 
         /// </summary>
         private readonly struct ScheduleUpdateEntry {
-            public ScheduleUpdateEntry(IUpdateable moduleUpdateable, int order, int indexAdmission) {
-                if (moduleUpdateable == null) {
-                    throw new ArgumentNullException(nameof(moduleUpdateable));
+            public ScheduleUpdateEntry(IUpdateable participantUpdateable, int order, int indexAdmission) {
+                if (participantUpdateable == null) {
+                    throw new ArgumentNullException(nameof(participantUpdateable));
                 }
-                UpdateableModule = moduleUpdateable;
+                UpdateableParticipant = participantUpdateable;
                 Order = order;
                 AdmissionIndex = indexAdmission;
             }
             
-            public IUpdateable UpdateableModule { get; }
+            public IUpdateable UpdateableParticipant { get; }
             public int Order { get; }
             public int AdmissionIndex { get; }
         }
@@ -67,16 +67,16 @@ namespace MonoGameLibrary.Core.Hosting {
         /// One draw participant together with the fixed keys the host admitted it under. 
         /// </summary>
         private readonly struct ScheduleDrawEntry {
-            public ScheduleDrawEntry(IDrawable moduleDrawable, int order, int indexAdmission) {
-                if (moduleDrawable == null) {
-                    throw new ArgumentNullException(nameof(moduleDrawable));
+            public ScheduleDrawEntry(IDrawable participantDrawable, int order, int indexAdmission) {
+                if (participantDrawable == null) {
+                    throw new ArgumentNullException(nameof(participantDrawable));
                 }
-                DrawableModule = moduleDrawable;
+                DrawableParticipant = participantDrawable;
                 Order = order;
                 AdmissionIndex = indexAdmission;
             }
             
-            public IDrawable DrawableModule { get; }
+            public IDrawable DrawableParticipant { get; }
             public int Order { get; }
             public int AdmissionIndex { get; }
         }
@@ -214,7 +214,7 @@ namespace MonoGameLibrary.Core.Hosting {
             
             EnterOperation();
             try {
-                ILoadable moduleLoadableToLoad = null;
+                ILoadable moduleLoadable = null;
                 lock (_lock) {
                     if (_flagIsFaulted) {
                         throw new InvalidOperationException(
@@ -248,8 +248,8 @@ namespace MonoGameLibrary.Core.Hosting {
                     _indexAdmission[module] = _countAdmitted;
                     _countAdmitted += 1;
                     
-                    if (module is ILoadable moduleLoadable) {
-                        _listLoadableModules.Add(moduleLoadable);
+                    if (module is ILoadable candidateModuleLoadable) {
+                        _listLoadableModules.Add(candidateModuleLoadable);
                     }
                     
                     // Three admission cases. Before Initialize, membership is published now and the
@@ -259,17 +259,17 @@ namespace MonoGameLibrary.Core.Hosting {
                     // module with nothing to load has no window to hold back and is published at once.
                     if (!_flagIsInitialized) {
                         PublishSchedulingMembership(module, options);
-                    } else if (module is ILoadable moduleLoadableToSchedule) {
+                    } else if (module is ILoadable scheduledModuleLoadable) {
                         // Published below, once LoadContent has returned.
-                        moduleLoadableToLoad = moduleLoadableToSchedule;
+                        moduleLoadable = scheduledModuleLoadable;
                     } else {
                         PublishSchedulingMembership(module, options);
                     }
                 }
                 
-                if (moduleLoadableToLoad != null) {
+                if (moduleLoadable != null) {
                     try {
-                        SafeExecute("LoadContent", moduleLoadableToLoad, moduleLoadableToLoad.LoadContent);
+                        SafeExecute("LoadContent", moduleLoadable, moduleLoadable.LoadContent);
                     } catch (Exception exception) {
                         // Withdraw the module before deciding what the explicit policy does with it.
                         RemoveModuleCore(module);
@@ -317,13 +317,13 @@ namespace MonoGameLibrary.Core.Hosting {
                 if (!_indexAdmission.TryGetValue(module, out indexAdmission)) {
                     indexAdmission = int.MaxValue;
                 }
-                if (module is IUpdateable moduleUpdateable) {
-                    _listUpdateEntries.Add(new ScheduleUpdateEntry(moduleUpdateable, options.UpdateOrder, indexAdmission));
+                if (module is IUpdateable participantUpdateable) {
+                    _listUpdateEntries.Add(new ScheduleUpdateEntry(participantUpdateable, options.UpdateOrder, indexAdmission));
                     _flagUpdateOrderDirty = true;
                     flagSchedulable = true;
                 }
-                if (module is IDrawable moduleDrawable) {
-                    _listDrawEntries.Add(new ScheduleDrawEntry(moduleDrawable, options.DrawOrder, indexAdmission));
+                if (module is IDrawable participantDrawable) {
+                    _listDrawEntries.Add(new ScheduleDrawEntry(participantDrawable, options.DrawOrder, indexAdmission));
                     _flagDrawOrderDirty = true;
                     flagSchedulable = true;
                 }
@@ -382,12 +382,12 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
                 if (module is IUpdateable) {
                     _listUpdateEntries.RemoveAll(delegate(ScheduleUpdateEntry entry) {
-                        return ReferenceEquals(entry.UpdateableModule, module);
+                        return ReferenceEquals(entry.UpdateableParticipant, module);
                     });
                 }
                 if (module is IDrawable) {
                     _listDrawEntries.RemoveAll(delegate(ScheduleDrawEntry entry) {
-                        return ReferenceEquals(entry.DrawableModule, module);
+                        return ReferenceEquals(entry.DrawableParticipant, module);
                     });
                 }
                 _flagUpdateOrderDirty = true;
@@ -497,9 +497,9 @@ namespace MonoGameLibrary.Core.Hosting {
                     listToIterate = _listUpdateEntriesPublished;
                 }
                 foreach (ScheduleUpdateEntry entry in listToIterate) {
-                    IUpdateable moduleUpdateable = entry.UpdateableModule;
-                    if (!moduleUpdateable.Enabled) { continue; }
-                    SafeExecute("Update", moduleUpdateable, timeFrame, moduleUpdateable.Update);
+                    IUpdateable participantUpdateable = entry.UpdateableParticipant;
+                    if (!participantUpdateable.Enabled) { continue; }
+                    SafeExecute("Update", participantUpdateable, timeFrame, participantUpdateable.Update);
                 }
             } finally {
                 ExitOperation();
@@ -541,9 +541,9 @@ namespace MonoGameLibrary.Core.Hosting {
                     listToIterate = _listDrawEntriesPublished;
                 }
                 foreach (ScheduleDrawEntry entry in listToIterate) {
-                    IDrawable moduleDrawable = entry.DrawableModule;
-                    if (!moduleDrawable.Visible) { continue; }
-                    SafeExecute("Draw", moduleDrawable, timeFrame, moduleDrawable.Draw);
+                    IDrawable participantDrawable = entry.DrawableParticipant;
+                    if (!participantDrawable.Visible) { continue; }
+                    SafeExecute("Draw", participantDrawable, timeFrame, participantDrawable.Draw);
                 }
             } finally {
                 ExitOperation();

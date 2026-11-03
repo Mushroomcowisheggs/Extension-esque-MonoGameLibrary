@@ -42,10 +42,10 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
         public void DrawInto(
             IRenderContext contextRender,
             string text,
-            TwoDimensionalVector position,
+            TwoDimensionalVector vectorPosition,
             MonoGameLibrary.Core.Primitives.Color color,
             float rotation,
-            TwoDimensionalVector origin,
+            TwoDimensionalVector vectorOrigin,
             float scale,
             MonoGameLibrary.Extensions.Graphics.SpriteEffects effectsSprite,
             float depthLayer
@@ -55,7 +55,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
             }
             
             var visitor = new FontVisitor(
-                _font, text, position, color, rotation, origin, scale, effectsSprite, depthLayer
+                _font, text, vectorPosition, color, rotation, vectorOrigin, scale, effectsSprite, depthLayer
             );
             contextRender.Accept(visitor);
         }
@@ -63,10 +63,10 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
         private sealed class FontVisitor : IVisitor {
             private readonly Microsoft.Xna.Framework.Graphics.SpriteFont _font;
             private readonly string _text;
-            private readonly TwoDimensionalVector _position;
+            private readonly TwoDimensionalVector _vectorPosition;
             private readonly MonoGameLibrary.Core.Primitives.Color _color;
             private readonly float _rotation;
-            private readonly TwoDimensionalVector _origin;
+            private readonly TwoDimensionalVector _vectorOrigin;
             private readonly float _scale;
             private readonly MonoGameLibrary.Extensions.Graphics.SpriteEffects _effectsSprite;
             private readonly float _depthLayer;
@@ -74,10 +74,10 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
             public FontVisitor(
                 Microsoft.Xna.Framework.Graphics.SpriteFont font,
                 string text,
-                TwoDimensionalVector position,
+                TwoDimensionalVector vectorPosition,
                 MonoGameLibrary.Core.Primitives.Color color,
                 float rotation,
-                TwoDimensionalVector origin,
+                TwoDimensionalVector vectorOrigin,
                 float scale,
                 MonoGameLibrary.Extensions.Graphics.SpriteEffects effectsSprite,
                 float depthLayer
@@ -90,10 +90,10 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
                 }
                 _font = font;
                 _text = text;
-                _position = position;
+                _vectorPosition = vectorPosition;
                 _color = color;
                 _rotation = rotation;
-                _origin = origin;
+                _vectorOrigin = vectorOrigin;
                 _scale = scale;
                 _effectsSprite = effectsSprite;
                 _depthLayer = depthLayer;
@@ -104,10 +104,10 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
                     contextRenderTyped.DrawStringInternal(
                         _font, 
                         _text, 
-                        _position, 
+                        _vectorPosition,
                         _color, 
                         _rotation,
-                        _origin, 
+                        _vectorOrigin,
                         _scale, 
                         _effectsSprite, 
                         _depthLayer

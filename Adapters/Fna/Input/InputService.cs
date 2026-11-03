@@ -107,7 +107,7 @@ namespace MonoGameLibrary.Adapters.Fna.Input {
         
         /// <inheritdoc />
         public bool IsKeyDown(KeyCode codeKey) {
-            Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
+            Keys key = KeyCodeConverter.ToFnaKey(codeKey);
             lock (_lock) {
                 return _stateKeyboardCurrent.IsKeyDown(key);
             }
@@ -115,7 +115,7 @@ namespace MonoGameLibrary.Adapters.Fna.Input {
         
         /// <inheritdoc />
         public bool IsKeyUp(KeyCode codeKey) {
-            Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
+            Keys key = KeyCodeConverter.ToFnaKey(codeKey);
             lock (_lock) {
                 return _stateKeyboardCurrent.IsKeyUp(key);
             }
@@ -123,7 +123,7 @@ namespace MonoGameLibrary.Adapters.Fna.Input {
         
         /// <inheritdoc />
         public bool WasKeyJustPressed(KeyCode codeKey) {
-            Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
+            Keys key = KeyCodeConverter.ToFnaKey(codeKey);
             lock (_lock) {
                 return _stateKeyboardCurrent.IsKeyDown(key) && _stateKeyboardPrevious.IsKeyUp(key);
             }
@@ -131,7 +131,7 @@ namespace MonoGameLibrary.Adapters.Fna.Input {
         
         /// <inheritdoc />
         public bool WasKeyJustReleased(KeyCode codeKey) {
-            Keys key = KeyCodeConverter.ToMonoGameKey(codeKey);
+            Keys key = KeyCodeConverter.ToFnaKey(codeKey);
             lock (_lock) {
                 return _stateKeyboardCurrent.IsKeyUp(key) && _stateKeyboardPrevious.IsKeyDown(key);
             }

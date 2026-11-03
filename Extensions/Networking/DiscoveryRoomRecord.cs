@@ -27,6 +27,6 @@ namespace MonoGameLibrary.Extensions.Networking {
         internal long Sequence;
         
         /// <summary>True when the room speaks the protocol version of the local peer.</summary>
-        internal bool FlagIsCompatible;
+        internal bool IsCompatibleFlag;
     }
 }

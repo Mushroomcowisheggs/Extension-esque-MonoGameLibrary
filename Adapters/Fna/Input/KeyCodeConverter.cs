@@ -12,7 +12,7 @@ namespace MonoGameLibrary.Adapters.Fna.Input {
         /// </summary>
         /// <param name="codeKey">The platform-independent key code.</param>
         /// <returns>The matching FNA key, or <c>Keys.None</c> when there is no match.</returns>
-        public static Keys ToMonoGameKey(KeyCode codeKey) {
+        public static Keys ToFnaKey(KeyCode codeKey) {
             switch (codeKey) {
                 case KeyCode.None: return Keys.None;
                 case KeyCode.A: return Keys.A;
@@ -107,8 +107,8 @@ namespace MonoGameLibrary.Adapters.Fna.Input {
         /// </summary>
         /// <param name="keyMonoGame">The FNA key.</param>
         /// <returns>The matching key code, or <c>KeyCode.None</c> when there is no match.</returns>
-        public static KeyCode ToKeyCode(Keys keyMonoGame) {
-            switch (keyMonoGame) {
+        public static KeyCode ToKeyCode(Keys keyNative) {
+            switch (keyNative) {
                 case Keys.None: return KeyCode.None;
                 case Keys.A: return KeyCode.A;
                 case Keys.B: return KeyCode.B;

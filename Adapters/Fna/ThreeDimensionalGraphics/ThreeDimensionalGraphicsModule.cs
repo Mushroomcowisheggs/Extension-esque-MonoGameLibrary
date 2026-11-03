@@ -65,9 +65,9 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
                 _orderDraw - 1
             );
             _moduleCamera.Register(builder);
-            IThreeDimensionalCameraService camera =
+            IThreeDimensionalCameraService serviceCameraResolved =
                 builder.GetService<IThreeDimensionalCameraService>();
-            _serviceRender = new MeshRenderService(game.GraphicsDevice, camera);
+            _serviceRender = new MeshRenderService(game.GraphicsDevice, serviceCameraResolved);
             builder.RegisterService<IMeshRenderService>(_serviceRender);
             builder.AddModule(
                 this,

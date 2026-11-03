@@ -199,23 +199,23 @@ namespace MonoGameLibrary.Extensions.Networking {
         }
         
         /// <inheritdoc />
-        public void StartAnnouncing(NetworkRoomInfo room) {
-            if (room == null) {
-                throw new ArgumentNullException(nameof(room));
+        public void StartAnnouncing(NetworkRoomInfo infoRoom) {
+            if (infoRoom == null) {
+                throw new ArgumentNullException(nameof(infoRoom));
             }
             EnsureNotDisposed();
-            room.Validate();
+            infoRoom.Validate();
             
-            NetworkRoomInfo roomPublished = room.Clone();
-            roomPublished.ProtocolVersion = _optionsNetwork.ProtocolVersion;
-            roomPublished.ApplicationName = _optionsNetwork.ApplicationName;
-            roomPublished.ApplicationVersion = _optionsNetwork.ApplicationVersion;
+            NetworkRoomInfo infoRoomPublished = infoRoom.Clone();
+            infoRoomPublished.ProtocolVersion = _optionsNetwork.ProtocolVersion;
+            infoRoomPublished.ApplicationName = _optionsNetwork.ApplicationName;
+            infoRoomPublished.ApplicationVersion = _optionsNetwork.ApplicationVersion;
             
             CancellationTokenSource sourceAnnouncing;
             lock (_lock) {
-                _infoPublished = roomPublished;
+                _infoPublished = infoRoomPublished;
                 _identifierRoom = Guid.NewGuid();
-                _portPublished = room.Port;
+                _portPublished = infoRoom.Port;
                 if (_flagAnnouncing) {
                     return;
                 }
@@ -225,24 +225,24 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             EnsureSocket();
             _taskAnnounce = _poolThread.RunAsync(delegate() { return RunAnnounceLoopAsync(sourceAnnouncing.Token); }, "Discovery.Announce");
-            _logger.Info($"Announcing the room '{roomPublished.RoomName}' on UDP port {_optionsDiscovery.DiscoveryPort}.");
+            _logger.Info($"Announcing the infoRoom '{infoRoomPublished.RoomName}' on UDP port {_optionsDiscovery.DiscoveryPort}.");
         }
         
         /// <inheritdoc />
-        public void UpdateRoomInfo(NetworkRoomInfo room) {
-            if (room == null) {
-                throw new ArgumentNullException(nameof(room));
+        public void UpdateRoomInfo(NetworkRoomInfo infoRoom) {
+            if (infoRoom == null) {
+                throw new ArgumentNullException(nameof(infoRoom));
             }
-            room.Validate();
+            infoRoom.Validate();
             lock (_lock) {
                 if (!_flagAnnouncing || _infoPublished == null) {
-                    throw new InvalidOperationException("No room is being announced. Call StartAnnouncing before updating it.");
+                    throw new InvalidOperationException("No infoRoom is being announced. Call StartAnnouncing before updating it.");
                 }
-                _infoPublished = room.Clone();
+                _infoPublished = infoRoom.Clone();
                 _infoPublished.ProtocolVersion = _optionsNetwork.ProtocolVersion;
                 _infoPublished.ApplicationName = _optionsNetwork.ApplicationName;
                 _infoPublished.ApplicationVersion = _optionsNetwork.ApplicationVersion;
-                _portPublished = room.Port;
+                _portPublished = infoRoom.Port;
             }
         }
         
@@ -443,9 +443,9 @@ namespace MonoGameLibrary.Extensions.Networking {
                 HandleAdvertisement(advertisement, endpointRemote);
                 return;
             }
-            RoomProbeRequest probe = message as RoomProbeRequest;
-            if (probe != null) {
-                await HandleProbeAsync(probe, endpointRemote, socket, token).ConfigureAwait(false);
+            RoomProbeRequest requestProbe = message as RoomProbeRequest;
+            if (requestProbe != null) {
+                await HandleProbeAsync(requestProbe, endpointRemote, socket, token).ConfigureAwait(false);
             }
         }
         
@@ -516,7 +516,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 }
                 record.SeenTimestamp = Environment.TickCount64;
                 record.TimestampSeenUtcTicks = DateTime.UtcNow.Ticks;
-                record.FlagIsCompatible = flagIsCompatible;
+                record.IsCompatibleFlag = flagIsCompatible;
                 
                 if (flagIsNew || flagChanged) {
                     DiscoveryNotification notification = new DiscoveryNotification();
@@ -530,7 +530,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 }
             }
             if (flagIsNew) {
-                _logger.Info($"Found the room '{advertisement.Info.RoomName}' at {addressHost}:{advertisement.Port}.");
+                _logger.Info($"Found the infoRoom '{advertisement.Info.RoomName}' at {addressHost}:{advertisement.Port}.");
             }
         }
         
@@ -542,11 +542,11 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="endpointRemote">The endpoint the probe came from.</param>
         /// <param name="socket">The datagram socket.</param>
         /// <param name="token">The socket token.</param>
-        private async Task HandleProbeAsync(RoomProbeRequest probe, IPEndPoint endpointRemote, Socket socket, CancellationToken token) {
+        private async Task HandleProbeAsync(RoomProbeRequest requestProbe, IPEndPoint endpointRemote, Socket socket, CancellationToken token) {
             if (endpointRemote == null) {
                 return;
             }
-            NetworkRoomInfo roomPublished;
+            NetworkRoomInfo infoRoomPublished;
             int portPublished;
             Guid identifierRoom;
             Guid identifierLocal;
@@ -554,7 +554,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 if (!_flagAnnouncing || _infoPublished == null) {
                     return;
                 }
-                roomPublished = _infoPublished;
+                infoRoomPublished = _infoPublished;
                 portPublished = _portPublished;
                 identifierRoom = _identifierRoom;
                 identifierLocal = _identifierLocal;
@@ -565,11 +565,11 @@ namespace MonoGameLibrary.Extensions.Networking {
             advertisement.HostIdentifier = identifierLocal;
             advertisement.HostAddress = endpointRemote.Address.ToString();
             advertisement.Port = portPublished;
-            advertisement.Info = roomPublished;
-            advertisement.TimestampTicks = probe.TimestampTicks;
+            advertisement.Info = infoRoomPublished;
+            advertisement.TimestampTicks = requestProbe.TimestampTicks;
             advertisement.IsResponse = true;
             await SendAdvertisementAsync(advertisement, endpointRemote, socket, token).ConfigureAwait(false);
-            _logger.Debug($"Answered a room probe from '{endpointRemote}'.");
+            _logger.Debug($"Answered a infoRoom requestProbe from '{endpointRemote}'.");
         }
         
         /// <summary>
@@ -579,23 +579,23 @@ namespace MonoGameLibrary.Extensions.Networking {
         private async Task RunAnnounceLoopAsync(CancellationToken token) {
             try {
                 while (!token.IsCancellationRequested) {
-                    NetworkRoomInfo roomPublished;
+                    NetworkRoomInfo infoRoomPublished;
                     int portPublished;
                     Guid identifierRoom;
                     Guid identifierLocal;
                     Socket socket = _socket;
                     lock (_lock) {
-                        roomPublished = _infoPublished;
+                        infoRoomPublished = _infoPublished;
                         portPublished = _portPublished;
                         identifierRoom = _identifierRoom;
                         identifierLocal = _identifierLocal;
                     }
-                    if (roomPublished != null && socket != null) {
+                    if (infoRoomPublished != null && socket != null) {
                         RoomAdvertisement advertisement = new RoomAdvertisement();
                         advertisement.RoomIdentifier = identifierRoom;
                         advertisement.HostIdentifier = identifierLocal;
                         advertisement.Port = portPublished;
-                        advertisement.Info = roomPublished;
+                        advertisement.Info = infoRoomPublished;
                         advertisement.IsResponse = false;
                         advertisement.TimestampTicks = 0;
                         if (!await TrySendAdvertisementAsync(advertisement, null, socket, token).ConfigureAwait(false)) {
@@ -607,7 +607,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     }
                 }
             } catch (Exception exception) {
-                _logger.Error("The room announcement loop stopped unexpectedly.", exception);
+                _logger.Error("The infoRoom announcement loop stopped unexpectedly.", exception);
             }
         }
         
@@ -627,7 +627,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             } catch (OperationCanceledException) {
                 return false;
             } catch (SocketException exception) {
-                _logger.Warning($"A room advert could not be sent: {exception.Message}");
+                _logger.Warning($"A infoRoom advert could not be sent: {exception.Message}");
                 return true;
             } catch (ObjectDisposedException) {
                 // The socket was closed by StopAnnouncing or StopBrowsing.
@@ -651,7 +651,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     }
                 }
             } catch (Exception exception) {
-                _logger.Error("The room probe loop stopped unexpectedly.", exception);
+                _logger.Error("The infoRoom requestProbe loop stopped unexpectedly.", exception);
             }
         }
         
@@ -664,11 +664,11 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <returns><c>false</c> when the loop must stop; otherwise <c>true</c>.</returns>
         private async Task<bool> TryProbeAsync(Socket socket, CancellationToken token) {
             try {
-                RoomProbeRequest probe = new RoomProbeRequest();
-                probe.RequesterIdentifier = _identifierLocal;
-                probe.ProtocolVersion = _optionsNetwork.ProtocolVersion;
-                probe.TimestampTicks = Environment.TickCount64;
-                byte[] payload = _serializerNetwork.Serialize(probe);
+                RoomProbeRequest requestProbe = new RoomProbeRequest();
+                requestProbe.RequesterIdentifier = _identifierLocal;
+                requestProbe.ProtocolVersion = _optionsNetwork.ProtocolVersion;
+                requestProbe.TimestampTicks = Environment.TickCount64;
+                byte[] payload = _serializerNetwork.Serialize(requestProbe);
                 List<IPEndPoint> endpoints = NetworkInterfaceBroadcast.GetEndpoints(
                     _optionsDiscovery.DiscoveryPort,
                     _optionsDiscovery.EnableLimitedBroadcast,
@@ -679,14 +679,14 @@ namespace MonoGameLibrary.Extensions.Networking {
                     try {
                         await socket.SendToAsync(new ArraySegment<byte>(payload), SocketFlags.None, endpoints[index], token).ConfigureAwait(false);
                     } catch (SocketException exception) {
-                        _logger.Debug($"A room probe could not use '{endpoints[index]}': {exception.Message}");
+                        _logger.Debug($"A infoRoom requestProbe could not use '{endpoints[index]}': {exception.Message}");
                     }
                 }
                 return true;
             } catch (OperationCanceledException) {
                 return false;
             } catch (SocketException exception) {
-                _logger.Warning($"A room probe could not be sent: {exception.Message}");
+                _logger.Warning($"A infoRoom requestProbe could not be sent: {exception.Message}");
                 return true;
             } catch (ObjectDisposedException) {
                 // The socket was closed by StopAnnouncing or StopBrowsing.
@@ -751,7 +751,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 }
             }
             for (int index = 0; index < listLost.Count; index += 1) {
-                _logger.Debug($"The room '{listLost[index].Info.RoomName}' at '{listLost[index].Address}' stopped announcing itself.");
+                _logger.Debug($"The infoRoom '{listLost[index].Info.RoomName}' at '{listLost[index].Address}' stopped announcing itself.");
                 DiscoveryNotification notification = new DiscoveryNotification();
                 notification.Kind = DiscoveryNotificationKind.Lost;
                 notification.Room = listLost[index];
@@ -794,8 +794,8 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="record">The browser-side record.</param>
         /// <returns>The snapshot.</returns>
         private static DiscoveredRoom CreateSnapshot(DiscoveryRoomRecord record) {
-            NetworkRoomInfo room = record.Advertisement.Info;
-            return new DiscoveredRoom(record.Advertisement.RoomIdentifier, record.HostAddress, record.Port, room, record.MillisecondsLatency, record.TimestampSeenUtcTicks, record.FlagIsCompatible);
+            NetworkRoomInfo infoRoom = record.Advertisement.Info;
+            return new DiscoveredRoom(record.Advertisement.RoomIdentifier, record.HostAddress, record.Port, infoRoom, record.MillisecondsLatency, record.TimestampSeenUtcTicks, record.IsCompatibleFlag);
         }
         
         /// <summary>
@@ -811,27 +811,27 @@ namespace MonoGameLibrary.Extensions.Networking {
             if (advertisementPrevious.Port != advertisementCurrent.Port) {
                 return true;
             }
-            NetworkRoomInfo roomPrevious = advertisementPrevious.Info;
-            NetworkRoomInfo roomCurrent = advertisementCurrent.Info;
-            if (roomPrevious.RoomName != roomCurrent.RoomName) {
+            NetworkRoomInfo infoRoomPrevious = advertisementPrevious.Info;
+            NetworkRoomInfo infoRoomCurrent = advertisementCurrent.Info;
+            if (infoRoomPrevious.RoomName != infoRoomCurrent.RoomName) {
                 return true;
             }
-            if (roomPrevious.HostName != roomCurrent.HostName) {
+            if (infoRoomPrevious.HostName != infoRoomCurrent.HostName) {
                 return true;
             }
-            if (roomPrevious.Description != roomCurrent.Description) {
+            if (infoRoomPrevious.Description != infoRoomCurrent.Description) {
                 return true;
             }
-            if (roomPrevious.PlayerCount != roomCurrent.PlayerCount) {
+            if (infoRoomPrevious.PlayerCount != infoRoomCurrent.PlayerCount) {
                 return true;
             }
-            if (roomPrevious.MaxPlayers != roomCurrent.MaxPlayers) {
+            if (infoRoomPrevious.MaxPlayers != infoRoomCurrent.MaxPlayers) {
                 return true;
             }
-            if (roomPrevious.ProtocolVersion != roomCurrent.ProtocolVersion) {
+            if (infoRoomPrevious.ProtocolVersion != infoRoomCurrent.ProtocolVersion) {
                 return true;
             }
-            if (roomPrevious.ApplicationVersion != roomCurrent.ApplicationVersion) {
+            if (infoRoomPrevious.ApplicationVersion != infoRoomCurrent.ApplicationVersion) {
                 return true;
             }
             return false;

@@ -85,7 +85,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         
         /// <summary>Gets the bridges this service resolved, which consumers use to reach Gum's runtime types.</summary>
         /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
-        public GumBridgesService Bridges {
+        public GumBridgesService BridgesService {
             get {
                 ThrowIfDisposed();
                 return _serviceBridges;
@@ -164,7 +164,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         public void AddNavigationForwardKey(NavigationKey key) {
             ThrowIfDisposed();
             FrameworkElement.TabKeyCombos.Add(
-                new KeyCombo { PushedKey = ToMonoGameKey(key) }
+                new KeyCombo { PushedKey = ToGumKey(key) }
             );
         }
         
@@ -174,7 +174,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         public void AddNavigationReverseKey(NavigationKey key) {
             ThrowIfDisposed();
             FrameworkElement.TabReverseKeyCombos.Add(
-                new KeyCombo { PushedKey = ToMonoGameKey(key) }
+                new KeyCombo { PushedKey = ToGumKey(key) }
             );
         }
         
@@ -183,9 +183,9 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
         public void RemoveNavigationForwardKey(NavigationKey key) {
             ThrowIfDisposed();
-            Keys keyMonoGame = ToMonoGameKey(key);
+            Keys keyNative = ToGumKey(key);
             FrameworkElement.TabKeyCombos.RemoveAll(delegate(KeyCombo combo) {
-                return combo.PushedKey == keyMonoGame;
+                return combo.PushedKey == keyNative;
             });
         }
         
@@ -194,13 +194,13 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
         public void RemoveNavigationReverseKey(NavigationKey key) {
             ThrowIfDisposed();
-            Keys keyMonoGame = ToMonoGameKey(key);
+            Keys keyNative = ToGumKey(key);
             FrameworkElement.TabReverseKeyCombos.RemoveAll(delegate(KeyCombo combo) {
-                return combo.PushedKey == keyMonoGame;
+                return combo.PushedKey == keyNative;
             });
         }
         
-        private static Keys ToMonoGameKey(NavigationKey key) {
+        private static Keys ToGumKey(NavigationKey key) {
             switch (key) {
                 case NavigationKey.Tab: return Keys.Tab;
                 case NavigationKey.Up: return Keys.Up;

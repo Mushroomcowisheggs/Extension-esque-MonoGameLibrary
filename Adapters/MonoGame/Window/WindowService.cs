@@ -240,7 +240,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
                 }
             }
             
-            WindowBoundsChangedEventArgs argumentsEvent;
+            WindowBoundsChangedEventArgs argsWindowBoundsChangedEvent;
             lock (_lock) {
                 if (widthClient == _widthClient && heightClient == _heightClient && widthPixel == _widthPixel && heightPixel == _heightPixel) {
                     return;
@@ -249,13 +249,13 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
                 _heightClient = heightClient;
                 _widthPixel = widthPixel;
                 _heightPixel = heightPixel;
-                argumentsEvent = new WindowBoundsChangedEventArgs(widthClient, heightClient, widthPixel, heightPixel);
+                argsWindowBoundsChangedEvent = new WindowBoundsChangedEventArgs(widthClient, heightClient, widthPixel, heightPixel);
             }
             EventHandler<WindowBoundsChangedEventArgs> handler = BoundsChangedHandler;
             if (handler == null) {
                 return;
             }
-            handler(this, argumentsEvent);
+            handler(this, argsWindowBoundsChangedEvent);
         }
         
         /// <summary>

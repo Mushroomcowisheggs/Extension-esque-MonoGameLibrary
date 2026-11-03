@@ -59,17 +59,17 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// </summary>
         /// <returns>A new instance with the same values.</returns>
         public NetworkRoomInfo Clone() {
-            NetworkRoomInfo copy = new NetworkRoomInfo();
-            copy.RoomName = RoomName;
-            copy.HostName = HostName;
-            copy.Description = Description;
-            copy.Port = Port;
-            copy.PlayerCount = PlayerCount;
-            copy.MaxPlayers = MaxPlayers;
-            copy.ProtocolVersion = ProtocolVersion;
-            copy.ApplicationName = ApplicationName;
-            copy.ApplicationVersion = ApplicationVersion;
-            return copy;
+            NetworkRoomInfo infoRoomCopy = new NetworkRoomInfo();
+            infoRoomCopy.RoomName = RoomName;
+            infoRoomCopy.HostName = HostName;
+            infoRoomCopy.Description = Description;
+            infoRoomCopy.Port = Port;
+            infoRoomCopy.PlayerCount = PlayerCount;
+            infoRoomCopy.MaxPlayers = MaxPlayers;
+            infoRoomCopy.ProtocolVersion = ProtocolVersion;
+            infoRoomCopy.ApplicationName = ApplicationName;
+            infoRoomCopy.ApplicationVersion = ApplicationVersion;
+            return infoRoomCopy;
         }
         
         /// <summary>

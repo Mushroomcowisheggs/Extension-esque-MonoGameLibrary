@@ -45,24 +45,24 @@ namespace MonoGameLibrary.Extensions.Networking {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            NetworkOptions optionsNetworkResolved;
+            NetworkOptions optionsResolvedNetwork;
             if (optionsNetwork.HasValue) {
-                optionsNetworkResolved = optionsNetwork.Value;
+                optionsResolvedNetwork = optionsNetwork.Value;
             } else {
-                optionsNetworkResolved = new NetworkOptions();
+                optionsResolvedNetwork = new NetworkOptions();
             }
-            DiscoveryOptions optionsDiscoveryResolved;
+            DiscoveryOptions optionsResolvedDiscovery;
             if (optionsDiscovery.HasValue) {
-                optionsDiscoveryResolved = optionsDiscovery.Value;
+                optionsResolvedDiscovery = optionsDiscovery.Value;
             } else {
-                optionsDiscoveryResolved = new DiscoveryOptions();
+                optionsResolvedDiscovery = new DiscoveryOptions();
             }
-            optionsNetworkResolved.Validate();
-            optionsDiscoveryResolved.Validate();
+            optionsResolvedNetwork.Validate();
+            optionsResolvedDiscovery.Validate();
             
             ILogger loggerResolved = ResolveLogger(builder, logger);
             IThreadPool poolResolved = ResolveThreadPool(builder, poolThread);
-            ICancellationService cancellationResolved = ResolveCancellation(builder, serviceCancellation);
+            ICancellationService serviceCancellationResolved = ResolveCancellation(builder, serviceCancellation);
             Optional<IProfiler> profilerResolved = ResolveProfiler(builder, profiler);
             INetworkSerializer serializerResolved;
             if (serializerNetwork.HasValue) {
@@ -78,11 +78,11 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             
             NetworkService serviceNetwork = new NetworkService(
-                optionsNetworkResolved,
+                optionsResolvedNetwork,
                 serializerResolved,
                 transportResolved,
                 poolResolved,
-                cancellationResolved,
+                serviceCancellationResolved,
                 loggerResolved,
                 profilerResolved
             );
@@ -90,11 +90,11 @@ namespace MonoGameLibrary.Extensions.Networking {
             moduleNetwork.Register(builder);
             
             DiscoveryService serviceDiscovery = new DiscoveryService(
-                optionsNetworkResolved,
-                optionsDiscoveryResolved,
+                optionsResolvedNetwork,
+                optionsResolvedDiscovery,
                 serializerResolved,
                 poolResolved,
-                cancellationResolved,
+                serviceCancellationResolved,
                 loggerResolved,
                 profilerResolved
             );

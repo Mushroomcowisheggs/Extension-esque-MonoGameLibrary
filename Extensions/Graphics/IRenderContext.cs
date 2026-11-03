@@ -21,7 +21,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// <summary>
         /// Gets the area of the current target that is being rendered, in pixels.
         /// </summary>
-        Rectangle ViewportBounds { get; }
+        Rectangle ViewportBoundsRectangle { get; }
         
         /// <summary>
         /// Begins a rendering block. All draw operations must occur between <see cref="Begin"/> and <see cref="End"/>. 

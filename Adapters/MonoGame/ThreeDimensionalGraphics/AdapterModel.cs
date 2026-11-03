@@ -6,7 +6,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
     /// <summary>
     /// MonoGame adapter for a content-managed model.
     /// </summary>
-    public sealed class ModelAdapter : IModel {
+    public sealed class AdapterModel : IModel {
         private Model _model;
         private readonly BoundingSphere _sphereBounds;
         private bool _flagDisposed;
@@ -15,7 +15,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
         /// Initializes a model adapter.
         /// </summary>
         /// <param name="model">The native model.</param>
-        public ModelAdapter(Model model) {
+        public AdapterModel(Model model) {
             if (model == null) {
                 throw new ArgumentNullException(nameof(model));
             }
@@ -24,12 +24,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
         }
         
         /// <inheritdoc />
-        public BoundingSphere Bounds { get { return _sphereBounds; } }
+        public BoundingSphere BoundsBoundingSphere { get { return _sphereBounds; } }
         
         internal Model NativeModel {
             get {
                 if (_model == null) {
-                    throw new ObjectDisposedException(nameof(ModelAdapter));
+                    throw new ObjectDisposedException(nameof(AdapterModel));
                 }
                 return _model;
             }

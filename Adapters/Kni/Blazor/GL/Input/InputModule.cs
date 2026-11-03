@@ -58,7 +58,7 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Input {
             builder.RegisterService<ITextInputService>(_serviceText);
             // The key translation table is a service, so it is resolved from the container rather
             // than rebuilt wherever a key has to be translated.
-            builder.RegisterService<INativeKeyProvider<Keys>>(new MonoGameKeyCodeProvider());
+            builder.RegisterService<INativeKeyProvider<Keys>>(new KniKeyCodeProvider());
             builder.AddModule(this, new ScheduleOptions(orderUpdate: -64));
         }
         

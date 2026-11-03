@@ -29,7 +29,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets the state the session left.
         /// </summary>
-        public NetworkStatus StatusPrevious {
+        public NetworkStatus PreviousNetworkStatus {
             get {
                 return _statusPrevious;
             }
@@ -38,7 +38,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <summary>
         /// Gets the state the session entered.
         /// </summary>
-        public NetworkStatus StatusCurrent {
+        public NetworkStatus CurrentNetworkStatus {
             get {
                 return _statusCurrent;
             }

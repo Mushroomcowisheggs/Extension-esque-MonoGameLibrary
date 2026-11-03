@@ -43,12 +43,12 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// Gets the width of a single tile in pixels, after applying the current scale factor.
         /// This is equivalent to <see cref="TileWidth"/> multiplied by <see cref="Scale.X"/>.
         /// </summary>
-        public float ScaledTileWidth { get { return TileWidth * Scale.X; } }
+        public float ScaledTileWidth { get { return TileWidth * ScaleVector.X; } }
         /// <summary>
         /// Gets the height of a single tile in pixels, after applying the current scale factor.
         /// This is equivalent to <see cref="TileHeight"/> multiplied by <see cref="Scale.Y"/>.
         /// </summary>
-        public float ScaledTileHeight { get { return TileHeight * Scale.Y; } }
+        public float ScaledTileHeight { get { return TileHeight * ScaleVector.Y; } }
         /// <summary>
         /// Gets the number of layers. Currently always 1: the parser reads a single &lt;Tiles&gt; 
         /// element and populates exactly one layer. 
@@ -56,11 +56,11 @@ namespace MonoGameLibrary.Extensions.Graphics {
         public int LayerCount { get { return _layers.Count; } }
         
         /// <summary>Gets or sets the draw scale.</summary>
-        public TwoDimensionalVector Scale { get; set; } = TwoDimensionalVector.One;
+        public TwoDimensionalVector ScaleVector { get; set; } = TwoDimensionalVector.One;
         /// <summary>Gets or sets the color tint.</summary>
         public Color TintColor { get; set; } = Color.White;
         /// <summary>Gets or sets a drawing offset for scrolling.</summary>
-        public TwoDimensionalVector Offset { get; set; } = TwoDimensionalVector.Zero;
+        public TwoDimensionalVector OffsetVector { get; set; } = TwoDimensionalVector.Zero;
         
         private Tilemap(TextureAtlas atlas, int columns, int rows, int widthTile, int heightTile) {
             if (atlas == null) { throw new ArgumentNullException(nameof(atlas)); }
@@ -285,19 +285,19 @@ namespace MonoGameLibrary.Extensions.Graphics {
                     TextureRegion region = GetTileRegion(indexTile);
                     if (region == null) { continue; }
                     
-                    TwoDimensionalVector position = new TwoDimensionalVector(
-                        column * _widthTile * Scale.X + Offset.X,
-                        row * _heightTile * Scale.Y + Offset.Y
+                    TwoDimensionalVector vectorPosition = new TwoDimensionalVector(
+                        column * _widthTile * ScaleVector.X + OffsetVector.X,
+                        row * _heightTile * ScaleVector.Y + OffsetVector.Y
                     );
                     
                     region.Texture.DrawInto(
                         contextRender,
-                        position,
+                        vectorPosition,
                         new OptionalValue<Rectangle>(region.SourceRectangle),
                         TintColor,
                         0f, // rotation
                         TwoDimensionalVector.Zero, // origin
-                        Scale,
+                        ScaleVector,
                         SpriteEffects.None,
                         0f // layer depth
                     );

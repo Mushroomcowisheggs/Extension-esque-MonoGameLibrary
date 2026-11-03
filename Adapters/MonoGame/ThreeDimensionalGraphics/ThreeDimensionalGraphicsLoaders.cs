@@ -22,7 +22,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
             }
             if (typeof(T) == typeof(IModel)) {
                 Model model = backendContent.LoadNative<Model>(nameAsset);
-                return new ModelAdapter(model) as T;
+                return new AdapterModel(model) as T;
             }
             throw new NotSupportedException(
                 $"Three-dimensional graphics loader does not support asset type {typeof(T).FullName}."

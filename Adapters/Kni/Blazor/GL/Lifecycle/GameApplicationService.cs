@@ -16,7 +16,7 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Lifecycle {
             _game = game;
         }
         
-        public Rectangle ClientBounds {
+        public Rectangle ClientBoundsRectangle {
             get {
                 Microsoft.Xna.Framework.Rectangle bounds = _game.GraphicsDevice.PresentationParameters.Bounds;
                 return new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height);

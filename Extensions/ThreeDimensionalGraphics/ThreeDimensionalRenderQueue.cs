@@ -60,9 +60,9 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
             foreach (ThreeDimensionalSubmission submission in listPending) {
                 BoundingSphere sphereBounds;
                 if (submission.FlagModel) {
-                    sphereBounds = submission.Model.Bounds;
+                    sphereBounds = submission.Model.BoundsBoundingSphere;
                 } else {
-                    sphereBounds = submission.Mesh.Data.Bounds;
+                    sphereBounds = submission.Mesh.Data.BoundsBoundingSphere;
                 }
                 Vector3 center = Vector3.Transform(sphereBounds.Center, submission.WorldMatrix);
                 float radius = sphereBounds.Radius * MaxScale(submission.WorldMatrix);

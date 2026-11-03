@@ -156,10 +156,10 @@ namespace MonoGameLibrary.Adapters.Kni.ThreeDimensionalGraphics {
             Matrix matrixViewNative,
             Matrix matrixProjectionNative
         ) {
-            ModelAdapter modelAdapter = model as ModelAdapter;
+            AdapterModel modelAdapter = model as AdapterModel;
             if (modelAdapter == null) {
                 throw new NotSupportedException(
-                    "The supplied model is not a KNI ModelAdapter."
+                    "The supplied model is not a KNI AdapterModel."
                 );
             }
             modelAdapter.NativeModel.Draw(

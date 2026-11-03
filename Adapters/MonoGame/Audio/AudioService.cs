@@ -103,19 +103,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         }
         
         /// <inheritdoc />
-        public void PlayClipAudio(IClipAudio audioClip, float volume = 1f, float pitch = 0f, float pan = 0f, bool flagLoop = false) {
-            if (audioClip == null) {
-                throw new ArgumentNullException(nameof(audioClip));
+        public void PlayClipAudio(IClipAudio audioNativeClip, float volume = 1f, float pitch = 0f, float pan = 0f, bool flagLoop = false) {
+            if (audioNativeClip == null) {
+                throw new ArgumentNullException(nameof(audioNativeClip));
             }
             
-            ClipAudio audioMonoGameClip = audioClip as ClipAudio;
-            if (audioMonoGameClip == null) {
-                throw new ArgumentException("Clip must be a ClipAudio.", nameof(audioClip));
+            ClipAudio audioClip = audioNativeClip as ClipAudio;
+            if (audioClip == null) {
+                throw new ArgumentException("Clip must be a ClipAudio.", nameof(audioNativeClip));
             }
             
             SoundEffectInstance instance;
             try {
-                instance = audioMonoGameClip.SoundEffect.CreateInstance();
+                instance = audioClip.SoundEffect.CreateInstance();
             } catch (Exception exception) when (AudioFailure.IsDeviceFailure(exception)) {
                 throw new AudioDeviceException("The audio device could not create a playback instance.", exception);
             }
@@ -145,19 +145,19 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
         }
         
         /// <inheritdoc />
-        public void PlayTrackAudio(ITrackAudio audioTrack, bool flagRepeat = true) {
-            if (audioTrack == null) {
-                throw new ArgumentNullException(nameof(audioTrack));
+        public void PlayTrackAudio(ITrackAudio audioNativeTrack, bool flagRepeat = true) {
+            if (audioNativeTrack == null) {
+                throw new ArgumentNullException(nameof(audioNativeTrack));
             }
             
-            TrackAudio trackMonoGameAudio = audioTrack as TrackAudio;
-            if (trackMonoGameAudio == null) {
-                throw new ArgumentException("Track must be a TrackAudio.", nameof(audioTrack));
+            TrackAudio audioTrack = audioNativeTrack as TrackAudio;
+            if (audioTrack == null) {
+                throw new ArgumentException("Track must be a TrackAudio.", nameof(audioNativeTrack));
             }
             
             try {
                 MediaPlayer.Stop();
-                MediaPlayer.Play(trackMonoGameAudio.Song);
+                MediaPlayer.Play(audioTrack.Song);
                 MediaPlayer.IsRepeating = flagRepeat;
             } catch (Exception exception) when (AudioFailure.IsDeviceFailure(exception)) {
                 throw new AudioDeviceException("The audio device could not play a music track.", exception);

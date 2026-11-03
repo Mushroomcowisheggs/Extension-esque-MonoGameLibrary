@@ -7,7 +7,7 @@ namespace MonoGameLibrary.Core.Lifecycle {
         /// Gets the configured client-area bounds in render-surface coordinates.
         /// The top-left origin is (0, 0).
         /// </summary>
-        Rectangle ClientBounds { get; }
+        Rectangle ClientBoundsRectangle { get; }
         
         /// <summary>Requests that the running game application exit.</summary>
         void Exit();

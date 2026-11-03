@@ -27,7 +27,7 @@ namespace MonoGameLibrary.Core.Primitives {
         }
         
         /// <summary>Gets the center location as a point. </summary>
-        public Point Location {
+        public Point LocationPoint {
             get { return new Point(X, Y); }
         }
         

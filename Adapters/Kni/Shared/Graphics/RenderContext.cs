@@ -53,7 +53,7 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
         }
         
         /// <inheritdoc />
-        public MonoGameLibrary.Core.Primitives.Rectangle ViewportBounds {
+        public MonoGameLibrary.Core.Primitives.Rectangle ViewportBoundsRectangle {
             get {
                 Microsoft.Xna.Framework.Graphics.Viewport viewport = _batchSprite.GraphicsDevice.Viewport;
                 return new MonoGameLibrary.Core.Primitives.Rectangle(viewport.X, viewport.Y, viewport.Width, viewport.Height);
@@ -212,10 +212,10 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
             if (_flagBatchActive) {
                 throw new InvalidOperationException("A rendering batch is already active.");
             }
-            var stateMonoGameSampler = stateSampler.HasValue 
+            var stateNativeSampler = stateSampler.HasValue
             ? ConvertSampler(stateSampler.Value) 
             : Microsoft.Xna.Framework.Graphics.SamplerState.PointClamp;
-            var stateMonoGameBlend = stateBlend.HasValue 
+            var stateNativeBlend = stateBlend.HasValue
             ? ConvertBlend(stateBlend.Value) 
             : Microsoft.Xna.Framework.Graphics.BlendState.AlphaBlend;
             
@@ -237,8 +237,8 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
             }
             
             _batchSprite.Begin(
-                samplerState: stateMonoGameSampler, 
-                blendState: stateMonoGameBlend, 
+                samplerState: stateNativeSampler,
+                blendState: stateNativeBlend,
                 effect: effectNative,
                 transformMatrix: matrixTransform
             );

@@ -10,6 +10,6 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// </remarks>
     public interface IModel : IAsset, System.IDisposable {
         /// <summary>Gets a conservative model-space bounding sphere.</summary>
-        BoundingSphere Bounds { get; }
+        BoundingSphere BoundsBoundingSphere { get; }
     }
 }

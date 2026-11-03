@@ -41,7 +41,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (target == null) {
                 throw new ArgumentNullException(nameof(target));
             }
-            target.Color = ToMonoGameColor(color);
+            target.Color = ToGumColor(color);
         }
         
         /// <summary>Applies a neutral colour to a coloured rectangle.</summary>
@@ -54,7 +54,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (target == null) {
                 throw new ArgumentNullException(nameof(target));
             }
-            target.Color = ToMonoGameColor(color);
+            target.Color = ToGumColor(color);
         }
         
         /// <summary>Applies a neutral colour to a text runtime.</summary>
@@ -64,7 +64,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             if (target == null) {
                 throw new ArgumentNullException(nameof(target));
             }
-            target.Color = ToMonoGameColor(color);
+            target.Color = ToGumColor(color);
         }
         
         /// <summary>Creates a Gum animation frame from a neutral texture region.</summary>
@@ -116,7 +116,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
             return textureNative;
         }
         
-        private static Microsoft.Xna.Framework.Color ToMonoGameColor(
+        private static Microsoft.Xna.Framework.Color ToGumColor(
             Color color
         ) {
             return new Microsoft.Xna.Framework.Color(

@@ -107,8 +107,8 @@ namespace MonoGameLibrary.Adapters.MonoGame.Input {
         /// </summary>
         /// <param name="keyMonoGame">The MonoGame key.</param>
         /// <returns>The matching key code, or <c>KeyCode.None</c> when there is no match.</returns>
-        public static KeyCode ToKeyCode(Keys keyMonoGame) {
-            switch (keyMonoGame) {
+        public static KeyCode ToKeyCode(Keys keyNative) {
+            switch (keyNative) {
                 case Keys.None: return KeyCode.None;
                 case Keys.A: return KeyCode.A;
                 case Keys.B: return KeyCode.B;
