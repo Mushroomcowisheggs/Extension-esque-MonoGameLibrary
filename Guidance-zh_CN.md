@@ -77,7 +77,7 @@ Extensions → Core                      (Extensions never points to Adapters)
 
 **层内功能组件隔离（强制）**：
 
-- `Extensions/<Feature>` 下的源文件不得引用任何同级 `MonoGameLibrary.Extensions.<OtherFeature>` 命名空间。每个功能组件拥有自己的词汇与生命周期契约。真正共享的抽象应放入 Core；跨适配器握手契约应放入自包含的 `Extensions/Bridge` 锚点，并通过泛型参数表达，不得引用其他 Extension 所拥有的类型。
+- 一个功能，一个文件夹，一个命名空间。 每个功能放在 `Extensions/` 下自己的文件夹里，文件夹中的文件使用这个功能自己的命名空间。例如， `Extensions/Audio/` 下的文件使用 `MonoGameLibrary.Extensions.Audio`。一个功能自己的名称和对外生命周期契约由它自己负责，并且不得使用其他功能的类型或命名空间。两个功能需要协作时，由应用在组合时通过注册的接口把它们连接起来；适配器之间的原生握手通过自包含的 `Extensions/Bridge` 锚点完成，用泛型参数表达，而不是引用另一个功能的类型。必须的、所有功能都真正共用的东西放进 `Core`。直接放在 `Extensions` 项目根目录下的文件只是组合库时用的公共入口（例如 `UseDefaultServices`）：它们不得实现某个功能，也不得引用任何功能的类型。
 - `Adapters/<Backend>/<Capability>` 下的源文件不得引用同级 Adapter 能力或其他 Adapter 项目。每个能力仅通过 Extension/Core 契约独立实现；组件间协作通过注册到 `GameBuilder` 的接口完成，不得引用同级具体类。
 - Game Application 是组合根，可以解析并连接多个 Extension 与 Adapter 能力；跨功能编排应位于此处。
 
