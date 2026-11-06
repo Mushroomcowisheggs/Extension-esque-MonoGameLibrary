@@ -13,16 +13,16 @@ namespace MonoGameLibrary.Extensions.Graphics {
         /// </summary>
         /// <param name="width">Texture width in pixels. Must be greater than zero.</param>
         /// <param name="height">Texture height in pixels. Must be greater than zero.</param>
-        /// <param name="dataPixel">Row major pixel data. Must contain width * height entries.</param>
+        /// <param name="arrayPixelColors">Row major pixel data. Must contain width * height entries.</param>
         /// <returns>The newly created texture.</returns>
         /// <exception cref="ArgumentOutOfRangeException">
         /// Thrown if <paramref name="width"/> or <paramref name="height"/> is not positive.
         /// </exception>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="dataPixel"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="arrayPixelColors"/> is null.</exception>
         /// <exception cref="ArgumentException">
         /// Thrown if the pixel array does not contain exactly width multiplied by height entries.
         /// </exception>
-        ITwoDimensionalTexture CreateFromPixels(int width, int height, Color[] dataPixel);
+        ITwoDimensionalTexture CreateFromPixels(int width, int height, Color[] arrayPixelColors);
         
         /// <summary>
         /// Decodes an encoded image stream (PNG, JPEG, and other formats the

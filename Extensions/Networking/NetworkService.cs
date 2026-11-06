@@ -1179,7 +1179,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <returns>The roster entries in display order.</returns>
         private List<NetworkPeerEntry> BuildRoster() {
             IReadOnlyList<NetworkPeer> peers = Peers;
-            List<NetworkPeerEntry> messageRoster = new List<NetworkPeerEntry>(peers.Count);
+            List<NetworkPeerEntry> listMessageRoster = new List<NetworkPeerEntry>(peers.Count);
             for (int index = 0; index < peers.Count; index += 1) {
                 NetworkPeer peer = peers[index];
                 NetworkPeerEntry entry = new NetworkPeerEntry();
@@ -1187,9 +1187,9 @@ namespace MonoGameLibrary.Extensions.Networking {
                 entry.DisplayName = peer.DisplayName;
                 entry.IsHost = peer.IsHost;
                 entry.MillisecondsLatency = peer.MillisecondsLatency;
-                messageRoster.Add(entry);
+                listMessageRoster.Add(entry);
             }
-            return messageRoster;
+            return listMessageRoster;
         }
         
         /// <summary>

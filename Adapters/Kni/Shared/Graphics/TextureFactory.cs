@@ -25,19 +25,19 @@ namespace MonoGameLibrary.Adapters.Kni.Graphics {
         }
         
         /// <inheritdoc />
-        public ITwoDimensionalTexture CreateFromPixels(int width, int height, Color[] dataPixel) {
+        public ITwoDimensionalTexture CreateFromPixels(int width, int height, Color[] arrayPixelColors) {
             if (width <= 0) { throw new ArgumentOutOfRangeException(nameof(width)); }
             if (height <= 0) { throw new ArgumentOutOfRangeException(nameof(height)); }
-            if (dataPixel == null) { throw new ArgumentNullException(nameof(dataPixel)); }
-            if (dataPixel.Length != width * height) {
-                throw new ArgumentException("Pixel data length must equal width multiplied by height.", nameof(dataPixel));
+            if (arrayPixelColors == null) { throw new ArgumentNullException(nameof(arrayPixelColors)); }
+            if (arrayPixelColors.Length != width * height) {
+                throw new ArgumentException("Pixel data length must equal width multiplied by height.", nameof(arrayPixelColors));
             }
             Texture2D texture = new Texture2D(_device, width, height);
             try {
-                Microsoft.Xna.Framework.Color[] arrayColor = new Microsoft.Xna.Framework.Color[dataPixel.Length];
-                for (int index = 0; index < dataPixel.Length; index += 1) {
+                Microsoft.Xna.Framework.Color[] arrayColor = new Microsoft.Xna.Framework.Color[arrayPixelColors.Length];
+                for (int index = 0; index < arrayPixelColors.Length; index += 1) {
                     arrayColor[index] = new Microsoft.Xna.Framework.Color(
-                        dataPixel[index].R, dataPixel[index].G, dataPixel[index].B, dataPixel[index].A
+                        arrayPixelColors[index].R, arrayPixelColors[index].G, arrayPixelColors[index].B, arrayPixelColors[index].A
                     );
                 }
                 texture.SetData(arrayColor);

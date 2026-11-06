@@ -21,31 +21,31 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
         /// <exception cref="ArgumentNullException">Thrown when an array is null.</exception>
         /// <exception cref="ArgumentException">Thrown when the arrays are empty or an index is out of range.</exception>
         public MeshData(
-            MeshVertex[] vertexArray,
+            MeshVertex[] arrayVertices,
             int[] arrayIndices,
             MeshPrimitiveType typePrimitive
         ) {
-            if (vertexArray == null) {
-                throw new ArgumentNullException(nameof(vertexArray));
+            if (arrayVertices == null) {
+                throw new ArgumentNullException(nameof(arrayVertices));
             }
             if (arrayIndices == null) {
                 throw new ArgumentNullException(nameof(arrayIndices));
             }
-            if (vertexArray.Length == 0) {
-                throw new ArgumentException("A mesh needs at least one vertex.", nameof(vertexArray));
+            if (arrayVertices.Length == 0) {
+                throw new ArgumentException("A mesh needs at least one vertex.", nameof(arrayVertices));
             }
             if (arrayIndices.Length == 0) {
                 throw new ArgumentException("A mesh needs at least one index.", nameof(arrayIndices));
             }
             for (int index = 0; index < arrayIndices.Length; index += 1) {
-                if (arrayIndices[index] < 0 || arrayIndices[index] >= vertexArray.Length) {
+                if (arrayIndices[index] < 0 || arrayIndices[index] >= arrayVertices.Length) {
                     throw new ArgumentException("An index is outside the vertex array.", nameof(arrayIndices));
                 }
             }
-            _arrayVertices = vertexArray;
+            _arrayVertices = arrayVertices;
             _arrayIndices = arrayIndices;
             _typePrimitive = typePrimitive;
-            _sphereBounds = CalculateBounds(vertexArray);
+            _sphereBounds = CalculateBounds(arrayVertices);
         }
         
         /// <summary>Gets the vertex data.</summary>
@@ -100,15 +100,15 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
             }
         }
         
-        private static BoundingSphere CalculateBounds(MeshVertex[] vertexArray) {
+        private static BoundingSphere CalculateBounds(MeshVertex[] arrayVertices) {
             Vector3 center = Vector3.Zero;
-            for (int index = 0; index < vertexArray.Length; index += 1) {
-                center += vertexArray[index].Position;
+            for (int index = 0; index < arrayVertices.Length; index += 1) {
+                center += arrayVertices[index].Position;
             }
-            center /= (float)vertexArray.Length;
+            center /= (float)arrayVertices.Length;
             float radius = 0f;
-            for (int index = 0; index < vertexArray.Length; index += 1) {
-                float distance = Vector3.Distance(center, vertexArray[index].Position);
+            for (int index = 0; index < arrayVertices.Length; index += 1) {
+                float distance = Vector3.Distance(center, arrayVertices[index].Position);
                 if (distance > radius) {
                     radius = distance;
                 }
