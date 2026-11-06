@@ -73,7 +73,7 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
                 _keysTabForward,
                 _keysTabReverse
             );
-            builder.RegisterService<GumBridgesService>(serviceGum.Bridges);
+            builder.RegisterService<GumBridgesService>(serviceGum.BridgesService);
             builder.RegisterService<IUserInterfaceService>(serviceGum);
             builder.AddModule(new GumInitializationModule(serviceGum, manager));
             builder.AddModule(new UserInterfaceModule(serviceGum), new ScheduleOptions(orderUpdate: 100, orderDraw: 100));
