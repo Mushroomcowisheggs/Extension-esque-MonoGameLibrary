@@ -6,10 +6,15 @@ namespace MonoGameLibrary.Extensions.EventSheets {
     /// Reports one or more path-based errors in an event-sheet document.
     /// </summary>
     public sealed class SheetFormatException : FormatException {
+        /// <summary>Initializes the exception from one path-based error.</summary>
+        /// <param name="path">The document path of the failing element.</param>
+        /// <param name="message">The validation message.</param>
         public SheetFormatException(string path, string message)
             : this(new string[] { path + ": " + message }) {
         }
         
+        /// <summary>Initializes the exception from a set of path-based errors.</summary>
+        /// <param name="errors">The validation errors, each already prefixed with its document path.</param>
         public SheetFormatException(IEnumerable<string> errors)
             : base(BuildMessage(errors)) {
             if (errors == null) {

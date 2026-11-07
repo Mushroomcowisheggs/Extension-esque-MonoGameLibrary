@@ -20,6 +20,11 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         private FrameTime _timeFrame;
         private long _numberFrame;
         
+        /// <summary>Initializes the frame-scoped context.</summary>
+        /// <param name="objects">The object instances the sheet addresses.</param>
+        /// <param name="variables">The sheet's variables.</param>
+        /// <param name="logger">The logger used by instruction handlers.</param>
+        /// <param name="random">The random source shared by the frame.</param>
         public SheetContext(
             SheetObjects objects,
             SheetVariables variables,

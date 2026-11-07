@@ -12,6 +12,7 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         private readonly Dictionary<string, ActionRegistration> _actions =
             new Dictionary<string, ActionRegistration>(StringComparer.Ordinal);
         
+        /// <summary>Gets the metadata of every registered condition.</summary>
         public IReadOnlyList<SheetInstructionInfo> Conditions {
             get {
                 lock (_lock) {
@@ -24,6 +25,7 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             }
         }
         
+        /// <summary>Gets the metadata of every registered action.</summary>
         public IReadOnlyList<SheetInstructionInfo> Actions {
             get {
                 lock (_lock) {
@@ -36,6 +38,9 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             }
         }
         
+        /// <summary>Registers one condition under its instruction id.</summary>
+        /// <param name="info">The instruction metadata; its category must be Condition.</param>
+        /// <param name="handler">The handler that evaluates the condition.</param>
         public void RegisterCondition(SheetInstructionInfo info, SheetConditionHandler handler) {
             if (info == null) {
                 throw new ArgumentNullException(nameof(info));
@@ -56,6 +61,9 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             }
         }
         
+        /// <summary>Registers one action under its instruction id.</summary>
+        /// <param name="info">The instruction metadata; its category must be Action.</param>
+        /// <param name="handler">The handler that executes the action.</param>
         public void RegisterAction(SheetInstructionInfo info, SheetActionHandler handler) {
             if (info == null) {
                 throw new ArgumentNullException(nameof(info));
@@ -76,6 +84,11 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             }
         }
         
+        /// <summary>Looks up one registered condition.</summary>
+        /// <param name="instructionId">The instruction id to resolve.</param>
+        /// <param name="info">The registered metadata, or null when absent.</param>
+        /// <param name="handler">The registered handler, or null when absent.</param>
+        /// <returns>True when the condition is registered; otherwise false.</returns>
         public bool TryGetCondition(
             string instructionId,
             out SheetInstructionInfo info,
@@ -99,6 +112,11 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             return false;
         }
         
+        /// <summary>Looks up one registered action.</summary>
+        /// <param name="instructionId">The instruction id to resolve.</param>
+        /// <param name="info">The registered metadata, or null when absent.</param>
+        /// <param name="handler">The registered handler, or null when absent.</param>
+        /// <returns>True when the action is registered; otherwise false.</returns>
         public bool TryGetAction(
             string instructionId,
             out SheetInstructionInfo info,

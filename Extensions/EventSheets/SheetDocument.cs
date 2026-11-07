@@ -25,8 +25,14 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             if (string.IsNullOrWhiteSpace(nameSheet)) {
                 throw new ArgumentException("A non-empty sheet name is required.", nameof(nameSheet));
             }
+            if (objects == null) {
+                throw new ArgumentNullException(nameof(objects));
+            }
             if (variables == null) {
                 throw new ArgumentNullException(nameof(variables));
+            }
+            if (events == null) {
+                throw new ArgumentNullException(nameof(events));
             }
             Version = version;
             Name = nameSheet;

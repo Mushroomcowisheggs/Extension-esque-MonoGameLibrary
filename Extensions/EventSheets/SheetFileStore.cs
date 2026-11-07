@@ -8,6 +8,8 @@ namespace MonoGameLibrary.Extensions.EventSheets {
     public sealed class SheetFileStore : ISheetStore {
         private readonly string _directoryRoot;
         
+        /// <summary>Initializes a store rooted at the supplied directory.</summary>
+        /// <param name="directoryRoot">The directory the sheet names are resolved below.</param>
         public SheetFileStore(string directoryRoot) {
             if (string.IsNullOrWhiteSpace(directoryRoot)) {
                 throw new ArgumentException("A root directory is required.", nameof(directoryRoot));
@@ -15,6 +17,9 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             _directoryRoot = Path.GetFullPath(directoryRoot);
         }
         
+        /// <summary>Reads the JSON text of the named sheet.</summary>
+        /// <param name="nameSheet">The sheet name, without the `.json` extension.</param>
+        /// <returns>The sheet JSON text.</returns>
         public string Read(string nameSheet) {
             if (string.IsNullOrWhiteSpace(nameSheet)) {
                 throw new ArgumentException("A sheet name is required.", nameof(nameSheet));
