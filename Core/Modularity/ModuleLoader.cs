@@ -31,8 +31,8 @@ namespace MonoGameLibrary.Core.Modularity {
             }
             
             ILogger loggerResolved = logger.HasValue
-                ? logger.Value
-                : NullLogger.Instance;
+            ? logger.Value
+            : NullLogger.Instance;
             loggerResolved.Info(
                 $"ModuleLoader: Scanning directory '{path}' for modules..."
             );
