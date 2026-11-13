@@ -60,6 +60,34 @@ namespace MonoGameLibrary.Core.Hosting {
         void AddModule(object module, ScheduleOptions options);
         
         /// <summary>
+        /// Removes an admitted module from the schedule without releasing it. 
+        /// </summary>
+        /// <param name="module">The admitted module to withdraw. </param>
+        /// <remarks>
+        /// <para>
+        /// Withdrawal ends participation, not ownership. The module stops being called by
+        /// <see cref="Update"/> and <see cref="Draw"/> from the next publication onwards and its
+        /// admission index is consumed, but the host still owns it and releases it exactly once when
+        /// the host is disposed. A frame that captured a schedule snapshot before the withdrawal may
+        /// still call the module once, because a published snapshot is immutable by design.
+        /// </para>
+        /// <para>
+        /// A withdrawn module may be added again, which mints a new admission index; that is the
+        /// documented way to reprioritise a participant, and it is why withdrawal is not release. The
+        /// host records one ownership per object, so a module that is withdrawn, re-added and finally
+        /// released by the host is still released once.
+        /// </para>
+        /// <para>
+        /// Withdrawal is a tracked operation like admission, so a disposal in progress waits for it,
+        /// and it is refused while <see cref="Initialize"/> is running because the loading loop
+        /// iterates a snapshot and would still load a module the call removed.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">Thrown if the module is not admitted or was
+        /// withdrawn already, the host is initializing, or the host is faulted. </exception>
+        void WithdrawModule(object module);
+        
+        /// <summary>
         /// Initializes the host and loads every admitted <see cref="Lifecycle.ILoadable"/> module.
         /// </summary>
         /// <param name="serviceContent">The content service used by the host; ownership transfers to the host. </param>

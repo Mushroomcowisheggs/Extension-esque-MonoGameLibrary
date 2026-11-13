@@ -20,7 +20,11 @@ namespace MonoGameLibrary.Core.Hosting {
     /// schedule rebuild sorts a private copy outside that lock and publishes it by a single reference
     /// assignment, so a published list is immutable and two traversal threads each read a stable
     /// snapshot. Disposal is elected, so exactly one caller releases the participants while any other
-    /// caller waits for that release to finish.
+    /// caller waits for that release to finish. Each release also elects through an ownership ledger,
+    /// so a participant is released at most once per object for the life of the host, including when
+    /// it was withdrawn and admitted again; membership, admission indices and the ledger all key on
+    /// reference identity. Withdrawal ends participation only: the host keeps ownership, so the
+    /// object may return to the schedule and is still released once at disposal.
     /// <para>
     /// The guarantee stops at the participants. A participant's <c>Enabled</c> or <c>Visible</c>
     /// getter runs on the calling thread outside the callback wrapper, and a callback must not block
@@ -29,9 +33,16 @@ namespace MonoGameLibrary.Core.Hosting {
     /// </remarks>
     public class GameHost : IGameHost {
         private readonly object _lock = new object();
-        private readonly HashSet<object> _setModule = new HashSet<object>();
-        private readonly List<object> _listAllModules = new List<object>();
+        private readonly HashSet<object> _setModule = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        // Every object the host owns, admitted or withdrawn, in the order ownership was taken. The
+        // list outlives a withdrawal: withdrawal ends participation, not ownership, which is what
+        // lets the object come back and still be released exactly once at disposal.
+        private readonly List<object> _listOwned = new List<object>();
         private readonly List<ILoadable> _listLoadableModules = new List<ILoadable>();
+        // Participants whose one-time load already returned. A withdrawal does not unload, so a
+        // participant that comes back must not run LoadContent a second time and double every asset
+        // it acquired; the set is keyed by reference identity for the same reason membership is.
+        private readonly HashSet<object> _setLoaded = new HashSet<object>(ReferenceEqualityComparer.Instance);
         // A schedule entry pairs the participant with the order it was admitted under. The host reads
         // that order once, from ScheduleOptions, and never reads an order from the participant again;
         // the entry is the authority for the life of the admission.
@@ -88,7 +99,7 @@ namespace MonoGameLibrary.Core.Hosting {
         // The schedule's tie-break key: for each admitted participant, the position at which the
         // composition root admitted it. The entries copy it when they are published, so the traversal
         // compares two stored integers rather than consulting the live map.
-        private readonly Dictionary<object, int> _indexAdmission = new Dictionary<object, int>();
+        private readonly Dictionary<object, int> _indexAdmission = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
         private int _countAdmitted = 0;
         
         // Lifecycle state flags
@@ -99,6 +110,10 @@ namespace MonoGameLibrary.Core.Hosting {
         private bool _flagDisposed = false;
         
         private readonly FailurePolicy _policyFailure;
+        // Ownership is recorded per object rather than per admission. A withdrawal leaves the state
+        // Owned, so the participant can be admitted again; a release leaves it Released, so it cannot.
+        // That is what makes "released once" a property of the object and not of one admission.
+        private readonly OwnershipLedger _ledgerOwnership;
         private LifecycleFailure _failure;
         
         // Dirty flags
@@ -163,11 +178,29 @@ namespace MonoGameLibrary.Core.Hosting {
         /// receives what it needs through constructor injection; there is deliberately no path from a
         /// participant back to the registry at run time.
         /// </remarks>
-        public GameHost(FailurePolicy policyFailure) {
+        public GameHost(FailurePolicy policyFailure)
+        : this(policyFailure, new OwnershipLedger()) {
+        }
+        
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GameHost"/> class with the ownership ledger
+        /// of the composition that built it.
+        /// </summary>
+        /// <param name="policyFailure">The required failure policy. </param>
+        /// <param name="ledgerOwnership">The ledger that records per-object ownership. </param>
+        /// <remarks>
+        /// A <see cref="GameBuilder"/> passes the ledger it already used, so a failed build and the
+        /// host it aborts cannot both release one object: they elect through the same record.
+        /// </remarks>
+        internal GameHost(FailurePolicy policyFailure, OwnershipLedger ledgerOwnership) {
             if (policyFailure != FailurePolicy.Release && policyFailure != FailurePolicy.Retain) {
                 throw new ArgumentOutOfRangeException(nameof(policyFailure));
             }
+            if (ledgerOwnership == null) {
+                throw new ArgumentNullException(nameof(ledgerOwnership));
+            }
             _policyFailure = policyFailure;
+            _ledgerOwnership = ledgerOwnership;
         }
         
         /// <summary>
@@ -238,8 +271,20 @@ namespace MonoGameLibrary.Core.Hosting {
                         );
                     }
                     
+                    OwnershipState statePrevious;
+                    if (!_ledgerOwnership.TryRecordAdmission(module, out statePrevious)) {
+                        throw new InvalidOperationException(
+                            $"The module {module.GetType().FullName} cannot be admitted because " +
+                            $"{OwnershipLedger.Describe(statePrevious)}. "
+                        );
+                    }
+                    
                     _setModule.Add(module);
-                    _listAllModules.Add(module);
+                    if (statePrevious == OwnershipState.Absent) {
+                        // The first admission takes ownership. A re-admission after a withdrawal is
+                        // already in the list, at the position where the host first took the object.
+                        _listOwned.Add(module);
+                    }
                     
                     // The admission index records where the composition root placed this participant among
                     // all admitted modules. It is the schedule's tie-break key instead of the type name, so
@@ -260,8 +305,15 @@ namespace MonoGameLibrary.Core.Hosting {
                     if (!_flagIsInitialized) {
                         PublishSchedulingMembership(module, options);
                     } else if (module is ILoadable scheduledModuleLoadable) {
-                        // Published below, once LoadContent has returned.
-                        moduleLoadable = scheduledModuleLoadable;
+                        // A participant that already loaded once (it was withdrawn and is coming back)
+                        // is not loaded again: the loading phase is one-time per participant, and a
+                        // second LoadContent would double every asset it acquired.
+                        if (_setLoaded.Contains(module)) {
+                            PublishSchedulingMembership(module, options);
+                        } else {
+                            // Published below, once LoadContent has returned.
+                            moduleLoadable = scheduledModuleLoadable;
+                        }
                     } else {
                         PublishSchedulingMembership(module, options);
                     }
@@ -272,16 +324,20 @@ namespace MonoGameLibrary.Core.Hosting {
                         SafeExecute("LoadContent", moduleLoadable, moduleLoadable.LoadContent);
                     } catch (Exception exception) {
                         // Withdraw the module before deciding what the explicit policy does with it.
-                        RemoveModuleCore(module);
+                        RemoveModuleCore(module, flagKeepOwnership: false);
                         if (_policyFailure == FailurePolicy.Release) {
                             OwnershipRelease.ReleaseModule(
                                 module,
                                 ReportCleanupFailure,
-                                $"{GetType().Name}.AddModule"
+                                $"{GetType().Name}.AddModule",
+                                _ledgerOwnership
                             );
                         }
                         List<object> listRetained = new List<object>();
                         if (_policyFailure == FailurePolicy.Retain) {
+                            // The caller owns the withdrawn participant from here on, so the transfer
+                            // is recorded instead of being inferred from the stage string.
+                            _ledgerOwnership.RecordTransferToCaller(module);
                             listRetained.Add(module);
                         }
                         lock (_lock) {
@@ -296,6 +352,9 @@ namespace MonoGameLibrary.Core.Hosting {
                         throw;
                     }
                     // The load succeeded, so the module may now join the per-frame schedule.
+                    lock (_lock) {
+                        _setLoaded.Add(module);
+                    }
                     PublishSchedulingMembership(module, options);
                 }
             } finally {
@@ -303,10 +362,68 @@ namespace MonoGameLibrary.Core.Hosting {
             }
         }
         
+        /// <inheritdoc />
+        /// <remarks>
+        /// Withdrawal is the documented way to reprioritise a participant, and it is deliberately not
+        /// release. Participation ends, ownership does not: the module leaves the schedule, its
+        /// admission index is consumed, and the host still owns it and releases it once at disposal.
+        /// Because the ownership ledger is untouched, the same object may be admitted again; the new
+        /// admission mints a new index, which is what moves it in the frame. A frame that captured a
+        /// published snapshot before the withdrawal may still call the module once, because the
+        /// snapshot is immutable by design.
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">Thrown if the module is not admitted or was
+        /// withdrawn already, the host is initializing, or the host is faulted. </exception>
+        public void WithdrawModule(object module) {
+            if (module == null) {
+                throw new ArgumentNullException(nameof(module));
+            }
+            
+            EnterOperation();
+            try {
+                lock (_lock) {
+                    if (_flagIsFaulted) {
+                        throw new InvalidOperationException(
+                            "Cannot withdraw modules from a GameHost that is in a faulted state. "
+                        );
+                    }
+                    if (_flagIsLoading) {
+                        throw new InvalidOperationException(
+                            "Cannot withdraw modules while the GameHost is initializing. The loading loop " +
+                            "iterates a snapshot and would still load a module this call removed. "
+                        );
+                    }
+                    if (!_setModule.Contains(module)) {
+                        if (HasOwned(module)) {
+                            throw new InvalidOperationException(
+                                $"The module {module.GetType().FullName} is not admitted: it was withdrawn already. "
+                            );
+                        }
+                        throw new InvalidOperationException(
+                            $"The module {module.GetType().FullName} is not admitted by this host. "
+                        );
+                    }
+                    RemoveModuleCore(module, flagKeepOwnership: true);
+                }
+            } finally {
+                ExitOperation();
+            }
+        }
+        
         /// <summary>
-        /// Publishes a module's scheduling membership: adds an entry carrying the admitted order to
-        /// the update and draw lists and marks the schedule caches dirty so the next traversal rebinds.
+        /// Reports whether the host has taken ownership of an object, whether or not it is still
+        /// admitted. Callers hold the host lock.
         /// </summary>
+        /// <param name="module">The object to look up. </param>
+        /// <returns><c>true</c> if the object appears in the ownership list. </returns>
+        private bool HasOwned(object module) {
+            for (int index = 0; index < _listOwned.Count; index += 1) {
+                if (ReferenceEquals(_listOwned[index], module)) {
+                    return true;
+                }
+            }
+            return false;
+        }
         /// <param name="module">The module to publish. </param>
         /// <param name="options">The fixed schedule keys supplied at admission. </param>
         /// <returns><c>true</c> if the module participates in a schedule, otherwise <c>false</c>. </returns>
@@ -362,23 +479,32 @@ namespace MonoGameLibrary.Core.Hosting {
         }
         
         /// <summary>
-        /// Removes a module from the host and every category list. Used to roll back a failed 
-        /// post-initialization admission. 
+        /// Removes a module from the schedule and from every participation list. Used to roll back a
+        /// failed post-initialization admission and by <see cref="WithdrawModule"/>.
         /// </summary>
         /// <param name="module">The module to remove. </param>
+        /// <param name="flagKeepOwnership">If <c>true</c>, the host keeps ownership and still releases
+        /// the object at disposal. A failed admission passes <c>false</c>, because that path either
+        /// releases the object or transfers it to the caller. </param>
         /// <remarks>
         /// The scheduling caches are invalidated unconditionally rather than only when a removal
         /// actually happened, because a rollback that leaves a cache holding a withdrawn participant
         /// is exactly the failure this method exists to prevent. The admission counter is not
         /// rewound: an index consumed by a withdrawn module is never handed to another participant.
         /// </remarks>
-        private void RemoveModuleCore(object module) {
+        private void RemoveModuleCore(object module, bool flagKeepOwnership) {
             lock (_lock) {
                 _setModule.Remove(module);
-                _listAllModules.Remove(module);
+                if (!flagKeepOwnership) {
+                    _listOwned.RemoveAll(delegate(object candidate) {
+                        return ReferenceEquals(candidate, module);
+                    });
+                }
                 _indexAdmission.Remove(module);
                 if (module is ILoadable moduleLoadable) {
-                    _listLoadableModules.Remove(moduleLoadable);
+                    _listLoadableModules.RemoveAll(delegate(ILoadable candidate) {
+                        return ReferenceEquals(candidate, moduleLoadable);
+                    });
                 }
                 if (module is IUpdateable) {
                     _listUpdateEntries.RemoveAll(delegate(ScheduleUpdateEntry entry) {
@@ -423,6 +549,14 @@ namespace MonoGameLibrary.Core.Hosting {
                         );
                     }
                     
+                    OwnershipState stateContent;
+                    if (!_ledgerOwnership.TryRecordAdmission(serviceContent, out stateContent)) {
+                        throw new InvalidOperationException(
+                            $"The content service cannot be initialized because " +
+                            $"{OwnershipLedger.Describe(stateContent)}. "
+                        );
+                    }
+                    
                     _serviceContent = serviceContent;
                     _flagIsLoading = true;
                     // Snapshot to allow concurrent AddModule calls during loading.
@@ -432,6 +566,9 @@ namespace MonoGameLibrary.Core.Hosting {
                 try {
                     foreach (ILoadable moduleLoadable in modulesToLoad) {
                         SafeExecute("LoadContent", moduleLoadable, moduleLoadable.LoadContent);
+                        lock (_lock) {
+                            _setLoaded.Add(moduleLoadable);
+                        }
                     }
                     
                     // All modules succeeded – mark as initialized.
@@ -712,12 +849,13 @@ namespace MonoGameLibrary.Core.Hosting {
                 if (_flagDisposed) {
                     return new object[0];
                 }
-                object[] modules = _listAllModules.ToArray();
+                object[] modules = _listOwned.ToArray();
                 _flagDisposed = true;
                 _flagDisposing = false;
                 _setModule.Clear();
-                _listAllModules.Clear();
+                _listOwned.Clear();
                 _listLoadableModules.Clear();
+                _setLoaded.Clear();
                 _indexAdmission.Clear();
                 _listUpdateEntries.Clear();
                 _listDrawEntries.Clear();
@@ -735,13 +873,24 @@ namespace MonoGameLibrary.Core.Hosting {
             object[] modules;
             IContentService serviceContent;
             lock (_lock) {
-                modules = _listAllModules.ToArray();
+                modules = _listOwned.ToArray();
                 serviceContent = _serviceContent;
             }
             
-            OwnershipRelease.ReleaseModules(modules, ReportCleanupFailure, context);
+            OwnershipRelease.ReleaseModules(modules, ReportCleanupFailure, context, _ledgerOwnership);
             
             if (serviceContent != null) {
+                OwnershipState stateContent;
+                if (!_ledgerOwnership.TryElectRelease(serviceContent, out stateContent)) {
+                    ReportCleanupFailure(
+                        new InvalidOperationException(
+                            $"The content service was not released because " +
+                            $"{OwnershipLedger.Describe(stateContent)}. "
+                        ),
+                        $"{context} (Content)"
+                    );
+                    return;
+                }
                 try {
                     serviceContent.Unload();
                 } catch (Exception exception) {
@@ -791,9 +940,10 @@ namespace MonoGameLibrary.Core.Hosting {
                     _flagDisposed = true;
                     _serviceContent = null;
                     _setModule.Clear();
-                    _listAllModules.Clear();
+                    _listOwned.Clear();
                     _indexAdmission.Clear();
                     _listLoadableModules.Clear();
+                    _setLoaded.Clear();
                     _listUpdateEntries.Clear();
                     _listDrawEntries.Clear();
                     _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
@@ -814,7 +964,7 @@ namespace MonoGameLibrary.Core.Hosting {
             lock (_lock) {
                 _flagIsFaulted = true;
                 _flagIsInitialized = false;
-                List<object> listRetained = new List<object>(_listAllModules);
+                List<object> listRetained = new List<object>(_listOwned);
                 if (_serviceContent != null) {
                     listRetained.Add(_serviceContent);
                 }
@@ -900,9 +1050,10 @@ namespace MonoGameLibrary.Core.Hosting {
                     _flagDisposed = true;
                     _serviceContent = null;
                     _setModule.Clear();
-                    _listAllModules.Clear();
+                    _listOwned.Clear();
                     _indexAdmission.Clear();
                     _listLoadableModules.Clear();
+                    _setLoaded.Clear();
                     _listUpdateEntries.Clear();
                     _listDrawEntries.Clear();
                     _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();

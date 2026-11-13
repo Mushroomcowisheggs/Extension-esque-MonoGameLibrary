@@ -46,6 +46,18 @@ namespace MonoGameLibrary.Extensions.Networking {
         private readonly ConcurrentDictionary<Guid, NetworkConnection> _connections = new ConcurrentDictionary<Guid, NetworkConnection>();
         private readonly ConcurrentDictionary<Guid, NetworkPeerRecord> _peersKnown = new ConcurrentDictionary<Guid, NetworkPeerRecord>();
         
+        // Delivery gate. A background loop publishes only while the session is Open. A close moves the
+        // gate to Closed, drains what no frame will read and counts it, then publishes the terminal
+        // status through a privileged enqueue so the game still observes the state it ended in.
+        private int _stateDelivery = (int)DeliveryState.Open;
+        private long _countInboundDiscarded;
+        
+        // The frame thread that first drives Update owns the dispatch. A second thread would run
+        // handlers somewhere the caller did not name, so the ownership is checked rather than
+        // documented; the check is installed on the first Update, not on construction, because the
+        // composition root may build the service before the game loop exists.
+        private ThreadAccess _accessFrame;
+        
         // Disposal is elected: one caller closes the session and releases the transport, and a second
         // caller waits for that release instead of closing the same session twice.
         private int _markDisposalElected;
@@ -323,6 +335,16 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
+            ThreadAccess accessFrame = _accessFrame;
+            if (accessFrame == null) {
+                ThreadAccess accessCreated = new ThreadAccess();
+                accessFrame = Interlocked.CompareExchange(ref _accessFrame, accessCreated, null);
+                if (accessFrame == null) {
+                    accessFrame = accessCreated;
+                }
+            }
+            accessFrame.VerifyAccess();
+            
             if (_profiler.HasValue) {
                 using (IDisposable measure = _profiler.Value.BeginMeasure("Network.Update")) {
                     DispatchPending();
@@ -455,8 +477,76 @@ namespace MonoGameLibrary.Extensions.Networking {
         private const int DisplayNameLimit = 32;
         
         /// <summary>
+        /// Gets how many notifications a closed session discarded before a frame read them.
+        /// </summary>
+        /// <remarks>
+        /// The counter is the observable half of the delivery policy. An accepted notification is
+        /// dispatched at least once; a notification the gate refuses is counted here rather than
+        /// dropped silently, so a test or an application can assert that nothing vanished unobserved.
+        /// </remarks>
+        public long CountDiscardedInbound {
+            get { return Interlocked.Read(ref _countInboundDiscarded); }
+        }
+        
+        /// <summary>
+        /// Publishes a notification when the session is open, or counts it as discarded.
+        /// </summary>
+        /// <param name="eventNotification">The immutable notification. </param>
+        /// <returns><c>true</c> when the notification entered the queue for an open session. </returns>
+        /// <remarks>
+        /// The gate is read before the enqueue and again after it. The second read closes the race a
+        /// single check would leave open: a close that ran between the check and the enqueue drains
+        /// the queue after setting the gate, so a notification enqueued after that drain would be
+        /// stranded in a queue no frame reads again. When the second read observes the close, this
+        /// publisher drains and counts instead of leaving the item behind.
+        /// </remarks>
+        private bool TryPublishInbound(NetworkInboundEvent eventNotification) {
+            if (Volatile.Read(ref _stateDelivery) != (int)DeliveryState.Open) {
+                Interlocked.Increment(ref _countInboundDiscarded);
+                return false;
+            }
+            _queueInbound.Enqueue(eventNotification);
+            if (Volatile.Read(ref _stateDelivery) != (int)DeliveryState.Open) {
+                DiscardInboundQueue();
+                return false;
+            }
+            return true;
+        }
+        
+        /// <summary>
+        /// Publishes the one notification a close is still allowed to produce.
+        /// </summary>
+        /// <param name="eventNotification">The terminal status notification. </param>
+        /// <remarks>
+        /// The close is the last producer of a session: it stops the loops, waits for them, drains the
+        /// queue and only then reports the state it ended in. Refusing that notification would hide
+        /// the terminal state from the game, so it is enqueued after the gate closes and before the
+        /// next session opens; no background loop can publish behind it, because the gate is closed
+        /// for every other producer.
+        /// </remarks>
+        private void PublishInboundTerminal(NetworkInboundEvent eventNotification) {
+            _queueInbound.Enqueue(eventNotification);
+        }
+        
+        /// <summary>
+        /// Drains every queued notification and counts each one as discarded.
+        /// </summary>
+        private void DiscardInboundQueue() {
+            NetworkInboundEvent eventDiscarded;
+            while (_queueInbound.TryDequeue(out eventDiscarded)) {
+                Interlocked.Increment(ref _countInboundDiscarded);
+            }
+        }
+        
+        /// <summary>
         /// Drains the notification queue, up to the limit configured in the options.
         /// </summary>
+        /// <remarks>
+        /// The limit bounds the work one frame pays, not the backlog and not the time a frame takes:
+        /// the loop resumes from the queue on the next update, so a slow frame delays notifications
+        /// instead of losing them. Fairness is therefore an assumption about the frame, not a
+        /// property of this loop - a game that stops calling <see cref="Update"/> stops delivering.
+        /// </remarks>
         private void DispatchPending() {
             int countDispatched = 0;
             int countLimit = _optionsNetwork.MaxDispatchPerUpdate;
@@ -1016,11 +1106,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             
             NetworkPeer peer = EnsurePeerSnapshot(connection);
-            NetworkInboundEvent eventNotification = new NetworkInboundEvent();
-            eventNotification.Kind = NetworkInboundKind.Message;
-            eventNotification.Peer = peer;
-            eventNotification.Message = message;
-            _queueInbound.Enqueue(eventNotification);
+            TryPublishInbound(NetworkInboundEvent.CreateMessageReceived(peer, message));
         }
         
         /// <summary>
@@ -1117,10 +1203,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 return;
             }
             if (flagNotify && !flagLocal) {
-                NetworkInboundEvent eventNotification = new NetworkInboundEvent();
-                eventNotification.Kind = NetworkInboundKind.PeerJoinedHandler;
-                eventNotification.Peer = recordNew.Peer;
-                _queueInbound.Enqueue(eventNotification);
+                TryPublishInbound(NetworkInboundEvent.CreatePeerJoined(recordNew.Peer));
             }
         }
         
@@ -1135,10 +1218,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 return;
             }
             if (flagNotify && !record.Peer.IsLocal) {
-                NetworkInboundEvent eventNotification = new NetworkInboundEvent();
-                eventNotification.Kind = NetworkInboundKind.PeerLeftHandler;
-                eventNotification.Peer = record.Peer;
-                _queueInbound.Enqueue(eventNotification);
+                TryPublishInbound(NetworkInboundEvent.CreatePeerLeft(record.Peer));
             }
         }
         
@@ -1365,7 +1445,9 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// </summary>
         /// <param name="statusCurrent">The state to enter.</param>
         /// <param name="reason">A human readable explanation, or null.</param>
-        private void TransitionStatus(NetworkStatus statusCurrent, string reason) {
+        /// <param name="flagTerminal">If <c>true</c>, this is the state a close ended in and the
+        /// report is published even though the delivery gate is already closed. </param>
+        private void TransitionStatus(NetworkStatus statusCurrent, string reason, bool flagTerminal = false) {
             NetworkStatus statusPrevious;
             lock (_lock) {
                 if (_status == statusCurrent) {
@@ -1379,12 +1461,12 @@ namespace MonoGameLibrary.Extensions.Networking {
                 reasonReported = "";
             }
             _logger.Info($"The network session moved from '{statusPrevious}' to '{statusCurrent}'. {reasonReported}");
-            NetworkInboundEvent eventNotification = new NetworkInboundEvent();
-            eventNotification.Kind = NetworkInboundKind.StatusChangedHandler;
-            eventNotification.StatusPrevious = statusPrevious;
-            eventNotification.CurrentStatus = statusCurrent;
-            eventNotification.Reason = reasonReported;
-            _queueInbound.Enqueue(eventNotification);
+            NetworkInboundEvent eventNotification = NetworkInboundEvent.CreateStatusChange(statusPrevious, statusCurrent, reasonReported);
+            if (flagTerminal) {
+                PublishInboundTerminal(eventNotification);
+                return;
+            }
+            TryPublishInbound(eventNotification);
         }
         
         /// <summary>
@@ -1450,10 +1532,10 @@ namespace MonoGameLibrary.Extensions.Networking {
             _connections.Clear();
             _peersKnown.Clear();
             _sequencePeer = 0;
-            NetworkInboundEvent eventNotificationDiscarded;
-            while (_queueInbound.TryDequeue(out eventNotificationDiscarded)) {
-                // Notifications of the previous session are obsolete once a new one starts.
-            }
+            // Notifications of the previous session are obsolete once a new one starts. They are
+            // counted rather than dropped, and the gate opens only after the queue is empty.
+            DiscardInboundQueue();
+            Volatile.Write(ref _stateDelivery, (int)DeliveryState.Open);
         }
         
         /// <summary>
@@ -1514,7 +1596,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 _listener = null;
             }
             if (!flagWasOpen) {
-                TransitionStatus(statusFinal, reason);
+                TransitionStatus(statusFinal, reason, flagTerminal: true);
                 return;
             }
             
@@ -1566,11 +1648,17 @@ namespace MonoGameLibrary.Extensions.Networking {
                     _logger.Error("Releasing the session scope during teardown failed.", exception);
                 }
             }
-            NetworkInboundEvent eventNotificationDiscarded;
-            while (_queueInbound.TryDequeue(out eventNotificationDiscarded)) {
-                // Notifications of the closed session are obsolete.
+            // Close the gate first, then drain. A publisher that enqueued before the gate closed is
+            // counted here; a publisher that observes the closed gate afterwards drains and counts its
+            // own notification, so nothing stays in a queue no frame will read again.
+            Volatile.Write(ref _stateDelivery, (int)DeliveryState.Closed);
+            long countDiscardedBefore = Interlocked.Read(ref _countInboundDiscarded);
+            DiscardInboundQueue();
+            long countDiscardedClosed = Interlocked.Read(ref _countInboundDiscarded) - countDiscardedBefore;
+            if (countDiscardedClosed > 0) {
+                _logger.Debug($"Closing the session discarded {countDiscardedClosed} notification(s) that no frame read.");
             }
-            TransitionStatus(statusFinal, reason);
+            TransitionStatus(statusFinal, reason, flagTerminal: true);
         }
         
         /// <summary>
@@ -1609,6 +1697,17 @@ namespace MonoGameLibrary.Extensions.Networking {
                 // Nothing observes this task, so it reports its own failure instead of faulting.
                 ReportFault("The session could not be closed after the messageFarewell was sent.", exception);
             }
+        }
+        
+        /// <summary>
+        /// The delivery gate: whether a background loop may publish a notification.
+        /// </summary>
+        private enum DeliveryState {
+            /// <summary>The session is open; producers publish normally. </summary>
+            Open = 0,
+            
+            /// <summary>The session has closed; producers are refused and the queue is discarded. </summary>
+            Closed = 1
         }
     }
 }

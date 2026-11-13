@@ -134,6 +134,25 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// corresponding events. The host calls this once per frame through <see cref="NetworkModule"/>.
         /// </summary>
         /// <param name="timeFrame">Timing information for the current frame.</param>
+        /// <remarks>
+        /// <para>
+        /// At most <see cref="NetworkOptions.MaxDispatchPerUpdate"/> notifications are dispatched per
+        /// call. The bound covers the work one frame pays, not the backlog: whatever remains is
+        /// dispatched on a later call, so a slow frame delays notifications instead of losing them.
+        /// </para>
+        /// <para>
+        /// A notification accepted from a background loop is dispatched at least once. A notification
+        /// produced after the session closed is discarded and counted in
+        /// <see cref="NetworkService.CountDiscardedInbound"/>; the terminal status of the closed
+        /// session is the one notification published after the close, so the game still observes the
+        /// state the session ended in.
+        /// </para>
+        /// <para>
+        /// The first call fixes the dispatching thread, and every later call must come from that
+        /// thread, because the handlers run on the caller's thread. A call from another thread fails
+        /// instead of running handlers on a thread the caller did not name.
+        /// </para>
+        /// </remarks>
         void Update(FrameTime timeFrame);
     }
 }

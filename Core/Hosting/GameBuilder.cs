@@ -17,8 +17,12 @@ namespace MonoGameLibrary.Core.Hosting {
     public class GameBuilder : IGameBuilder<GameBuilder> {
         private readonly object _lockBuilder = new object();
         private readonly ServiceRegistry _registryService = new ServiceRegistry();
-        private readonly HashSet<object> _setModule = new HashSet<object>();
+        private readonly HashSet<object> _setModule = new HashSet<object>(ReferenceEqualityComparer.Instance);
         private readonly List<ModuleEntry> _listModules = new List<ModuleEntry>();
+        // One ledger per composition. The builder records what it accepts, the host it builds shares
+        // the record, and a failed build elects its releases through it, so a module that entered
+        // both the builder and the aborted host cannot be released twice.
+        private readonly OwnershipLedger _ledgerOwnership = new OwnershipLedger();
         private Action<GameHost> _actionConfigHost = delegate { };
         private bool _flagIsBuilding = false;
         private bool _flagIsBuilt = false;
@@ -139,6 +143,9 @@ namespace MonoGameLibrary.Core.Hosting {
                     });
                 }
                 if (policyFailure == FailurePolicy.Retain) {
+                    // The caller owns the constructed module from here on; recording the transfer is
+                    // what keeps the builder from releasing what the caller was told to own.
+                    _ledgerOwnership.RecordTransferToCaller(module);
                     List<object> listRetained = new List<object>();
                     listRetained.Add(module);
                     _failure = new LifecycleFailure(
@@ -153,15 +160,15 @@ namespace MonoGameLibrary.Core.Hosting {
             }
             
             List<Exception> listReleaseFailure = new List<Exception>();
-            IDisposable disposable = module as IDisposable;
-            if (disposable != null) {
-                try {
-                    disposable.Dispose();
-                } catch (Exception exceptionRelease) {
+            OwnershipRelease.ReleaseModule(
+                module,
+                delegate(Exception exceptionRelease, string context) {
                     listReleaseFailure.Add(exceptionRelease);
                     report(exceptionRelease);
-                }
-            }
+                },
+                "GameBuilder.ModuleLoader",
+                _ledgerOwnership
+            );
             lock (_lockBuilder) {
                 _failure = new LifecycleFailure(
                     "ModuleLoader.Register",
@@ -197,6 +204,13 @@ namespace MonoGameLibrary.Core.Hosting {
                 
                 if (_setModule.Contains(module)) {
                     throw new InvalidOperationException($"Module {module.GetType().FullName} already added.");
+                }
+                OwnershipState statePrevious;
+                if (!_ledgerOwnership.TryRecordAdmission(module, out statePrevious)) {
+                    throw new InvalidOperationException(
+                        $"The module {module.GetType().FullName} cannot be added because " +
+                        $"{OwnershipLedger.Describe(statePrevious)}. "
+                    );
                 }
                 _setModule.Add(module);
                 _listModules.Add(new ModuleEntry(module, options));
@@ -301,7 +315,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 _flagIsBuilding = true;
                 // The host is constructed without the registry: after this point the capability set is
                 // closed and there is no path from a participant back to it.
-                host = new GameHost(_policyFailure);
+                host = new GameHost(_policyFailure, _ledgerOwnership);
                 actionToRunConfig = _actionConfigHost;
                 listModulesSnapshot = new List<ModuleEntry>(_listModules);
             }
@@ -348,7 +362,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 }
                 
                 List<object> listOwned = new List<object>();
-                HashSet<object> setOwned = new HashSet<object>();
+                HashSet<object> setOwned = new HashSet<object>(ReferenceEqualityComparer.Instance);
                 foreach (object module in arrayAdmitted) {
                     if (setOwned.Add(module)) {
                         listOwned.Add(module);
@@ -368,12 +382,19 @@ namespace MonoGameLibrary.Core.Hosting {
                         delegate(Exception exceptionRelease, string context) {
                             listReleaseFailure.Add(new InvalidOperationException(context, exceptionRelease));
                         },
-                        "GameBuilder.Build"
+                        "GameBuilder.Build",
+                        _ledgerOwnership
                     );
                     if (listReleaseFailure.Count > 0) {
                         exception.Data["ReleaseFailures"] = new AggregateException(listReleaseFailure);
                     }
                 } else {
+                    // A retained build failure hands every object to the caller; the host that was
+                    // aborted here will never run again, so the transfer is what makes the record
+                    // say who owns what instead of leaving it to the stage string.
+                    foreach (object module in listOwned) {
+                        _ledgerOwnership.RecordTransferToCaller(module);
+                    }
                     listRetained.AddRange(listOwned);
                 }
                 
