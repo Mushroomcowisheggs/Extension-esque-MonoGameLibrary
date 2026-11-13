@@ -38,6 +38,11 @@ namespace MonoGameLibrary.Core.Hosting {
         // list outlives a withdrawal: withdrawal ends participation, not ownership, which is what
         // lets the object come back and still be released exactly once at disposal.
         private readonly List<object> _listOwned = new List<object>();
+        // The same objects as a set, so "this host has already taken ownership" is one lookup rather
+        // than a scan, and so the answer does not depend on the ledger. The ledger records ownership
+        // across a whole composition: a builder records a module before this host exists, so a ledger
+        // state of Owned at AddModule means "some composition object owns it", not "this host does".
+        private readonly HashSet<object> _setOwned = new HashSet<object>(ReferenceEqualityComparer.Instance);
         private readonly List<ILoadable> _listLoadableModules = new List<ILoadable>();
         // Participants whose one-time load already returned. A withdrawal does not unload, so a
         // participant that comes back must not run LoadContent a second time and double every asset
@@ -280,9 +285,11 @@ namespace MonoGameLibrary.Core.Hosting {
                     }
                     
                     _setModule.Add(module);
-                    if (statePrevious == OwnershipState.Absent) {
-                        // The first admission takes ownership. A re-admission after a withdrawal is
-                        // already in the list, at the position where the host first took the object.
+                    if (_setOwned.Add(module)) {
+                        // The first admission that reaches this host is the point at which the host
+                        // takes ownership and records the position the reverse release pass needs.
+                        // A re-admission after a withdrawal is already in the list, at the position
+                        // where the host first took the object.
                         _listOwned.Add(module);
                     }
                     
@@ -499,6 +506,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     _listOwned.RemoveAll(delegate(object candidate) {
                         return ReferenceEquals(candidate, module);
                     });
+                    _setOwned.Remove(module);
                 }
                 _indexAdmission.Remove(module);
                 if (module is ILoadable moduleLoadable) {
@@ -854,6 +862,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 _flagDisposing = false;
                 _setModule.Clear();
                 _listOwned.Clear();
+                _setOwned.Clear();
                 _listLoadableModules.Clear();
                 _setLoaded.Clear();
                 _indexAdmission.Clear();
@@ -941,6 +950,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     _serviceContent = null;
                     _setModule.Clear();
                     _listOwned.Clear();
+                    _setOwned.Clear();
                     _indexAdmission.Clear();
                     _listLoadableModules.Clear();
                     _setLoaded.Clear();
@@ -1051,6 +1061,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     _serviceContent = null;
                     _setModule.Clear();
                     _listOwned.Clear();
+                    _setOwned.Clear();
                     _indexAdmission.Clear();
                     _listLoadableModules.Clear();
                     _setLoaded.Clear();
