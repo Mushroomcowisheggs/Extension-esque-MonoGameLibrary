@@ -377,15 +377,19 @@ namespace MonoGameLibrary.Core.Hosting {
         /// admitted. Callers hold the host lock.
         /// </summary>
         /// <param name="module">The object to look up. </param>
-        /// <returns><c>true</c> if the object appears in the ownership list. </returns>
+        /// <returns><c>true</c> if the host has recorded ownership of the object. </returns>
+        /// <remarks>
+        /// The answer comes from the identity set the host keeps beside the ownership list, so the
+        /// lookup does not walk the list: the question is asked on every withdrawal, and the list grows
+        /// with every object the composition ever admitted.
+        /// </remarks>
         private bool HasOwned(object module) {
-            for (int index = 0; index < _listOwned.Count; index += 1) {
-                if (ReferenceEquals(_listOwned[index], module)) {
-                    return true;
-                }
-            }
-            return false;
+            return _setOwned.Contains(module);
         }
+        /// <summary>
+        /// Adds a scheduling participant to the schedule under the keys supplied at admission, and
+        /// invalidates the schedule so the next traversal rebuilds it.
+        /// </summary>
         /// <param name="module">The module to publish. </param>
         /// <param name="options">The fixed schedule keys supplied at admission. </param>
         /// <returns><c>true</c> if the module participates in a schedule, otherwise <c>false</c>. </returns>
