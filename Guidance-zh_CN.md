@@ -73,7 +73,7 @@ Extensions → Core                      (Extensions never points to Adapters)
 
 上述方向是穷尽的：未列出的项目引用一律禁止。编译器只拒绝循环引用，除此之外不作判断，因此这份清单必须明确写出并被遵守。
 
-**Core 的命名空间是封闭集合。** 内核只承载机制词汇——`Primitives`、`Hosting`、`Lifecycle`、`Modularity`、`Content`、`Concurrency`、`Diagnostics`、`Pooling`、`Time`，以及 `MonoGameLibrary.Core` 根——绝不承载特性词汇（音频、输入、图形、场景、屏幕、状态、UI、网络、窗口、Gum 等类型）。内核中的特性类型无法在不破坏所有调用方的前提下搬走，因此该集合只能被有意扩充，绝不能取决于文件恰好放在哪里。
+**Core 的命名空间是封闭集合。** 内核只承载机制词汇以及任何特性都不得独占的值词汇（`Primitives`、`Hosting`、`Lifecycle`、`Modularity`、`Content`、`Concurrency`、`Diagnostics`、`Pooling`、`Time`，以及 `MonoGameLibrary.Core` 根）而绝不承载特性词汇（例如音频、输入、图形、场景、屏幕、状态、UI、网络、窗口、Gum 等类型）。内核中的特性类型无法在不破坏所有调用方的前提下搬走，因此该集合只能被有意扩充。
 
 **层内功能组件隔离（强制）**：
 

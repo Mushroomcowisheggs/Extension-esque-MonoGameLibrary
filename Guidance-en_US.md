@@ -73,7 +73,7 @@ This rule guarantees that the business layer (Extensions) remains completely una
 
 These directions are exhaustive: a project reference not listed above is forbidden. The compiler rejects reference cycles and nothing else, so the list is written down and kept deliberately.
 
-**Core's namespaces are a closed set.** The kernel carries mechanism vocabulary only - `Primitives`, `Hosting`, `Lifecycle`, `Modularity`, `Content`, `Concurrency`, `Diagnostics`, `Pooling`, `Time`, and the `MonoGameLibrary.Core` root - and never feature vocabulary (an audio, input, graphics, scene, screen, state, UI, networking, window or Gum type). A feature type in the kernel cannot be moved out without breaking every consumer, so the set is widened deliberately or not at all, never as an accident of where a file was placed.
+**Core's namespaces are a closed set.** The kernel carries mechanism vocabulary and the value vocabulary no feature may own ( `Primitives`, `Hosting`, `Lifecycle`, `Modularity`, `Content`, `Concurrency`, `Diagnostics`, `Pooling`, `Time`, and the `MonoGameLibrary.Core` root ) and never feature vocabulary (such as an audio, input, graphics, scene, screen, state, UI, networking, window or Gum type). A feature type in the kernel cannot be moved out without breaking every consumer, so the set is widened deliberately or not at all.
 
 **Functional component isolation (mandatory inside each layer)**:
 
