@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Primitives;
 
 namespace MonoGameLibrary.Extensions.Graphics {
@@ -5,6 +6,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
     /// Represents a bitmap font used for text rendering. 
     /// Provides metrics and a method to draw itself into an <see cref="IRenderContext"/>. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface ISpriteFont : IFont {
         /// <summary>Gets the line spacing (vertical distance between lines) of the font in pixels. </summary>
         float LineSpacing { get; }

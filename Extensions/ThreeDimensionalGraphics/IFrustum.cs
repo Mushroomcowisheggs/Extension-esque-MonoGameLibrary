@@ -1,7 +1,10 @@
+using MonoGameLibrary.Core.Concurrency;
+
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// <summary>
     /// Tests whether a three-dimensional bounding volume intersects a view frustum.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IFrustum {
         /// <summary>
         /// Tests a bounding sphere against the frustum.

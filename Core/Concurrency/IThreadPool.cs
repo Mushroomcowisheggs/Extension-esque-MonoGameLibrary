@@ -1,10 +1,12 @@
 using System;
 using System.Threading.Tasks;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Concurrency {
     /// <summary>
     /// Provides a managed thread pool for running background work.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IThreadPool {
         /// <inheritdoc cref="QueueWorkItem(Action, string)"/>
         /// <param name="work">The work to execute.</param>

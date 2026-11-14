@@ -15,14 +15,12 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
     /// </summary>
     internal sealed class RenderContext : IRenderContext {
         private readonly Microsoft.Xna.Framework.Graphics.SpriteBatch _batchSprite;
-        private readonly MonoGameLibrary.Core.Concurrency.ThreadAccess _accessThread = new MonoGameLibrary.Core.Concurrency.ThreadAccess();
         private readonly Stack<(RenderTargetBinding[] Bindings, Microsoft.Xna.Framework.Graphics.Viewport Viewport, Microsoft.Xna.Framework.Rectangle Scissor)> _stackTargets = new Stack<(RenderTargetBinding[] Bindings, Microsoft.Xna.Framework.Graphics.Viewport Viewport, Microsoft.Xna.Framework.Rectangle Scissor)>();
         private IRenderTarget _targetCurrent;
         private bool _flagBatchActive;
         private bool _flagDisposed;
         
-        private void VerifyAccess() {
-            _accessThread.VerifyAccess();
+        private void ThrowIfDisposed() {
             if (_flagDisposed) { throw new ObjectDisposedException(nameof(RenderContext)); }
         }
         
@@ -208,7 +206,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
             Optional<IEffect> effect = default,
             OptionalValue<TwoDimensionalTransform> transform = default
         ) {
-            VerifyAccess();
+            ThrowIfDisposed();
             if (_flagBatchActive) {
                 throw new InvalidOperationException("A rendering batch is already active.");
             }
@@ -253,7 +251,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
         
         /// <inheritdoc />
         public void End() {
-            VerifyAccess();
+            ThrowIfDisposed();
             if (!_flagBatchActive) {
                 throw new InvalidOperationException("No rendering batch is active.");
             }
@@ -263,7 +261,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
         
         /// <inheritdoc />
         public void Clear(MonoGameLibrary.Core.Primitives.Color color) {
-            VerifyAccess();
+            ThrowIfDisposed();
             if (_flagBatchActive) {
                 throw new InvalidOperationException("End the rendering batch before clearing the target.");
             }
@@ -272,7 +270,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
         
         /// <inheritdoc />
         public void SetRenderTarget(IRenderTarget targetRenderTarget) {
-            VerifyAccess();
+            ThrowIfDisposed();
             if (targetRenderTarget == null) {
                 throw new ArgumentNullException(nameof(targetRenderTarget));
             }
@@ -288,7 +286,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
         
         /// <inheritdoc />
         public void ResetRenderTarget() {
-            VerifyAccess();
+            ThrowIfDisposed();
             if (_flagBatchActive) {
                 throw new InvalidOperationException("End the rendering batch before restoring a render target.");
             }
@@ -334,7 +332,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
             MonoGameLibrary.Extensions.Graphics.SpriteEffects effectsSprite,
             float depthLayer
         ) {
-            VerifyAccess();
+            ThrowIfDisposed();
             if (texture == null) {
                 throw new ArgumentNullException(nameof(texture));
             }
@@ -353,7 +351,7 @@ namespace MonoGameLibrary.Adapters.Fna.Graphics {
             OptionalValue<MonoGameLibrary.Core.Primitives.Rectangle> rectangleSource,
             MonoGameLibrary.Core.Primitives.Color color
         ) {
-            VerifyAccess();
+            ThrowIfDisposed();
             if (texture == null) {
                 throw new ArgumentNullException(nameof(texture));
             }

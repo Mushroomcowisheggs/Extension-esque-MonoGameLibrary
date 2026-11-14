@@ -1,9 +1,11 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Input {
     /// <summary>
     /// Service for querying keyboard and gamepad input states.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IInputService {
         /// <summary>
         /// Checks whether the specified key is currently held down.

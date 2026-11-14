@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Primitives;
 
@@ -6,6 +7,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
     /// Represents a 2-dimensional texture resource. 
     /// Provides dimensions and a method to draw itself into an <see cref="IRenderContext"/>. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface ITwoDimensionalTexture : ITexture {
         /// <summary>
         /// Draws this texture into the specified render context. 

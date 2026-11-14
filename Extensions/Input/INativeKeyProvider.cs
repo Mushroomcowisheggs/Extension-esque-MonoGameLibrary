@@ -1,3 +1,5 @@
+using MonoGameLibrary.Core.Concurrency;
+
 namespace MonoGameLibrary.Extensions.Input {
     /// <summary>
     /// Exposes a backend's key type through an Input-owned contract, so an adapter that needs
@@ -6,6 +8,7 @@ namespace MonoGameLibrary.Extensions.Input {
     /// table. The translation table stays the single responsibility of the backend adapter.
     /// </summary>
     /// <typeparam name="TKey">The backend key type.</typeparam>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface INativeKeyProvider<out TKey> {
         /// <summary>Returns the backend key that corresponds to the supplied key code.</summary>
         /// <param name="codeKey">The platform-independent key code.</param>

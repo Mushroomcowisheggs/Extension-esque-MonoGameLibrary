@@ -1,3 +1,5 @@
+using MonoGameLibrary.Core.Concurrency;
+
 namespace MonoGameLibrary.Extensions.Audio {
     /// <summary>
     /// Creates streaming PCM playback devices. The sample rate and channel count are
@@ -5,6 +7,7 @@ namespace MonoGameLibrary.Extensions.Audio {
     /// Outputs are owned by the caller and must be disposed by it; a game that forgets
     /// still has them released when the audio module shuts down.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IPcmAudioOutputFactory {
         /// <summary>
         /// Creates an output device for the supplied sample rate and channel count.

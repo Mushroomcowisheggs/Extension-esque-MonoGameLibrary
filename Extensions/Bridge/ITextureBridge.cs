@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Primitives;
 
 namespace MonoGameLibrary.Extensions.Bridge {
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Extensions.Bridge {
     /// it free of concrete Gum and rendering-backend types, so an adapter can substitute its
     /// implementation.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface ITextureBridge<
         in TNineSlice,
         in TColoredRectangle,

@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
@@ -8,6 +9,7 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// Geometry data is portable. The selected adapter uploads it to its own graphics device;
     /// the interface itself carries no native handle.
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IMesh : IAsset, System.IDisposable {
         /// <summary>Gets the immutable geometry data.</summary>
         MeshData Data { get; }

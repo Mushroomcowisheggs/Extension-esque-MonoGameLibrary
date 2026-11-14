@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Hosting {
     /// <summary>
@@ -9,6 +10,7 @@ namespace MonoGameLibrary.Core.Hosting {
     /// set is fixed when <see cref="GameBuilder.Build"/> returns, and after that point neither the
     /// builder nor the host resolves services, so no code can widen or narrow the set at runtime.
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IServiceRegistry {
         /// <summary>
         /// Registers a service instance. Throws if the type is already registered. 

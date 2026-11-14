@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Networking {
@@ -20,6 +21,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// client. A game that needs finer routing includes the intended recipient inside its own message.
     /// </para>
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface INetworkService : IDisposable {
         /// <summary>
         /// Gets the current state of the session.
@@ -148,11 +150,11 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// state the session ended in.
         /// </para>
         /// <para>
-        /// The first call fixes the dispatching thread, and every later call must come from that
-        /// thread, because the handlers run on the caller's thread. A call from another thread fails
-        /// instead of running handlers on a thread the caller did not name.
+        /// The handlers run on the caller's thread, so every call must come from the thread that
+        /// drives the frame. 
         /// </para>
         /// </remarks>
+        [ThreadCondition(ThreadAffinity.Frame)]
         void Update(FrameTime timeFrame);
     }
 }

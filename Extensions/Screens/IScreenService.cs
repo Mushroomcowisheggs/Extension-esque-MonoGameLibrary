@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Time;
 
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Extensions.Screens {
     /// <summary>
     /// Manages a stack of game screens.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IScreenService : IDisposable {
         /// <summary>
         /// Gets the current active screen.

@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Input {
@@ -10,6 +11,7 @@ namespace MonoGameLibrary.Extensions.Input {
     /// it does not expose composition state or an editable selection, because
     /// the underlying window API has no such surface.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface ITextInputService {
         /// <summary>
         /// Raised once per entered character during <see cref="Update"/>.

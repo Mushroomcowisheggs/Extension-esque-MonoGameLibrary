@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
@@ -11,6 +12,7 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// does not accept arbitrary third-party implementations. The draw pass owns vertex-buffer
     /// binding, so a subsequent pass must bind its own buffers.
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IMeshRenderService : IDisposable {
         /// <summary>
         /// Submits a mesh for the next draw pass.
@@ -28,6 +30,7 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
         
         /// <summary>Draws and clears the submissions accumulated for the current frame.</summary>
         /// <param name="timeFrame">Timing information for the current frame.</param>
+        [ThreadCondition(ThreadAffinity.Frame)]
         void Draw(FrameTime timeFrame);
     }
 }

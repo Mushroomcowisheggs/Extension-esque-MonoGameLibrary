@@ -1,12 +1,14 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Extensions.Networking {
     /// <summary>
     /// Accepts incoming connections for a host. A listener owns the bound socket and must be disposed to
     /// release the port.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface INetworkListener : IDisposable {
         /// <summary>
         /// Gets the port the listener is bound to. When the host requested an ephemeral port, this is the

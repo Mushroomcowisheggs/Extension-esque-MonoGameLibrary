@@ -1,9 +1,11 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Audio {
     /// <summary>
     /// Service for audio playback, volume control, and muting. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IAudioService {
         /// <summary>Gets a value indicating whether audio is currently muted. </summary>
         bool IsMuted { get; }

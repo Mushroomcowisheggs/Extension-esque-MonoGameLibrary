@@ -1,10 +1,12 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.UserInterface {
     /// <summary>
     /// Service for managing a user interface tree (rendering and interaction). 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IUserInterfaceService : IDisposable {
         /// <summary>
         /// Initializes the UI system. Must be called once before any UI operations.

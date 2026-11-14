@@ -1,9 +1,11 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 
 namespace MonoGameLibrary.Extensions.Graphics {
     /// <summary>
     /// Represents a shader effect that can be applied to rendering.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IEffect : IAsset {
         /// <summary>
         /// Sets a parameter value on the effect.

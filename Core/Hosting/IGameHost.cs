@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 using MonoGameLibrary.Core.Time;
 
@@ -8,6 +9,7 @@ namespace MonoGameLibrary.Core.Hosting {
     /// The host exposes no service registry on purpose: capabilities are resolved once, at the
     /// composition root, and a participant receives them through constructor injection. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IGameHost : IDisposable {
         /// <summary>
         /// Gets the failure policy selected when the host was built.
@@ -100,6 +102,7 @@ namespace MonoGameLibrary.Core.Hosting {
         /// disposed or faulted host cannot be reused.
         /// </remarks>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceContent"/> is null. </exception>
+        [ThreadCondition(ThreadAffinity.Single)]
         void Initialize(IContentService serviceContent);
         
         void Update(FrameTime timeFrame);

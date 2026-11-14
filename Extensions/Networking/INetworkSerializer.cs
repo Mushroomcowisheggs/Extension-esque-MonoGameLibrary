@@ -1,3 +1,5 @@
+using MonoGameLibrary.Core.Concurrency;
+
 namespace MonoGameLibrary.Extensions.Networking {
     /// <summary>
     /// Converts <see cref="INetworkMessage"/> instances to and from the self-describing byte payload that
@@ -8,6 +10,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// Every implementation must also handle the library control messages declared in
     /// <see cref="NetworkSessionMessages"/>. <see cref="JsonNetworkSerializer"/> registers them itself.
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface INetworkSerializer {
         /// <summary>
         /// Serializes a message into a self-describing payload.

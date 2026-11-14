@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Lifecycle {
     /// <summary>
@@ -6,6 +7,7 @@ namespace MonoGameLibrary.Core.Lifecycle {
     /// Implementations manage window creation, graphics device initialization,
     /// and frame-driven update/draw cycles.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IGameLoop : IDisposable {
         /// <summary>
         /// Starts the game loop. This call blocks until the game exits. 

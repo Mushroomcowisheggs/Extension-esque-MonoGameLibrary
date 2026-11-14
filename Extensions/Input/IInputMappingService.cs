@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Primitives;
 using MonoGameLibrary.Core.Time;
 
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Extensions.Input {
     /// Provides a high-level input mapping service that decouples game actions
     /// from physical keys or buttons. Actions are defined by the game as enums.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Single)]
     public interface IInputMappingService {
         /// <summary>
         /// Binds an action to a keyboard key.

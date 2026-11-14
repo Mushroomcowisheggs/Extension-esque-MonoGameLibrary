@@ -1,9 +1,11 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Diagnostics {
     /// <summary>
     /// A lightweight profiling interface for measuring performance.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IProfiler {
         /// <summary>
         /// Begins measuring a named section. Dispose the returned object to stop measurement.

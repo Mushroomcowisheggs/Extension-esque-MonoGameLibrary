@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Input {
@@ -10,6 +11,7 @@ namespace MonoGameLibrary.Extensions.Input {
     /// suppresses the resulting edges, so a held button cannot produce a click
     /// when focus returns.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IPointerInputService {
         /// <summary>
         /// Gets a value indicating whether pointer state can be read from this service.

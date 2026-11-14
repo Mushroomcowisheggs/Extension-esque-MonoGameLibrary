@@ -1,8 +1,11 @@
+using MonoGameLibrary.Core.Concurrency;
+
 namespace MonoGameLibrary.Extensions.Graphics {
     /// <summary>
     /// Creates off-screen render targets that match the graphics device back buffer.
     /// Render targets are owned by the caller and must be disposed by it.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IRenderTargetFactory {
         /// <summary>
         /// Creates a render target with the supplied pixel size.

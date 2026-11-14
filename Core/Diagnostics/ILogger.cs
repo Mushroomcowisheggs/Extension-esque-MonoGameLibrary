@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Diagnostics {
     /// <summary>
@@ -21,6 +22,7 @@ namespace MonoGameLibrary.Core.Diagnostics {
     /// <summary>
     /// A basic logging interface.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface ILogger {
         /// <inheritdoc cref="Log(LogLevel, string, Exception)"/>
         /// <param name="level">The severity level.</param>

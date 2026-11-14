@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Extensions.Networking {
     /// <summary>
@@ -11,6 +12,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// <remarks>
     /// Implementations are consumed from background loops, so they must be thread-safe.
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface INetworkTransport : IDisposable {
         /// <summary>
         /// Binds a listener to the given port.

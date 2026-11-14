@@ -1,9 +1,12 @@
+using MonoGameLibrary.Core.Concurrency;
+
 namespace MonoGameLibrary.Extensions.Bridge {
     /// <summary>
     /// Exposes a backend-native texture through the neutral cross-adapter
     /// contract anchor without naming any adapter implementation.
     /// </summary>
     /// <typeparam name="TTexture">The native texture type.</typeparam>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface INativeTextureProvider<out TTexture> {
         /// <summary>
         /// Returns the wrapped backend-native texture, or <c>null</c> when this provider no longer holds

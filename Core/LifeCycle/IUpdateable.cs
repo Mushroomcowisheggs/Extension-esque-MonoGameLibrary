@@ -1,9 +1,11 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Core.Lifecycle {
     /// <summary>
     /// Implemented by modules that need to be updated every frame.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IUpdateable {
         /// <summary>
         /// Called once per frame to update the module's logic.

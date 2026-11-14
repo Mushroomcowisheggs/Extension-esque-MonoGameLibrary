@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Content {
     /// <summary>
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Core.Content {
     /// loaders against this Core contract instead of referencing a sibling
     /// content-adapter implementation.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Single)]
     public interface IContentBackend : IContentService {
         /// <summary>
         /// Registers a loader that receives the content backend on which the

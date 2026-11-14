@@ -1,6 +1,8 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Concurrency {
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface ILoadingProgress {
         /// <summary>
         /// Reports progress for a specific operation.

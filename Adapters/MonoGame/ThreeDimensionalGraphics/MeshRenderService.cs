@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.ThreeDimensionalGraphics;
 
@@ -16,7 +15,6 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
         private readonly GraphicsDevice _deviceGraphics;
         private readonly IThreeDimensionalCameraService _serviceCamera;
         private readonly BasicEffect _effectBasic;
-        private readonly ThreadAccess _accessThread = new ThreadAccess();
         private readonly ThreeDimensionalRenderQueue _queueRender = new ThreeDimensionalRenderQueue();
         private readonly Dictionary<IMesh, GpuMesh> _dictionaryMeshes = new Dictionary<IMesh, GpuMesh>();
         private readonly object _lock = new object();
@@ -70,7 +68,6 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
         
         /// <inheritdoc />
         public void Draw(FrameTime timeFrame) {
-            _accessThread.VerifyAccess();
             lock (_lock) {
                 ThrowIfDisposedLocked();
             }

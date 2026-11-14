@@ -1,11 +1,13 @@
 using System;
 using System.Numerics;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// <summary>
     /// Provides a platform-neutral three-dimensional camera state and frame lifecycle.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IThreeDimensionalCameraService : IDisposable {
         /// <summary>Gets or sets the camera position.</summary>
         Vector3 Position { get; set; }

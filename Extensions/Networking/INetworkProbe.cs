@@ -1,12 +1,14 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Extensions.Networking {
     /// <summary>
     /// Asks a remote room for its status without joining it, so that a game can show a reachable server
     /// list entry complete with name, player count and latency before the player commits to connecting.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface INetworkProbe {
         /// <summary>
         /// Probes a remote endpoint.

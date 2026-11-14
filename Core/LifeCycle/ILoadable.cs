@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Hosting;
 
 namespace MonoGameLibrary.Core.Lifecycle {
@@ -9,6 +10,7 @@ namespace MonoGameLibrary.Core.Lifecycle {
     /// <see cref="GameBuilder.GetService{TService}"/> and <see cref="GameBuilder.TryGetService{TService}"/>
     /// throw once the builder has built, and the host exposes no registry at all.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface ILoadable {
         /// <summary>
         /// Called when the module should load its content.

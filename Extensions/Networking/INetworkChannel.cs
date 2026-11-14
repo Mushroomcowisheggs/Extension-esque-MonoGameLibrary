@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Extensions.Networking {
     /// <summary>
@@ -8,6 +9,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// reader and a single writer at the same time, because <see cref="INetworkService"/> pumps the two
     /// directions from independent background loops.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface INetworkChannel : IDisposable {
         /// <summary>
         /// Gets the remote endpoint in <c>host:port</c> form, used for display and diagnostics.

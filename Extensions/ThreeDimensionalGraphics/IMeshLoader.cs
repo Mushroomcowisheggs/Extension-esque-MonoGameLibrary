@@ -1,9 +1,11 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// <summary>
     /// Loads a platform-neutral mesh asset through the content backend.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IMeshLoader {
         /// <summary>
         /// Loads a mesh by asset name.

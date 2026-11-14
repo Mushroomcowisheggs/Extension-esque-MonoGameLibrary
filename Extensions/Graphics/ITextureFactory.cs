@@ -1,4 +1,5 @@
 using System.IO;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Primitives;
 
 namespace MonoGameLibrary.Extensions.Graphics {
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
     /// from a decoded image stream or from raw pixel data produced at runtime.
     /// Textures created here are owned by the caller and must be disposed by it.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface ITextureFactory {
         /// <summary>
         /// Creates a texture filled with the supplied pixels.

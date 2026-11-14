@@ -1,4 +1,5 @@
 using System.Threading;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Concurrency {
     /// <summary>
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Core.Concurrency {
     /// post-disposal behavior; see <see cref="DefaultCancellationService"/> for the reference 
     /// contract (token acquisition throws after disposal, cancellation requests become no-ops). 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface ICancellationService {
         /// <summary>
         /// Gets a <see cref="CancellationToken"/> for the specified operation ID. 

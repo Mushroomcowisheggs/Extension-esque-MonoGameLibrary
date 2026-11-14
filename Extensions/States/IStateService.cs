@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.States {
@@ -5,6 +6,7 @@ namespace MonoGameLibrary.Extensions.States {
     /// Manages a stack of behavior states (<see cref="IState"/>). 
     /// Supports push, pop, and replace operations. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IStateService {
         /// <summary>
         /// Gets the current active state (top of the stack). 

@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.States {
@@ -5,6 +6,7 @@ namespace MonoGameLibrary.Extensions.States {
     /// Represents a single behavior state in a finite state machine. 
     /// Used to model entity behaviors such as idle, moving, attacking, etc. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IState {
         /// <summary>Called when this state becomes active. </summary>
         void Enter();

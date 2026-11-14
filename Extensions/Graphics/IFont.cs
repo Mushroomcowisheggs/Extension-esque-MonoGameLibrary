@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 using MonoGameLibrary.Core.Primitives;
 
@@ -5,6 +6,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
     /// <summary>
     /// A bitmap or vector font. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IFont : IAsset {
         /// <summary>
         /// Measures the on-screen size of the given text string when rendered with this font. 

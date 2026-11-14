@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 
 namespace MonoGameLibrary.Core.Hosting {
@@ -6,6 +7,7 @@ namespace MonoGameLibrary.Core.Hosting {
     /// Provides a factory method for creating new <see cref="IContentService"/> instances. 
     /// This is used to give each scene its own independent content manager for resource isolation. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IContentServiceFactory {
         /// <summary>
         /// Creates a new content service instance. 

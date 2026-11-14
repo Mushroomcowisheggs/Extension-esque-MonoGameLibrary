@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Extensions.Window {
     /// <summary>
@@ -8,6 +9,7 @@ namespace MonoGameLibrary.Extensions.Window {
     /// On a high DPI display the client area is measured in window units while the
     /// render surface is measured in pixels, so a single "size" would be ambiguous.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IWindowService {
         /// <summary>Gets the client area width in window units.</summary>
         int ClientWidth { get; }

@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
@@ -8,6 +9,7 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// The selected adapter constructs the implementation; the render service accepts only that
     /// implementation.
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IModel : IAsset, System.IDisposable {
         /// <summary>Gets a conservative model-space bounding sphere.</summary>
         BoundingSphere BoundsBoundingSphere { get; }

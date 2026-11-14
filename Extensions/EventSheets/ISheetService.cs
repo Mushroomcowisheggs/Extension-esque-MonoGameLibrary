@@ -1,7 +1,10 @@
+using MonoGameLibrary.Core.Concurrency;
+
 namespace MonoGameLibrary.Extensions.EventSheets {
     /// <summary>
     /// Control and inspection surface for a loaded event sheet.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface ISheetService {
         bool IsLoaded { get; }
         string LoadedSheetName { get; }

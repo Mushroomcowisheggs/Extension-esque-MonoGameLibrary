@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Networking {
@@ -21,6 +22,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// rooms from lingering.
     /// </para>
     /// </remarks>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IDiscoveryService : IDisposable {
         /// <summary>
         /// Gets a value indicating whether the service is currently looking for rooms.

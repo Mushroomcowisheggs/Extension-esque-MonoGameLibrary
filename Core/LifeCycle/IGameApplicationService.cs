@@ -1,7 +1,9 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Primitives;
 
 namespace MonoGameLibrary.Core.Lifecycle {
     /// <summary>Exposes platform-neutral application operations to the game layer.</summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IGameApplicationService {
         /// <summary>
         /// Gets the configured client-area bounds in render-surface coordinates.

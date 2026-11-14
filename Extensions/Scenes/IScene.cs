@@ -1,10 +1,12 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Scenes {
     /// <summary>
     /// Contract for a game scene managed by <see cref="SceneService"/>.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IScene : IDisposable {
         /// <summary>Gets the update/draw order (lower values execute earlier). </summary>
         int Order { get; }

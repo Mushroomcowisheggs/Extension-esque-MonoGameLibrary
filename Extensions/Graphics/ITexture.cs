@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Content;
 
 namespace MonoGameLibrary.Extensions.Graphics {
@@ -10,6 +11,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
     /// service, which releases it on unload; disposing such a texture is harmless but
     /// does not release the shared asset.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface ITexture : IAsset, IDisposable {
         /// <summary>Gets the width of the texture in pixels.</summary>
         int Width { get; }

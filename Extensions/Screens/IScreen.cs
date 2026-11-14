@@ -1,10 +1,12 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.Screens {
     /// <summary>
     /// Contract for a game screen managed by <see cref="IScreenService"/>.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IScreen : IDisposable {
         /// <summary>Occurs when a screen change (push, pop, or change) is requested.</summary>
         event EventHandler<ScreenTransitionRequest> ScreenChangeRequestedHandler;

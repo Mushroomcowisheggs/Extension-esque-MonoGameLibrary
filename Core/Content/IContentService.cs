@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Content {
     /// <summary>
@@ -6,6 +7,7 @@ namespace MonoGameLibrary.Core.Content {
     /// The single generic method avoids a proliferation of LoadXXX methods; 
     /// new asset types only require a new <see cref="IAsset"/> subtype. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Single)]
     public interface IContentService : IDisposable {
         /// <summary>
         /// Registers a strongly-typed loader for a specific asset type. 

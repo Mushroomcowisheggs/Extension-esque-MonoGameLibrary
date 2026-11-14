@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Core.Lifecycle;
 using MonoGameLibrary.Core.Hosting;
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Extensions.Scenes {
     /// <summary>
     /// Provides scene switching and lifecycle orchestration for the active scene. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface ISceneService : IDisposable {
         /// <summary>
         /// Gets the currently active scene. 

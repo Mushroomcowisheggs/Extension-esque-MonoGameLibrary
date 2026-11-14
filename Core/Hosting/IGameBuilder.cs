@@ -8,6 +8,7 @@ namespace MonoGameLibrary.Core.Hosting {
     /// Fluent API for configuring and building an <see cref="IGameHost"/>. 
     /// Uses the Curiously Recurring Template Pattern. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IGameBuilder<TBuilder> where TBuilder : IGameBuilder<TBuilder> {
         /// <summary>
         /// Gets or sets the required failure policy. It must be set before <see cref="Build"/>.

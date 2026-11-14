@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Extensions.Audio {
     /// <summary>
@@ -15,6 +16,7 @@ namespace MonoGameLibrary.Extensions.Audio {
     /// <see cref="Format"/>) are static configuration rather than telemetry and keep the values
     /// the output was created with, even after disposal.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Single)]
     public interface IPcmAudioOutput : IDisposable {
         /// <summary>
         /// Gets the sample rate in hertz the output was created with. Unchanged after disposal.

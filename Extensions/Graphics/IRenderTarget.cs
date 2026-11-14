@@ -1,4 +1,5 @@
 using System.IO;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Extensions.Graphics {
     /// <summary>
@@ -6,6 +7,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
     /// A render target is a texture, so it can be passed to any drawing API that
     /// accepts <see cref="ITwoDimensionalTexture"/>.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IRenderTarget : ITwoDimensionalTexture {
         /// <summary>
         /// Gets a value indicating whether the previous contents survive when the

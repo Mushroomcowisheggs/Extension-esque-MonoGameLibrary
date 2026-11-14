@@ -1,10 +1,12 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Pooling {
     /// <summary>
     /// A pool of reusable objects.
     /// </summary>
     /// <typeparam name="T">The type of objects in the pool.</typeparam>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IObjectPool<T> where T : class {
         /// <summary>
         /// Retrieves an object from the pool. If the pool is empty, a new instance is created.

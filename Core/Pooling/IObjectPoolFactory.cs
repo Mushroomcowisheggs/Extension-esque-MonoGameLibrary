@@ -1,9 +1,11 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 
 namespace MonoGameLibrary.Core.Pooling {
     /// <summary>
     /// Factory for creating object pools.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Any)]
     public interface IObjectPoolFactory {
         /// <summary>
         /// Creates a new object pool with the given parameters.

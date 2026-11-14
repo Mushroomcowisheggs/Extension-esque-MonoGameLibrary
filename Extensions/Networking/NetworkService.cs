@@ -52,12 +52,6 @@ namespace MonoGameLibrary.Extensions.Networking {
         private int _stateDelivery = (int)DeliveryState.Open;
         private long _countInboundDiscarded;
         
-        // The frame thread that first drives Update owns the dispatch. A second thread would run
-        // handlers somewhere the caller did not name, so the ownership is checked rather than
-        // documented; the check is installed on the first Update, not on construction, because the
-        // composition root may build the service before the game loop exists.
-        private ThreadAccess _accessFrame;
-        
         // Disposal is elected: one caller closes the session and releases the transport, and a second
         // caller waits for that release instead of closing the same session twice.
         private int _markDisposalElected;
@@ -335,16 +329,6 @@ namespace MonoGameLibrary.Extensions.Networking {
         
         /// <inheritdoc />
         public void Update(FrameTime timeFrame) {
-            ThreadAccess accessFrame = _accessFrame;
-            if (accessFrame == null) {
-                ThreadAccess accessCreated = new ThreadAccess();
-                accessFrame = Interlocked.CompareExchange(ref _accessFrame, accessCreated, null);
-                if (accessFrame == null) {
-                    accessFrame = accessCreated;
-                }
-            }
-            accessFrame.VerifyAccess();
-            
             if (_profiler.HasValue) {
                 using (IDisposable measure = _profiler.Value.BeginMeasure("Network.Update")) {
                     DispatchPending();

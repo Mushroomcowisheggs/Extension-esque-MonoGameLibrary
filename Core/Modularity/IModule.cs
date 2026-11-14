@@ -1,3 +1,4 @@
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core.Hosting;
 
 namespace MonoGameLibrary.Core.Modularity {
@@ -7,6 +8,7 @@ namespace MonoGameLibrary.Core.Modularity {
     /// Core layer is completely unaware of any business interfaces such as
     /// IAudioService or IInputService. 
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Caller)]
     public interface IModule {
         /// <summary>
         /// Registers services and modules with the given game builder. 

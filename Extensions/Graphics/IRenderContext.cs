@@ -1,4 +1,5 @@
 using System;
+using MonoGameLibrary.Core.Concurrency;
 using MonoGameLibrary.Core;
 using MonoGameLibrary.Core.Primitives;
 
@@ -11,6 +12,7 @@ namespace MonoGameLibrary.Extensions.Graphics {
     /// sprites per frame. Both paths produce identical output; the direct path exists
     /// because it does not allocate a visitor per call.
     /// </summary>
+    [ThreadCondition(ThreadAffinity.Frame)]
     public interface IRenderContext : IDisposable {
         /// <summary>
         /// Gets the render target that is currently bound, or an empty optional when
