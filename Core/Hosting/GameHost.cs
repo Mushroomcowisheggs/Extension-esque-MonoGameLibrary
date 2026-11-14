@@ -48,54 +48,9 @@ namespace MonoGameLibrary.Core.Hosting {
         // participant that comes back must not run LoadContent a second time and double every asset
         // it acquired; the set is keyed by reference identity for the same reason membership is.
         private readonly HashSet<object> _setLoaded = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        // A schedule entry pairs the participant with the order it was admitted under. The host reads
-        // that order once, from ScheduleOptions, and never reads an order from the participant again;
-        // the entry is the authority for the life of the admission.
-        private readonly List<ScheduleUpdateEntry> _listUpdateEntries = new List<ScheduleUpdateEntry>();
-        private readonly List<ScheduleDrawEntry> _listDrawEntries = new List<ScheduleDrawEntry>();
-        
-        // The published schedule. A rebuild constructs a fresh list and assigns it here under the lock;
-        // a published list is never sorted, cleared or reused, so a traversal that captured one keeps a
-        // stable snapshot for its whole loop. The earlier implementation sorted a shared back buffer and
-        // swapped two lists, which let a rebuild recycle the list another traversal was iterating.
-        private List<ScheduleUpdateEntry> _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
-        private List<ScheduleDrawEntry> _listDrawEntriesPublished = new List<ScheduleDrawEntry>();
-        
-        /// <summary>
-        /// One update participant together with the fixed keys the host admitted it under. 
-        /// </summary>
-        private readonly struct ScheduleUpdateEntry {
-            public ScheduleUpdateEntry(IUpdateable participantUpdateable, int order, int indexAdmission) {
-                if (participantUpdateable == null) {
-                    throw new ArgumentNullException(nameof(participantUpdateable));
-                }
-                UpdateableParticipant = participantUpdateable;
-                Order = order;
-                AdmissionIndex = indexAdmission;
-            }
-            
-            public IUpdateable UpdateableParticipant { get; }
-            public int Order { get; }
-            public int AdmissionIndex { get; }
-        }
-        
-        /// <summary>
-        /// One draw participant together with the fixed keys the host admitted it under. 
-        /// </summary>
-        private readonly struct ScheduleDrawEntry {
-            public ScheduleDrawEntry(IDrawable participantDrawable, int order, int indexAdmission) {
-                if (participantDrawable == null) {
-                    throw new ArgumentNullException(nameof(participantDrawable));
-                }
-                DrawableParticipant = participantDrawable;
-                Order = order;
-                AdmissionIndex = indexAdmission;
-            }
-            
-            public IDrawable DrawableParticipant { get; }
-            public int Order { get; }
-            public int AdmissionIndex { get; }
-        }
+        // The admission schedule: the entries, the total order over them, and the immutable
+        // snapshot a traversal iterates. The algebra is Schedule.cs; the host owns the lock.
+        private readonly Schedule _schedule = new Schedule();
         
         // Late-bound lifecycle input. Optional<T> belongs on dependency-facing APIs, not on a field
         // that Initialize assigns once and Dispose clears.
@@ -122,14 +77,14 @@ namespace MonoGameLibrary.Core.Hosting {
         private LifecycleFailure _failure;
         
         // Dirty flags
-        private bool _flagUpdateOrderDirty = true;
-        private bool _flagDrawOrderDirty = true;
+
+
         // Membership generation, bumped whenever either schedule list changes. A traversal captures it
         // with its snapshot and publishes only if it is unchanged: the dirty flag alone cannot tell
         // "dirty when I took the snapshot" from "dirty after I took it", and committing in the second
         // case would publish the pre-admission schedule and clear the flag, dropping the new participant
         // until the next unrelated membership change.
-        private int _generationSchedule = 0;
+
         
         // Concurrency tracking
         private int _countActiveOperations = 0;
@@ -442,18 +397,14 @@ namespace MonoGameLibrary.Core.Hosting {
                     indexAdmission = int.MaxValue;
                 }
                 if (module is IUpdateable participantUpdateable) {
-                    _listUpdateEntries.Add(new ScheduleUpdateEntry(participantUpdateable, options.UpdateOrder, indexAdmission));
-                    _flagUpdateOrderDirty = true;
+                    _schedule.AddUpdate(participantUpdateable, options.UpdateOrder, indexAdmission);
                     flagSchedulable = true;
                 }
                 if (module is IDrawable participantDrawable) {
-                    _listDrawEntries.Add(new ScheduleDrawEntry(participantDrawable, options.DrawOrder, indexAdmission));
-                    _flagDrawOrderDirty = true;
+                    _schedule.AddDraw(participantDrawable, options.DrawOrder, indexAdmission);
                     flagSchedulable = true;
                 }
-                if (flagSchedulable) {
-                    _generationSchedule += 1;
-                }
+
             }
             return flagSchedulable;
         }
@@ -514,19 +465,7 @@ namespace MonoGameLibrary.Core.Hosting {
                         return ReferenceEquals(candidate, moduleLoadable);
                     });
                 }
-                if (module is IUpdateable) {
-                    _listUpdateEntries.RemoveAll(delegate(ScheduleUpdateEntry entry) {
-                        return ReferenceEquals(entry.UpdateableParticipant, module);
-                    });
-                }
-                if (module is IDrawable) {
-                    _listDrawEntries.RemoveAll(delegate(ScheduleDrawEntry entry) {
-                        return ReferenceEquals(entry.DrawableParticipant, module);
-                    });
-                }
-                _flagUpdateOrderDirty = true;
-                _flagDrawOrderDirty = true;
-                _generationSchedule += 1;
+                _schedule.Remove(module);
             }
         }
         
@@ -614,32 +553,29 @@ namespace MonoGameLibrary.Core.Hosting {
                     if (!_flagIsInitialized) {
                         throw new InvalidOperationException("Initialize must be called before Update.");
                     }
-                    if (_flagUpdateOrderDirty) {
+                    if (_schedule.IsUpdateDirty) {
                         // A rebuild owns its copy. The sort below runs outside the lock on this list
                         // alone, so a concurrent traversal or rebuild cannot observe or disturb it, and
                         // publishing is a single reference assignment rather than a swap of shared
                         // buffers.
-                        listFresh = new List<ScheduleUpdateEntry>(_listUpdateEntries);
+                        listFresh = _schedule.CopyUpdateEntries();
                         // Captured under the same lock as the snapshot, so the pair describes one
                         // membership state.
-                        generationSnapshot = _generationSchedule;
+                        generationSnapshot = _schedule.Generation;
                     }
                 }
                 if (listFresh != null) {
                     List<ScheduleUpdateEntry> listToSort = listFresh;
-                    listToSort.Sort(CompareScheduleUpdateEntry);
+                    listToSort.Sort(Schedule.CompareUpdate);
                     lock (_lock) {
-                        if (_generationSchedule == generationSnapshot) {
-                            _listUpdateEntriesPublished = listToSort;
-                            _flagUpdateOrderDirty = false;
-                        }
+                        _schedule.PublishUpdate(listToSort, generationSnapshot);
                         // Otherwise a participant was admitted or withdrawn while this copy was being
                         // sorted: the flag stays set and the next traversal rebuilds from the current
                         // lists, so the change is delayed by a frame instead of lost.
                     }
                 }
                 lock (_lock) {
-                    listToIterate = _listUpdateEntriesPublished;
+                    listToIterate = _schedule.PublishedUpdateEntries();
                 }
                 foreach (ScheduleUpdateEntry entry in listToIterate) {
                     IUpdateable participantUpdateable = entry.UpdateableParticipant;
@@ -665,25 +601,22 @@ namespace MonoGameLibrary.Core.Hosting {
                     if (!_flagIsInitialized) {
                         throw new InvalidOperationException("Initialize must be called before Draw.");
                     }
-                    if (_flagDrawOrderDirty) {
+                    if (_schedule.IsDrawDirty) {
                         // As in Update: a rebuild owns its copy, so the sort runs outside the lock on a
                         // list no other traversal can observe.
-                        listFresh = new List<ScheduleDrawEntry>(_listDrawEntries);
-                        generationSnapshot = _generationSchedule;
+                        listFresh = _schedule.CopyDrawEntries();
+                        generationSnapshot = _schedule.Generation;
                     }
                 }
                 if (listFresh != null) {
                     List<ScheduleDrawEntry> listToSort = listFresh;
-                    listToSort.Sort(CompareScheduleDrawEntry);
+                    listToSort.Sort(Schedule.CompareDraw);
                     lock (_lock) {
-                        if (_generationSchedule == generationSnapshot) {
-                            _listDrawEntriesPublished = listToSort;
-                            _flagDrawOrderDirty = false;
-                        }
+                        _schedule.PublishDraw(listToSort, generationSnapshot);
                     }
                 }
                 lock (_lock) {
-                    listToIterate = _listDrawEntriesPublished;
+                    listToIterate = _schedule.PublishedDrawEntries();
                 }
                 foreach (ScheduleDrawEntry entry in listToIterate) {
                     IDrawable participantDrawable = entry.DrawableParticipant;
@@ -735,43 +668,6 @@ namespace MonoGameLibrary.Core.Hosting {
                     _eventOperationsIdle.Set();
                 }
             }
-        }
-        
-        /// <summary>
-        /// Orders two update entries: ascending admitted order, and on a tie the position at which
-        /// the composition root admitted them.
-        /// </summary>
-        /// <param name="left">The left entry. </param>
-        /// <param name="right">The right entry. </param>
-        /// <remarks>
-        /// The secondary key is what makes the schedule a <em>total</em> order. Without it, two
-        /// participants sharing an order reach an unstable comparison, and <c>List&lt;T&gt;.Sort</c>
-        /// is documented as an unstable introspective sort, so their relative traversal order would fall
-        /// back to the order the list happened to be built in - an implementation accident rather than a
-        /// contract. Admission order supplies the key without consulting the participant's type name, so
-        /// a rename cannot move a participant; the key is the order of <c>AddModule</c> calls, which the
-        /// composition root writes and can read. A tie remains a reproducible fallback rather than a way
-        /// to state intent: distinct orders are the declared form of an intended sequence.
-        /// </remarks>
-        private static int CompareScheduleUpdateEntry(ScheduleUpdateEntry left, ScheduleUpdateEntry right) {
-            int comparison = left.Order.CompareTo(right.Order);
-            if (comparison != 0) {
-                return comparison;
-            }
-            return left.AdmissionIndex.CompareTo(right.AdmissionIndex);
-        }
-        
-        /// <summary>
-        /// Orders two draw entries: ascending admitted order, and on a tie the admission index.
-        /// </summary>
-        /// <param name="left">The left entry. </param>
-        /// <param name="right">The right entry. </param>
-        private static int CompareScheduleDrawEntry(ScheduleDrawEntry left, ScheduleDrawEntry right) {
-            int comparison = left.Order.CompareTo(right.Order);
-            if (comparison != 0) {
-                return comparison;
-            }
-            return left.AdmissionIndex.CompareTo(right.AdmissionIndex);
         }
         
         /// <summary>
@@ -866,10 +762,7 @@ namespace MonoGameLibrary.Core.Hosting {
                 _listLoadableModules.Clear();
                 _setLoaded.Clear();
                 _indexAdmission.Clear();
-                _listUpdateEntries.Clear();
-                _listDrawEntries.Clear();
-                _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
-                _listDrawEntriesPublished = new List<ScheduleDrawEntry>();
+                _schedule.Clear();
                 return modules;
             }
         }
@@ -954,13 +847,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     _indexAdmission.Clear();
                     _listLoadableModules.Clear();
                     _setLoaded.Clear();
-                    _listUpdateEntries.Clear();
-                    _listDrawEntries.Clear();
-                    _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
-                    _listDrawEntriesPublished = new List<ScheduleDrawEntry>();
-                    _flagUpdateOrderDirty = true;
-                    _flagDrawOrderDirty = true;
-                    _generationSchedule += 1;
+                    _schedule.Clear();
                 }
                 _eventDisposeComplete.Set();
             }
@@ -1065,13 +952,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     _indexAdmission.Clear();
                     _listLoadableModules.Clear();
                     _setLoaded.Clear();
-                    _listUpdateEntries.Clear();
-                    _listDrawEntries.Clear();
-                    _listUpdateEntriesPublished = new List<ScheduleUpdateEntry>();
-                    _listDrawEntriesPublished = new List<ScheduleDrawEntry>();
-                    _flagUpdateOrderDirty = true;
-                    _flagDrawOrderDirty = true;
-                    _generationSchedule += 1;
+                    _schedule.Clear();
                 }
                 _eventDisposeComplete.Set();
             }
