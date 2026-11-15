@@ -76,16 +76,6 @@ namespace MonoGameLibrary.Core.Hosting {
         private readonly OwnershipLedger _ledgerOwnership;
         private LifecycleFailure _failure;
         
-        // Dirty flags
-
-
-        // Membership generation, bumped whenever either schedule list changes. A traversal captures it
-        // with its snapshot and publishes only if it is unchanged: the dirty flag alone cannot tell
-        // "dirty when I took the snapshot" from "dirty after I took it", and committing in the second
-        // case would publish the pre-admission schedule and clear the flag, dropping the new participant
-        // until the next unrelated membership change.
-
-        
         // Concurrency tracking
         private int _countActiveOperations = 0;
         private readonly HashSet<int> _setActiveThreads = new HashSet<int>();
@@ -408,7 +398,7 @@ namespace MonoGameLibrary.Core.Hosting {
                     _schedule.AddDraw(participantDrawable, options.DrawOrder, indexAdmission);
                     flagSchedulable = true;
                 }
-
+            
             }
             return flagSchedulable;
         }
