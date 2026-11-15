@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
+using MonoGameLibrary.Core.Hosting;
 using MonoGameLibrary.Core.Lifecycle;
+using MonoGameLibrary.Core.Modularity;
 using MonoGameLibrary.Core.Time;
 
 namespace MonoGameLibrary.Extensions.UserInterface {
@@ -8,6 +10,7 @@ namespace MonoGameLibrary.Extensions.UserInterface {
     /// Host-driven module that forwards update and draw calls to <see cref="IUserInterfaceService"/>.
     /// Contains no platform logic.
     /// </summary>
+    [ModuleRegistration(-150)]
     public sealed class UserInterfaceModule : IUpdateable, IDrawable, IDisposable {
         private readonly IUserInterfaceService _serviceUserInterface;
         // Every mutable field is volatile: the gates are read on the frame thread while the application

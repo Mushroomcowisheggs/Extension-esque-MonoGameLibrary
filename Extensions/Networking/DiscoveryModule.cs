@@ -10,6 +10,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// Integrates room discovery with the host lifecycle. Every frame it expires the rooms that stopped
     /// announcing themselves and reports what the background loops found.
     /// </summary>
+    [ModuleRegistration(-179)]
     public sealed class DiscoveryModule : IModule, IUpdateable, IDisposable {
         private readonly IDiscoveryService _serviceDiscovery;
         private readonly int _order;

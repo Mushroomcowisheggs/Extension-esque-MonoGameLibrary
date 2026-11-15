@@ -16,12 +16,15 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         /// <returns>The same builder, so the call can be chained.</returns>
         public static GameBuilder UseEventSheets(
             this GameBuilder builder,
+            ISheetStore storeSheet,
             Optional<SheetOptions> optionsSheet = default,
-            Optional<ISheetStore> storeSheet = default,
             Optional<ISheetVocabulary> vocabularySheet = default
         ) {
             if (builder == null) {
                 throw new ArgumentNullException(nameof(builder));
+            }
+            if (storeSheet == null) {
+                throw new ArgumentNullException(nameof(storeSheet));
             }
             
             SheetOptions optionsResolved;
@@ -32,12 +35,7 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             }
             optionsResolved.Validate();
             
-            ISheetStore storeResolved;
-            if (storeSheet.HasValue) {
-                storeResolved = storeSheet.Value;
-            } else {
-                storeResolved = new SheetFileStore(optionsResolved.RootDirectory);
-            }
+            ISheetStore storeResolved = storeSheet;
             
             ISheetVocabulary vocabularyResolved;
             if (vocabularySheet.HasValue) {

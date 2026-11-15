@@ -9,12 +9,12 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Window {
     /// <summary>
     /// KNI implementation of <see cref="IWindowService"/>.
     ///
-    /// A canvas inside a page has no desktop position and no display of its own, so the position is
-    /// always zero and the display size is the render surface. Resizing still goes through
-    /// <see cref="GraphicsDeviceManager"/>, which is the only supported way to change the surface
-    /// of a running game. The minimum size is re-applied from the update pass, but only when the
-    /// surface actually changed, so a platform that refuses to grow back cannot turn into a
-    /// per-frame device reset.
+    /// A canvas is the window here: its bounds are the client area, its back buffer is the render
+    /// surface, and its offset belongs to the page that hosts it, so the service reports the origin.
+    /// Resizing still goes through <see cref="GraphicsDeviceManager"/>, which is the only supported
+    /// way to change the surface of a running game. The minimum size is re-applied from the update
+    /// pass, but only when the surface actually changed, so a platform that refuses to grow back
+    /// cannot turn into a per-frame device reset.
     /// </summary>
     internal sealed class WindowService : IWindowService, IDisposable {
         private readonly object _lock = new object();

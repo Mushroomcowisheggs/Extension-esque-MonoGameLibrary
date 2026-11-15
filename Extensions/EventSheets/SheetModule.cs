@@ -10,6 +10,7 @@ namespace MonoGameLibrary.Extensions.EventSheets {
     /// <summary>
     /// Registers and drives one event-sheet service.
     /// </summary>
+    [ModuleRegistration(-190)]
     internal sealed class SheetModule : IModule, ILoadable, IUpdateable, IDisposable {
         private readonly SheetService _service;
         private readonly SheetOptions _options;

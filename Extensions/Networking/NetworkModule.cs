@@ -12,6 +12,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// the service to dispatch what the background loops received, so that a game only ever observes network
     /// events between two frames.
     /// </summary>
+    [ModuleRegistration(-180)]
     public sealed class NetworkModule : IModule, IUpdateable, IDisposable {
         private readonly INetworkService _serviceNetwork;
         private readonly Optional<INetworkProbe> _probeNetwork;

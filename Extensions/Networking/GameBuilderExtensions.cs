@@ -30,10 +30,10 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <exception cref="InvalidOperationException">Thrown if no thread pool is registered.</exception>
         public static GameBuilder UseNetworking(
             this GameBuilder builder,
+            INetworkTransport transportNetwork,
+            INetworkSerializer serializerNetwork,
             Optional<NetworkOptions> optionsNetwork = default,
             Optional<DiscoveryOptions> optionsDiscovery = default,
-            Optional<INetworkSerializer> serializerNetwork = default,
-            Optional<INetworkTransport> transportNetwork = default,
             Optional<ILogger> logger = default,
             Optional<IProfiler> profiler = default,
             Optional<IThreadPool> poolThread = default,
@@ -43,6 +43,12 @@ namespace MonoGameLibrary.Extensions.Networking {
         ) {
             if (builder == null) {
                 throw new ArgumentNullException(nameof(builder));
+            }
+            if (transportNetwork == null) {
+                throw new ArgumentNullException(nameof(transportNetwork));
+            }
+            if (serializerNetwork == null) {
+                throw new ArgumentNullException(nameof(serializerNetwork));
             }
             
             NetworkOptions optionsResolvedNetwork;
@@ -64,18 +70,8 @@ namespace MonoGameLibrary.Extensions.Networking {
             IThreadPool poolResolved = ResolveThreadPool(builder, poolThread);
             ICancellationService serviceCancellationResolved = ResolveCancellation(builder, serviceCancellation);
             Optional<IProfiler> profilerResolved = ResolveProfiler(builder, profiler);
-            INetworkSerializer serializerResolved;
-            if (serializerNetwork.HasValue) {
-                serializerResolved = serializerNetwork.Value;
-            } else {
-                serializerResolved = new JsonNetworkSerializer();
-            }
-            INetworkTransport transportResolved;
-            if (transportNetwork.HasValue) {
-                transportResolved = transportNetwork.Value;
-            } else {
-                transportResolved = new TcpNetworkTransport(new Optional<ILogger>(loggerResolved));
-            }
+            INetworkSerializer serializerResolved = serializerNetwork;
+            INetworkTransport transportResolved = transportNetwork;
             
             NetworkService serviceNetwork = new NetworkService(
                 optionsResolvedNetwork,
