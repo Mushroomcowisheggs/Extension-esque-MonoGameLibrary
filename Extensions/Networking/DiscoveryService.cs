@@ -29,7 +29,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// </remarks>
     public sealed class DiscoveryService : IDiscoveryService {
         /// <summary>The cancellation operation key this service registers with <see cref="ICancellationService"/>.</summary>
-        private const string OperationDiscovery = "Network.Discovery";
+        private const string DiscoveryOperation = "Network.Discovery";
         
         /// <summary>The time a shutdown waits for a background loop to observe its cancellation.</summary>
         private const int MillisecondsShutdownWait = 500;
@@ -164,7 +164,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     return;
                 }
                 _flagBrowsing = true;
-                sourceBrowsing = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.GetTokenForOperation(OperationDiscovery));
+                sourceBrowsing = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.GetTokenForOperation(DiscoveryOperation));
                 _sourceBrowsing = sourceBrowsing;
             }
             EnsureSocket();
@@ -220,7 +220,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     return;
                 }
                 _flagAnnouncing = true;
-                sourceAnnouncing = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.GetTokenForOperation(OperationDiscovery));
+                sourceAnnouncing = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.GetTokenForOperation(DiscoveryOperation));
                 _sourceAnnouncing = sourceAnnouncing;
             }
             EnsureSocket();
@@ -323,7 +323,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                     }
                     throw new NetworkProtocolException($"The discovery port {_optionsDiscovery.DiscoveryPort} cannot be used: {exception.Message}", exception);
                 }
-                sourceSocket = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.GetTokenForOperation(OperationDiscovery));
+                sourceSocket = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.GetTokenForOperation(DiscoveryOperation));
                 tokenSocket = sourceSocket.Token;
                 _socket = socket;
                 _sourceSocket = sourceSocket;

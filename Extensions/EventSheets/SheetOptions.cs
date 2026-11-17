@@ -6,7 +6,7 @@ namespace MonoGameLibrary.Extensions.EventSheets {
     /// </summary>
     public sealed class SheetOptions {
         /// <summary>Gets or sets the sheet name the module loads; the file store appends <c>.json</c>.</summary>
-        public string NameSheet { get; set; } = "main";
+        public string SheetName { get; set; } = "main";
         
         /// <summary>Gets or sets the directory the default file store reads below.</summary>
         public string RootDirectory { get; set; } = "EventSheets";
@@ -20,8 +20,8 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         /// <summary>Validates that the required values are present.</summary>
         /// <exception cref="ArgumentException">Thrown when a name or directory is empty.</exception>
         public void Validate() {
-            if (string.IsNullOrWhiteSpace(NameSheet)) {
-                throw new ArgumentException("A sheet name is required.", nameof(NameSheet));
+            if (string.IsNullOrWhiteSpace(SheetName)) {
+                throw new ArgumentException("A sheet name is required.", nameof(SheetName));
             }
             if (string.IsNullOrWhiteSpace(RootDirectory)) {
                 throw new ArgumentException("A root directory is required.", nameof(RootDirectory));

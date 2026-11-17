@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      GodotSharp is intentionally flow-through. The adapter exposes types
+      implemented in terms of it, so a game project that references only the library must
+      still receive the runtime assemblies at build, publish and run time. The engine
+      provides the matching GodotSharp assemblies at run time; this reference is the
+      compile-time contract. Godot.NET.Sdk is deliberately absent: it belongs to the
+      game project (the composition root that owns project.godot and the scene tree),
+      while the adapter stays a plain class library like every sibling adapter.
+    -->
+    <PackageReference Include="GodotSharp" Version="4.7.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\MonoGameLibrary.Core.csproj" />
+    <ProjectReference Include="..\..\Extensions\MonoGameLibrary.Extensions.csproj" />
+  </ItemGroup>
+</Project>

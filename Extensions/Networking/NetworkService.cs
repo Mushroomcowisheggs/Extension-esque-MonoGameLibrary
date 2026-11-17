@@ -31,7 +31,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         private const int MillisecondsWatchdogInterval = 250;
         
         /// <summary>The cancellation operation key this service registers with <see cref="ICancellationService"/>.</summary>
-        private const string OperationSession = "Network.Session";
+        private const string SessionOperation = "Network.Session";
         
         private readonly NetworkOptions _optionsNetwork;
         private readonly INetworkSerializer _serializerNetwork;
@@ -1504,7 +1504,7 @@ namespace MonoGameLibrary.Extensions.Networking {
                 // A session that failed keeps its loops alive until they are told to stop.
                 CloseSession("A new session replaced the previous one.", NetworkStatus.Idle);
             }
-            CancellationToken tokenApplication = _serviceCancellation.GetTokenForOperation(OperationSession);
+            CancellationToken tokenApplication = _serviceCancellation.GetTokenForOperation(SessionOperation);
             CancellationTokenSource sourceSession = CancellationTokenSource.CreateLinkedTokenSource(tokenApplication);
             lock (_lock) {
                 _sourceSession = sourceSession;

@@ -12,12 +12,12 @@ namespace MonoGameLibrary.Extensions.EventSheets {
             if (nameProperty == null) {
                 throw new ArgumentNullException(nameof(nameProperty));
             }
-            NameObject = nameObject;
-            NameProperty = nameProperty;
+            ObjectName = nameObject;
+            PropertyName = nameProperty;
         }
         
-        internal string NameObject { get; }
+        internal string ObjectName { get; }
         
-        internal string NameProperty { get; }
+        internal string PropertyName { get; }
     }
 }

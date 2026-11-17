@@ -1,0 +1,94 @@
+using System;
+using Godot;
+using MonoGameLibrary.Core.Content;
+using MonoGameLibrary.Core.Diagnostics;
+using MonoGameLibrary.Core.Hosting;
+using MonoGameLibrary.Core.Modularity;
+using MonoGameLibrary.Extensions.Graphics;
+
+namespace MonoGameLibrary.Adapters.Godot.Graphics {
+    /// <summary>
+    /// Registers Godot graphics services, the runtime texture and render target
+    /// factories, and graphics-owned asset loaders.
+    /// It communicates with content only through Core contracts.
+    /// </summary>
+    [ModuleRegistration(-450)]
+    public sealed class GraphicsModule : IModule, IDisposable {
+        private RenderContext _contextRender;
+        private TextureFactory _factoryTexture;
+        private RenderTargetFactory _factoryRenderTarget;
+        private ILogger _logger;
+        private bool _flagDisposed;
+        
+        /// <summary>
+        /// Registers the graphics services and asset loaders on the supplied builder.
+        /// </summary>
+        /// <param name="builder">The builder that receives the services and this module.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="builder"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when the canvas item or the content backend service is not registered.
+        /// </exception>
+        public void Register(GameBuilder builder) {
+            if (builder == null) {
+                throw new ArgumentNullException(nameof(builder));
+            }
+            ILogger logger;
+            if (builder.TryGetService<ILogger>(out logger)) {
+                _logger = logger;
+            }
+            CanvasItem itemAnchor = builder.GetService<CanvasItem>();
+            if (itemAnchor == null) {
+                throw new InvalidOperationException("Canvas item service is not registered.");
+            }
+            IContentBackend backendContent = builder.GetService<IContentBackend>();
+            if (backendContent == null) {
+                throw new InvalidOperationException("Content backend service is not registered.");
+            }
+            
+            backendContent.RegisterScoped<ITwoDimensionalTexture>(
+                GraphicsLoaders.Load<ITwoDimensionalTexture>
+            );
+            backendContent.RegisterScoped<IFont>(GraphicsLoaders.Load<IFont>);
+            backendContent.RegisterScoped<ISpriteFont>(GraphicsLoaders.Load<ISpriteFont>);
+            backendContent.RegisterScoped<IEffect>(GraphicsLoaders.Load<IEffect>);
+            backendContent.RegisterScoped<TextureAtlas>(GraphicsLoaders.Load<TextureAtlas>);
+            backendContent.RegisterScoped<Tilemap>(GraphicsLoaders.Load<Tilemap>);
+            
+            _contextRender = new RenderContext(itemAnchor);
+            _factoryTexture = new TextureFactory();
+            _factoryRenderTarget = new RenderTargetFactory(itemAnchor);
+            builder.RegisterService<IRenderContext>(_contextRender);
+            builder.RegisterService<ITextureFactory>(_factoryTexture);
+            builder.RegisterService<IRenderTargetFactory>(_factoryRenderTarget);
+            builder.AddModule(this);
+        }
+        
+        /// <summary>
+        /// Releases the render context this module created.
+        /// The operation is idempotent.
+        /// </summary>
+        public void Dispose() {
+            if (_flagDisposed) {
+                return;
+            }
+            if (_contextRender != null) {
+                try {
+                    _contextRender.Dispose();
+                } catch (Exception exception) {
+                    ReportCleanupFailure(exception, "GraphicsModule.Dispose (RenderContext)");
+                }
+                _contextRender = null;
+            }
+            _factoryTexture = null;
+            _factoryRenderTarget = null;
+            _flagDisposed = true;
+            GC.SuppressFinalize(this);
+        }
+        
+        private void ReportCleanupFailure(Exception exception, string context) {
+            if (_logger != null) {
+                _logger.Error(context, exception);
+            }
+        }
+    }
+}

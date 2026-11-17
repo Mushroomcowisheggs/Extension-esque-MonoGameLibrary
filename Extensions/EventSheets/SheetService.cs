@@ -85,7 +85,7 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         
         public void LoadConfiguredSheet() {
             ThrowIfDisposed();
-            string json = _store.Read(_options.NameSheet);
+            string json = _store.Read(_options.SheetName);
             SheetDocument document = _loader.Load(json);
             Load(document);
         }

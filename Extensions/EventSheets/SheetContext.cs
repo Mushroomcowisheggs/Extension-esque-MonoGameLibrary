@@ -311,8 +311,8 @@ namespace MonoGameLibrary.Extensions.EventSheets {
                 );
                 _properties.Add(pathProperty, refProperty);
             }
-            nameProperty = refProperty.NameProperty;
-            return Objects.TryGetFirst(refProperty.NameObject, out objectSheet);
+            nameProperty = refProperty.PropertyName;
+            return Objects.TryGetFirst(refProperty.ObjectName, out objectSheet);
         }
         
         private static string VariableToText(SheetVariableValue valueVariable) {
