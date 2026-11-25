@@ -40,7 +40,7 @@ namespace MonoGameLibrary.Adapters.Godot.Lifecycle {
             return new IntegrationNode(options, actionConfigureServices);
         }
         
-        /// <summary>Installs an integration node into the scene tree and returns immediately.</summary>
+        /// <summary>Installs an integration node into the scene tree and returns in the next frame.</summary>
         /// <param name="tree">The scene tree to attach to.</param>
         /// <param name="actionConfigureServices">Composes the host's services and modules.</param>
         /// <returns>The installed node.</returns>
@@ -51,7 +51,7 @@ namespace MonoGameLibrary.Adapters.Godot.Lifecycle {
             return Run(tree, new GameApplicationOptions(), actionConfigureServices);
         }
         
-        /// <summary>Installs an integration node into the scene tree and returns immediately.</summary>
+        /// <summary>Installs an integration node into the scene tree and returns in the next frame.</summary>
         /// <param name="tree">The scene tree to attach to.</param>
         /// <param name="options">The window and timing settings.</param>
         /// <param name="actionConfigureServices">Composes the host's services and modules.</param>
@@ -69,7 +69,7 @@ namespace MonoGameLibrary.Adapters.Godot.Lifecycle {
                 throw new ArgumentNullException(nameof(tree));
             }
             IntegrationNode node = Create(options, actionConfigureServices);
-            tree.Root.AddChild(node);
+            Callable.From(delegate { tree.Root.AddChild(node); }).CallDeferred();
             return node;
         }
     }

@@ -19,7 +19,7 @@ namespace MonoGameLibrary.Adapters.Godot.Graphics {
     /// that node's command list and are re-rendered every frame until the target is cleared
     /// or released.
     /// </summary>
-    public sealed class RenderTarget :
+    public sealed partial class RenderTarget :
         IRenderTarget,
         INativeTextureProvider<Texture2D> {
         /// <summary>The wrapped target viewport, released and cleared by <see cref="Dispose"/>.</summary>

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <GodotProjectDir>$(MSBuildProjectDirectory)/</GodotProjectDir>
+    <GodotVersion Condition="'$(GodotVersion)' == ''">4.7.2</GodotVersion>
   </PropertyGroup>
   <ItemGroup>
     <!--
@@ -12,7 +14,8 @@
       game project (the composition root that owns project.godot and the scene tree),
       while the adapter stays a plain class library like every sibling adapter.
     -->
-    <PackageReference Include="GodotSharp" Version="4.7.2" />
+    <PackageReference Include="GodotSharp" Version="$(GodotVersion)" />
+    <PackageReference Include="Godot.SourceGenerators" Version="$(GodotVersion)" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Core\MonoGameLibrary.Core.csproj" />
