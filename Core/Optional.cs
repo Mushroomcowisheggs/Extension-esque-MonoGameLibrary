@@ -7,7 +7,7 @@ namespace MonoGameLibrary.Core {
     /// <typeparam name="T">The reference type to wrap. </typeparam>
     public readonly struct Optional<T> where T : class {
         private readonly T _value;
-
+        
         /// <summary>
         /// Creates an Optional with a value. 
         /// </summary>
@@ -18,14 +18,14 @@ namespace MonoGameLibrary.Core {
             }
             _value = value;
         }
-
+        
         /// <summary>
         /// Returns true if a value is present. 
         /// </summary>
         public bool HasValue {
             get { return _value != null; }
         }
-
+        
         /// <summary>
         /// Gets the stored value.  Throws if no value is present. 
         /// </summary>
@@ -38,7 +38,7 @@ namespace MonoGameLibrary.Core {
                 return _value;
             }
         }
-
+        
         /// <summary>
         /// Returns the value, or the provided default if empty. 
         /// </summary>
@@ -48,7 +48,7 @@ namespace MonoGameLibrary.Core {
             }
             return valueDefault;
         }
-
+        
         /// <summary>
         /// Implicit conversion from T to Optional&lt;T&gt;.
         /// </summary>
@@ -58,7 +58,7 @@ namespace MonoGameLibrary.Core {
             }
             return new Optional<T>(value);
         }
-
+        
         /// <summary>
         /// Implicit conversion from Optional&lt;T&gt; to bool (true if has value).
         /// </summary>
@@ -68,12 +68,12 @@ namespace MonoGameLibrary.Core {
             }
             return false;
         }
-
+        
         public override string ToString() {
             if (HasValue) {
                 return _value.ToString();
             }
-
+            
             return "[No value]";
         }
     }

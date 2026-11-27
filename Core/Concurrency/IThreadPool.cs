@@ -21,12 +21,12 @@ namespace MonoGameLibrary.Core.Concurrency {
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="work"/> is null.</exception>
         /// <exception cref="ObjectDisposedException">Thrown if the pool has been shut down.</exception>
         void QueueWorkItem(Action work, string name);
-
+        
         /// <inheritdoc cref="RunAsync{T}(Func{T}, string)"/>
         /// <param name="work">The function to execute.</param>
         /// <remarks>This overload does not accept a debugging name.</remarks>
         Task<T> RunAsync<T>(Func<T> work);
-
+        
         /// <summary>
         /// Queues a function for execution and returns a task representing the result.
         /// </summary>
@@ -37,12 +37,12 @@ namespace MonoGameLibrary.Core.Concurrency {
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="work"/> is null.</exception>
         /// <exception cref="ObjectDisposedException">Thrown if the pool has been shut down.</exception>
         Task<T> RunAsync<T>(Func<T> work, string name);
-
+        
         /// <inheritdoc cref="RunAsync(Func{Task}, string)"/>
         /// <param name="work">The asynchronous function to execute.</param>
         /// <remarks>This overload does not accept a debugging name.</remarks>
         Task RunAsync(Func<Task> work);
-
+        
         /// <summary>
         /// Queues an asynchronous task for execution.
         /// </summary>
@@ -52,7 +52,7 @@ namespace MonoGameLibrary.Core.Concurrency {
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="work"/> is null.</exception>
         /// <exception cref="ObjectDisposedException">Thrown if the pool has been shut down.</exception>
         Task RunAsync(Func<Task> work, string name);
-
+        
         /// <summary>
         /// Gets the number of work items currently pending execution.
         /// </summary>

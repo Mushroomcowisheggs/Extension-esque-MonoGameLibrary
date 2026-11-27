@@ -54,13 +54,13 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             if (viewportNative == null) {
                 throw new InvalidOperationException("The anchor node is not inside a scene tree.");
             }
-            IContentBackend backendContent = builder.GetService<IContentBackend>();
-            if (backendContent == null) {
+            IContentBackendService serviceContent = builder.GetService<IContentBackendService>();
+            if (serviceContent == null) {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
             
-            backendContent.RegisterScoped<IMesh>(new MeshLoader().Load);
-            backendContent.RegisterScoped<IModel>(ThreeDimensionalGraphicsLoaders.Load<IModel>);
+            serviceContent.RegisterScoped<IMesh>(new MeshLoader().Load);
+            serviceContent.RegisterScoped<IModel>(ThreeDimensionalGraphicsLoaders.Load<IModel>);
             ThreeDimensionalViewport viewport = new ThreeDimensionalViewport(viewportNative);
             ThreeDimensionalCameraService serviceCamera = new ThreeDimensionalCameraService(viewport);
             _moduleCamera = new ThreeDimensionalCameraModule(
@@ -71,7 +71,12 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             _moduleCamera.Register(builder);
             IThreeDimensionalCameraService serviceCameraResolved =
                 builder.GetService<IThreeDimensionalCameraService>();
-            _serviceRender = new MeshRenderService(nodeAnchor, serviceCameraResolved);
+            IEnvironmentService serviceEnvironment = builder.GetService<IEnvironmentService>();
+            if (serviceEnvironment == null) {
+                serviceEnvironment = new EnvironmentService();
+                builder.RegisterService<IEnvironmentService>(serviceEnvironment);
+            }
+            _serviceRender = new MeshRenderService(nodeAnchor, serviceCameraResolved, serviceEnvironment);
             builder.RegisterService<IMeshRenderService>(_serviceRender);
             builder.AddModule(
                 this,
@@ -83,7 +88,11 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
         public void Draw(FrameTime timeFrame) {
             bool flagShouldDraw;
             lock (_lock) {
-                flagShouldDraw = _flagVisible && !_flagDisposed && _serviceRender != null;
+                if (_serviceRender == null) {
+                    flagShouldDraw = false;
+                } else {
+                    flagShouldDraw = _flagVisible && !_flagDisposed;
+                }
             }
             if (flagShouldDraw) {
                 _serviceRender.Draw(timeFrame);

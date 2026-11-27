@@ -27,5 +27,9 @@ namespace MonoGameLibrary.Adapters.Godot.Lifecycle {
         public void Exit() {
             _nodeGame.GetTree().Quit();
         }
+        
+        public void Exit(int codeExit) {
+            _nodeGame.GetTree().Quit(codeExit);
+        }
     }
 }

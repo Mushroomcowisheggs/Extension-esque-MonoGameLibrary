@@ -115,6 +115,13 @@ namespace MonoGameLibrary.Adapters.Fna.Window {
         }
         
         /// <inheritdoc />
+        public bool IsFullScreen {
+            get {
+                return _managerGraphics.IsFullScreen;
+            }
+        }
+        
+        /// <inheritdoc />
         public bool IsFocused {
             get {
                 return _game.IsActive;
@@ -200,6 +207,14 @@ namespace MonoGameLibrary.Adapters.Fna.Window {
         
         /// <summary>Does nothing: XNA4 has no borderless window state to enter.</summary>
         public void SetBorderless(bool flagBorderless) {
+        }
+        
+        /// <inheritdoc />
+        public void SetFullscreen(bool flagFullScreen) {
+            if (_managerGraphics.IsFullScreen == flagFullScreen) {
+                return;
+            }
+            _managerGraphics.ToggleFullScreen();
         }
         
         /// <summary>

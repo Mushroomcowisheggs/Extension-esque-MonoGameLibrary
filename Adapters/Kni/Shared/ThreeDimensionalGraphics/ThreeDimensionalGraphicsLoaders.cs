@@ -12,16 +12,16 @@ namespace MonoGameLibrary.Adapters.Kni.ThreeDimensionalGraphics {
         /// Loads a supported three-dimensional asset.
         /// </summary>
         /// <typeparam name="T">The asset contract.</typeparam>
-        /// <param name="backendContent">The content backend.</param>
+        /// <param name="serviceContent">The content backend.</param>
         /// <param name="nameAsset">The content asset name.</param>
         /// <returns>The loaded asset wrapper.</returns>
-        public static T Load<T>(IContentBackend backendContent, string nameAsset)
+        public static T Load<T>(IContentBackendService serviceContent, string nameAsset)
         where T : class, IAsset {
-            if (backendContent == null) {
-                throw new ArgumentNullException(nameof(backendContent));
+            if (serviceContent == null) {
+                throw new ArgumentNullException(nameof(serviceContent));
             }
             if (typeof(T) == typeof(IModel)) {
-                Model model = backendContent.LoadNative<Model>(nameAsset);
+                Model model = serviceContent.LoadNative<Model>(nameAsset);
                 return new AdapterModel(model) as T;
             }
             throw new NotSupportedException(

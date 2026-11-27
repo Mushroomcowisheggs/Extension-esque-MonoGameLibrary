@@ -42,12 +42,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.Audio {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            IContentBackend backendContent = builder.GetService<IContentBackend>();
-            if (backendContent == null) {
+            IContentBackendService serviceContent = builder.GetService<IContentBackendService>();
+            if (serviceContent == null) {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
-            backendContent.RegisterScoped<IClipAudio>(AudioLoaders.Load<IClipAudio>);
-            backendContent.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
+            serviceContent.RegisterScoped<IClipAudio>(AudioLoaders.Load<IClipAudio>);
+            serviceContent.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
             
             _serviceAudio = new AudioService();
             _factoryPcm = new PcmAudioOutputFactory();

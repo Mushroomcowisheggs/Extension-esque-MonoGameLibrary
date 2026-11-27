@@ -13,5 +13,12 @@ namespace MonoGameLibrary.Core.Lifecycle {
         
         /// <summary>Requests that the running game application exit.</summary>
         void Exit();
+        
+        /// <summary>
+        /// Requests that the running game application exit and report the supplied
+        /// process exit code on shutdown.
+        /// </summary>
+        /// <param name="codeExit">The process exit code to report.</param>
+        void Exit(int codeExit);
     }
 }

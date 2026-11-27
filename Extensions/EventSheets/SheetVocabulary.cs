@@ -85,23 +85,23 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         }
         
         /// <summary>Looks up one registered condition.</summary>
-        /// <param name="instructionId">The instruction id to resolve.</param>
+        /// <param name="idInstruction">The instruction id to resolve.</param>
         /// <param name="info">The registered metadata, or null when absent.</param>
         /// <param name="handler">The registered handler, or null when absent.</param>
         /// <returns>True when the condition is registered; otherwise false.</returns>
         public bool TryGetCondition(
-            string instructionId,
+            string idInstruction,
             out SheetInstructionInfo info,
             out SheetConditionHandler handler
         ) {
-            if (string.IsNullOrWhiteSpace(instructionId)) {
+            if (string.IsNullOrWhiteSpace(idInstruction)) {
                 info = null;
                 handler = null;
                 return false;
             }
             lock (_lock) {
                 ConditionRegistration registration;
-                if (_conditions.TryGetValue(instructionId, out registration)) {
+                if (_conditions.TryGetValue(idInstruction, out registration)) {
                     info = registration.Info;
                     handler = registration.Handler;
                     return true;
@@ -113,23 +113,23 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         }
         
         /// <summary>Looks up one registered action.</summary>
-        /// <param name="instructionId">The instruction id to resolve.</param>
+        /// <param name="idInstruction">The instruction id to resolve.</param>
         /// <param name="info">The registered metadata, or null when absent.</param>
         /// <param name="handler">The registered handler, or null when absent.</param>
         /// <returns>True when the action is registered; otherwise false.</returns>
         public bool TryGetAction(
-            string instructionId,
+            string idInstruction,
             out SheetInstructionInfo info,
             out SheetActionHandler handler
         ) {
-            if (string.IsNullOrWhiteSpace(instructionId)) {
+            if (string.IsNullOrWhiteSpace(idInstruction)) {
                 info = null;
                 handler = null;
                 return false;
             }
             lock (_lock) {
                 ActionRegistration registration;
-                if (_actions.TryGetValue(instructionId, out registration)) {
+                if (_actions.TryGetValue(idInstruction, out registration)) {
                     info = registration.Info;
                     handler = registration.Handler;
                     return true;

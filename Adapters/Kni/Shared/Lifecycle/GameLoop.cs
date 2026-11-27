@@ -34,6 +34,12 @@ namespace MonoGameLibrary.Adapters.Kni.Lifecycle {
         }
         
         /// <inheritdoc />
+        public void Exit(int codeExit) {
+            Environment.ExitCode = codeExit;
+            _game.Exit();
+        }
+        
+        /// <inheritdoc />
         public void Dispose() {
             if (_flagDisposed) { return; }
             _game.Dispose();

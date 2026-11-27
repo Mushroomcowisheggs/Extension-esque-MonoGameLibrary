@@ -7,13 +7,13 @@ namespace MonoGameLibrary.Extensions.EventSheets {
     /// </summary>
     public sealed class SheetAction {
         /// <summary>Creates an action from an instruction identifier and its listParameters.</summary>
-        /// <param name="instructionId">The non-empty identifier the vocabulary registers.</param>
+        /// <param name="idInstruction">The non-empty identifier the vocabulary registers.</param>
         /// <param name="listParameters">The instruction arguments, in the order the vocabulary declares.</param>
-        public SheetAction(string instructionId, IEnumerable<SheetValue> listParameters = null) {
-            if (instructionId == null) {
-                throw new ArgumentNullException(nameof(instructionId));
+        public SheetAction(string idInstruction, IEnumerable<SheetValue> listParameters = null) {
+            if (idInstruction == null) {
+                throw new ArgumentNullException(nameof(idInstruction));
             }
-            InstructionId = ValidateInstructionId(instructionId);
+            InstructionId = ValidateInstructionId(idInstruction);
             Parameters = CopyParameters(listParameters);
         }
         
@@ -23,11 +23,11 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         /// <summary>Gets the instruction arguments, in declaration order.</summary>
         public IReadOnlyList<SheetValue> Parameters { get; }
         
-        private static string ValidateInstructionId(string instructionId) {
-            if (string.IsNullOrWhiteSpace(instructionId)) {
-                throw new ArgumentException("A non-empty instruction identifier is required.", nameof(instructionId));
+        private static string ValidateInstructionId(string idInstruction) {
+            if (string.IsNullOrWhiteSpace(idInstruction)) {
+                throw new ArgumentException("A non-empty instruction identifier is required.", nameof(idInstruction));
             }
-            return instructionId;
+            return idInstruction;
         }
         
         private static SheetValue[] CopyParameters(IEnumerable<SheetValue> listParameters) {

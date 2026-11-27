@@ -140,6 +140,19 @@ namespace MonoGameLibrary.Adapters.Gum.MonoGame {
         }
         
         /// <inheritdoc />
+        public bool RemoveFromRoot(object element) {
+            if (element == null) {
+                throw new ArgumentNullException(nameof(element));
+            }
+            EnsureInitialized();
+            GraphicalUiElement gue = element as GraphicalUiElement;
+            if (gue == null) {
+                return false;
+            }
+            return global::MonoGameGum.GumService.Default.Root.Children.Remove(gue);
+        }
+        
+        /// <inheritdoc />
         public void SetCanvas(float width, float height, float zoom) {
             EnsureInitialized();
             global::MonoGameGum.GumService.Default.CanvasWidth = width;

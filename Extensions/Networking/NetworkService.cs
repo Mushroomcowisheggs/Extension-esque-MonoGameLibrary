@@ -26,7 +26,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// the session, because a transport holds the sockets of the session.
     /// </para>
     /// </remarks>
-    public sealed class NetworkService : INetworkService, INetworkProbe {
+    public sealed class NetworkService : INetworkService, INetworkProbeService {
         /// <summary>The period of the watchdog that drives keep-alive, idle detection, and reconnection.</summary>
         private const int MillisecondsWatchdogInterval = 250;
         

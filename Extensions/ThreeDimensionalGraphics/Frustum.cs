@@ -64,6 +64,35 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
             return true;
         }
         
+        /// <inheritdoc />
+        public bool Intersects(Aabb aabbBounds) {
+            foreach (Plane plane in _planes) {
+                // The p-vertex is the box corner furthest along the plane normal. When
+                // that corner lies behind the plane, the whole box lies behind it.
+                Vector3 vertexPositive;
+                if (plane.Normal.X >= 0f) {
+                    vertexPositive.X = aabbBounds.Maximum.X;
+                } else {
+                    vertexPositive.X = aabbBounds.Minimum.X;
+                }
+                if (plane.Normal.Y >= 0f) {
+                    vertexPositive.Y = aabbBounds.Maximum.Y;
+                } else {
+                    vertexPositive.Y = aabbBounds.Minimum.Y;
+                }
+                if (plane.Normal.Z >= 0f) {
+                    vertexPositive.Z = aabbBounds.Maximum.Z;
+                } else {
+                    vertexPositive.Z = aabbBounds.Minimum.Z;
+                }
+                float distance = Vector3.Dot(plane.Normal, vertexPositive) + plane.D;
+                if (distance < 0f) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
         private static Plane Normalize(Plane plane) {
             float length = plane.Normal.Length();
             if (length <= float.Epsilon) {

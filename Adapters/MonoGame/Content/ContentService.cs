@@ -9,7 +9,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
     /// <summary>
     /// A MonoGame implementation of <see cref="IContentService"/>. 
     /// </summary>
-    public sealed class ContentService : IContentBackend {
+    public sealed class ContentService : IContentBackendService {
         private readonly ContentManager _managerContent;
         private readonly bool _flagOwnsContentManager;
         private readonly Dictionary<Type, object> _loaders;
@@ -37,13 +37,13 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         /// <inheritdoc />
         public void Register<T>(Func<string, T> loader) where T : class, IAsset {
             if (loader == null) { throw new ArgumentNullException(nameof(loader)); }
-            RegisterScoped<T>(delegate(IContentBackend backend, string name) {
+            RegisterScoped<T>(delegate(IContentBackendService service, string name) {
                 return loader(name);
             });
         }
         
         /// <inheritdoc />
-        public void RegisterScoped<T>(Func<IContentBackend, string, T> loader)
+        public void RegisterScoped<T>(Func<IContentBackendService, string, T> loader)
         where T : class, IAsset {
             if (loader == null) { throw new ArgumentNullException(nameof(loader)); }
             _loaders.Add(typeof(T), loader);
@@ -53,7 +53,7 @@ namespace MonoGameLibrary.Adapters.MonoGame.Content {
         public T Load<T>(string nameAsset) where T : class, IAsset {
             if (nameAsset == null) { throw new ArgumentNullException(nameof(nameAsset)); }
             if (_loaders.TryGetValue(typeof(T), out var stored)) {
-                if (stored is Func<IContentBackend, string, T> typedLoader) {
+                if (stored is Func<IContentBackendService, string, T> typedLoader) {
                     return typedLoader(this, nameAsset);
                 }
             }

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Godot;
 using MonoGameLibrary.Extensions.ThreeDimensionalGraphics;
 using GodotMesh = global::Godot.Mesh;
+using GodotAabb = global::Godot.Aabb;
+using ModelAabb = MonoGameLibrary.Extensions.ThreeDimensionalGraphics.Aabb;
 
 namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
     /// <summary>
@@ -15,6 +17,7 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
     public sealed class AdapterModel : IModel {
         private readonly List<ModelPart> _parts;
         private readonly BoundingSphere _sphereBounds;
+        private readonly ModelAabb? _aabbBounds;
         private bool _flagDisposed;
         
         /// <summary>
@@ -39,7 +42,9 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
                 throw new InvalidOperationException("The model contains no renderable mesh data.");
             }
             _parts = parts;
-            _sphereBounds = CalculateBounds(parts);
+            ModelAabb aabbModel = CalculateBoundsAabb(parts);
+            _sphereBounds = CalculateBounds(aabbModel);
+            _aabbBounds = aabbModel;
         }
         
         /// <summary>
@@ -53,11 +58,25 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             }
             _parts = new List<ModelPart>();
             _parts.Add(new ModelPart(mesh, Transform3D.Identity));
-            _sphereBounds = CalculateBounds(_parts);
+            ModelAabb aabbModel = CalculateBoundsAabb(_parts);
+            _sphereBounds = CalculateBounds(aabbModel);
+            _aabbBounds = aabbModel;
         }
         
-        /// <inheritdoc />
+        /// <summary>
+        /// Gets the conservative culling hull that is guaranteed to contain all model
+        /// geometry: the sphere around the merged model-space box of the parts, centered
+        /// on the box center and reaching the farthest corner. Exact dimensions are only
+        /// available through <see cref="BoundsAabb"/>.
+        /// </summary>
         public BoundingSphere BoundsBoundingSphere { get { return _sphereBounds; } }
+        
+        /// <summary>
+        /// Gets the exact model-space axis-aligned bounding box, or null when the back
+        /// end cannot compute it exactly. A null value never masquerades as a coarse
+        /// approximation.
+        /// </summary>
+        public ModelAabb? BoundsAabb { get { return _aabbBounds; } }
         
         /// <summary>
         /// Gets the flattened mesh parts with their model-space transforms.
@@ -127,48 +146,83 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             if (instance != null && instance.Mesh != null) {
                 parts.Add(new ModelPart(instance.Mesh, transformCurrent));
             }
-            bool flagChildParentIsNode3D = node3D != null;
+            bool flagChildParentIsNode3D;
+            if (node3D != null) {
+                flagChildParentIsNode3D = true;
+            } else {
+                flagChildParentIsNode3D = false;
+            }
             foreach (Node child in node.GetChildren()) {
                 CollectParts(child, transformCurrent, flagChildParentIsNode3D, parts);
             }
         }
         
-        private static BoundingSphere CalculateBounds(List<ModelPart> parts) {
-            float radius = 0f;
-            foreach (ModelPart part in parts) {
-                Aabb aabb = part.MeshNative.GetAabb();
-                System.Numerics.Vector3 center = new System.Numerics.Vector3(
-                    aabb.Position.X + aabb.Size.X * 0.5f,
-                    aabb.Position.Y + aabb.Size.Y * 0.5f,
-                    aabb.Position.Z + aabb.Size.Z * 0.5f
-                );
-                float radiusLocal = aabb.Size.Length() * 0.5f;
-                Vector3 centerTransformed = part.TransformLocal * new Vector3(center.X, center.Y, center.Z);
-                System.Numerics.Vector3 centerWorld = new System.Numerics.Vector3(
-                    centerTransformed.X,
-                    centerTransformed.Y,
-                    centerTransformed.Z
-                );
-                float scale = MaxAxisScale(part.TransformLocal.Basis);
-                float distance = centerWorld.Length() + radiusLocal * scale;
-                if (distance > radius) {
-                    radius = distance;
-                }
-            }
-            return new BoundingSphere(System.Numerics.Vector3.Zero, radius);
+        /// <summary>
+        /// Computes the model-space conservative culling hull from the merged box of the
+        /// parts: the sphere centered on the box center whose radius reaches the farthest
+        /// box corner. Exact dimensions are only available through BoundsAabb.
+        /// </summary>
+        private static BoundingSphere CalculateBounds(ModelAabb aabbModel) {
+            System.Numerics.Vector3 center = aabbModel.Center;
+            float radius = (aabbModel.Maximum - center).Length();
+            return new BoundingSphere(center, radius);
         }
         
-        private static float MaxAxisScale(Basis basis) {
-            float scale = basis.X.Length();
-            float scaleY = basis.Y.Length();
-            float scaleZ = basis.Z.Length();
-            if (scaleY > scale) {
-                scale = scaleY;
+        /// <summary>
+        /// Computes the model-space axis-aligned bounding box by transforming the eight
+        /// corners of every part's local mesh box and merging them, the same box source
+        /// Godot uses for scene bounds.
+        /// </summary>
+        private static ModelAabb CalculateBoundsAabb(List<ModelPart> parts) {
+            bool flagAny = false;
+            System.Numerics.Vector3 minimum = System.Numerics.Vector3.Zero;
+            System.Numerics.Vector3 maximum = System.Numerics.Vector3.Zero;
+            foreach (ModelPart part in parts) {
+                GodotAabb aabb = part.MeshNative.GetAabb();
+                for (int corner = 0; corner < 8; corner += 1) {
+                    float positionCornerX;
+                    if ((corner & 1) == 0) {
+                        positionCornerX = aabb.Position.X;
+                    } else {
+                        positionCornerX = aabb.Position.X + aabb.Size.X;
+                    }
+                    float positionCornerY;
+                    if ((corner & 2) == 0) {
+                        positionCornerY = aabb.Position.Y;
+                    } else {
+                        positionCornerY = aabb.Position.Y + aabb.Size.Y;
+                    }
+                    float positionCornerZ;
+                    if ((corner & 4) == 0) {
+                        positionCornerZ = aabb.Position.Z;
+                    } else {
+                        positionCornerZ = aabb.Position.Z + aabb.Size.Z;
+                    }
+                    Vector3 positionLocal = new Vector3(
+                        positionCornerX,
+                        positionCornerY,
+                        positionCornerZ
+                    );
+                    Vector3 positionTransformed = part.TransformLocal * positionLocal;
+                    System.Numerics.Vector3 position = new System.Numerics.Vector3(
+                        positionTransformed.X,
+                        positionTransformed.Y,
+                        positionTransformed.Z
+                    );
+                    if (!flagAny) {
+                        minimum = position;
+                        maximum = position;
+                        flagAny = true;
+                    } else {
+                        minimum = System.Numerics.Vector3.Min(minimum, position);
+                        maximum = System.Numerics.Vector3.Max(maximum, position);
+                    }
+                }
             }
-            if (scaleZ > scale) {
-                scale = scaleZ;
+            if (!flagAny) {
+                return new ModelAabb(System.Numerics.Vector3.Zero, System.Numerics.Vector3.Zero);
             }
-            return scale;
+            return new ModelAabb(minimum, maximum);
         }
     }
 }

@@ -4,16 +4,21 @@ using System.Numerics;
 
 namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
     /// <summary>
-    /// Platform-neutral mesh geometry: vertices, indices, topology and bounds.
+    /// Platform-neutral mesh geometry: vertices, indices, topology, an optional material
+    /// and bounds. Front faces wind clockwise when viewed from the front, the shared
+    /// convention of the supported adapter back ends; a back end with a different
+    /// convention converts at upload time.
     /// </summary>
     public sealed class MeshData {
         private readonly MeshVertex[] _arrayVertices;
         private readonly int[] _arrayIndices;
         private readonly MeshPrimitiveType _typePrimitive;
         private readonly BoundingSphere _sphereBounds;
+        private readonly Aabb _aabbBounds;
+        private readonly MeshMaterial? _material;
         
         /// <summary>
-        /// Initializes mesh data.
+        /// Initializes mesh data with the default material.
         /// </summary>
         /// <param name="arrayVertices">The vertices.</param>
         /// <param name="arrayIndices">The indices.</param>
@@ -24,6 +29,23 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
             MeshVertex[] arrayVertices,
             int[] arrayIndices,
             MeshPrimitiveType typePrimitive
+        ) : this(arrayVertices, arrayIndices, typePrimitive, null) {
+        }
+        
+        /// <summary>
+        /// Initializes mesh data with an optional material.
+        /// </summary>
+        /// <param name="arrayVertices">The vertices.</param>
+        /// <param name="arrayIndices">The indices.</param>
+        /// <param name="typePrimitive">The primitive topology.</param>
+        /// <param name="material">The material, or null for the default material.</param>
+        /// <exception cref="ArgumentNullException">Thrown when an array is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when the arrays are empty or an index is out of range.</exception>
+        public MeshData(
+            MeshVertex[] arrayVertices,
+            int[] arrayIndices,
+            MeshPrimitiveType typePrimitive,
+            MeshMaterial? material
         ) {
             if (arrayVertices == null) {
                 throw new ArgumentNullException(nameof(arrayVertices));
@@ -45,7 +67,9 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
             _arrayVertices = arrayVertices;
             _arrayIndices = arrayIndices;
             _typePrimitive = typePrimitive;
+            _material = material;
             _sphereBounds = CalculateBounds(arrayVertices);
+            _aabbBounds = CalculateBoundsAabb(arrayVertices);
         }
         
         /// <summary>Gets the vertex data.</summary>
@@ -63,9 +87,24 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
             get { return _typePrimitive; }
         }
         
-        /// <summary>Gets a conservative local-space bounding sphere.</summary>
+        /// <summary>
+        /// Gets the exact-enclosing local-space bounding sphere of the vertices. The
+        /// vertex positions are always readable, so this sphere encloses the geometry
+        /// with an exact known size; exact dimensions are also available through
+        /// <see cref="BoundsAabb"/>.
+        /// </summary>
         public BoundingSphere BoundsBoundingSphere {
             get { return _sphereBounds; }
+        }
+        
+        /// <summary>Gets the exact local-space axis-aligned bounding box of the vertices.</summary>
+        public Aabb BoundsAabb {
+            get { return _aabbBounds; }
+        }
+        
+        /// <summary>Gets the material, or null for the default material.</summary>
+        public MeshMaterial? Material {
+            get { return _material; }
         }
         
         /// <summary>Gets the vertex count.</summary>
@@ -114,6 +153,17 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
                 }
             }
             return new BoundingSphere(center, radius);
+        }
+        
+        private static Aabb CalculateBoundsAabb(MeshVertex[] arrayVertices) {
+            Vector3 minimum = arrayVertices[0].Position;
+            Vector3 maximum = arrayVertices[0].Position;
+            for (int index = 1; index < arrayVertices.Length; index += 1) {
+                Vector3 position = arrayVertices[index].Position;
+                minimum = Vector3.Min(minimum, position);
+                maximum = Vector3.Max(maximum, position);
+            }
+            return new Aabb(minimum, maximum);
         }
     }
 }

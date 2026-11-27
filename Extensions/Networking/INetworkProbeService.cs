@@ -9,7 +9,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     /// list entry complete with name, player count and latency before the player commits to connecting.
     /// </summary>
     [ThreadCondition(ThreadAffinity.Caller)]
-    public interface INetworkProbe {
+    public interface INetworkProbeService {
         /// <summary>
         /// Probes a remote endpoint.
         /// </summary>

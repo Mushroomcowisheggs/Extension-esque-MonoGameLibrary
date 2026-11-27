@@ -13,7 +13,7 @@ namespace MonoGameLibrary.Adapters.Godot.Content {
     /// name must carry the resource extension, because Godot resolves through its import
     /// pipeline rather than compiled assets.
     /// </summary>
-    public sealed class ContentService : IContentBackend {
+    public sealed class ContentService : IContentBackendService {
         private readonly string _directoryRoot;
         private readonly Dictionary<Type, object> _loaders;
         private readonly HashSet<Resource> _resourcesLoaded;
@@ -43,13 +43,13 @@ namespace MonoGameLibrary.Adapters.Godot.Content {
         /// <inheritdoc />
         public void Register<T>(Func<string, T> loader) where T : class, IAsset {
             if (loader == null) { throw new ArgumentNullException(nameof(loader)); }
-            RegisterScoped<T>(delegate(IContentBackend backend, string name) {
+            RegisterScoped<T>(delegate(IContentBackendService service, string name) {
                 return loader(name);
             });
         }
         
         /// <inheritdoc />
-        public void RegisterScoped<T>(Func<IContentBackend, string, T> loader)
+        public void RegisterScoped<T>(Func<IContentBackendService, string, T> loader)
         where T : class, IAsset {
             if (loader == null) { throw new ArgumentNullException(nameof(loader)); }
             _loaders.Add(typeof(T), loader);
@@ -59,7 +59,7 @@ namespace MonoGameLibrary.Adapters.Godot.Content {
         public T Load<T>(string nameAsset) where T : class, IAsset {
             if (nameAsset == null) { throw new ArgumentNullException(nameof(nameAsset)); }
             if (_loaders.TryGetValue(typeof(T), out var stored)) {
-                if (stored is Func<IContentBackend, string, T> typedLoader) {
+                if (stored is Func<IContentBackendService, string, T> typedLoader) {
                     return typedLoader(this, nameAsset);
                 }
             }

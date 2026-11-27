@@ -7,7 +7,7 @@ using MonoGameLibrary.Extensions.Graphics;
 namespace MonoGameLibrary.Adapters.Godot.Graphics {
     /// <summary>
     /// Provides the loader delegates that the graphics module registers against
-    /// <see cref="IContentBackend"/> for every graphics asset type it owns.
+    /// <see cref="IContentBackendService"/> for every graphics asset type it owns.
     /// </summary>
     public static class GraphicsLoaders {
         /// <summary>
@@ -20,44 +20,44 @@ namespace MonoGameLibrary.Adapters.Godot.Graphics {
         /// which is wrapped into a fresh material so its parameters can be set.
         /// </summary>
         /// <typeparam name="T">The asset contract to load.</typeparam>
-        /// <param name="backendContent">The content backend that supplies the raw asset.</param>
+        /// <param name="serviceContent">The content backend that supplies the raw asset.</param>
         /// <param name="nameAsset">The asset name relative to the content root.</param>
         /// <returns>The loaded asset.</returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="backendContent"/> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceContent"/> is null.</exception>
         /// <exception cref="NotSupportedException">Thrown for an asset type this loader does not own.</exception>
-        public static T Load<T>(IContentBackend backendContent, string nameAsset)
+        public static T Load<T>(IContentBackendService serviceContent, string nameAsset)
         where T : class, IAsset {
-            if (backendContent == null) {
-                throw new ArgumentNullException(nameof(backendContent));
+            if (serviceContent == null) {
+                throw new ArgumentNullException(nameof(serviceContent));
             }
             if (typeof(T) == typeof(ITwoDimensionalTexture)) {
-                return new TwoDimensionalTexture(backendContent.LoadNative<Texture2D>(nameAsset), false) as T;
+                return new TwoDimensionalTexture(serviceContent.LoadNative<Texture2D>(nameAsset), false) as T;
             }
             if (typeof(T) == typeof(IFont) || typeof(T) == typeof(ISpriteFont)) {
                 return new SpriteFont(
-                    backendContent.LoadNative<Font>(nameAsset)
+                    serviceContent.LoadNative<Font>(nameAsset)
                 ) as T;
             }
             if (typeof(T) == typeof(IEffect)) {
                 return new Effect(
-                    LoadMaterial(backendContent, nameAsset)
+                    LoadMaterial(serviceContent, nameAsset)
                 ) as T;
             }
             if (typeof(T) == typeof(TextureAtlas)) {
-                using (Stream stream = backendContent.OpenStream(nameAsset)) {
-                    return TextureAtlas.FromStream(backendContent, stream) as T;
+                using (Stream stream = serviceContent.OpenStream(nameAsset)) {
+                    return TextureAtlas.FromStream(serviceContent, stream) as T;
                 }
             }
             if (typeof(T) == typeof(Tilemap)) {
-                using (Stream stream = backendContent.OpenStream(nameAsset)) {
-                    return Tilemap.FromStream(backendContent, stream) as T;
+                using (Stream stream = serviceContent.OpenStream(nameAsset)) {
+                    return Tilemap.FromStream(serviceContent, stream) as T;
                 }
             }
             throw new NotSupportedException($"Graphics loader does not support asset type {typeof(T).FullName}.");
         }
         
-        private static ShaderMaterial LoadMaterial(IContentBackend backendContent, string nameAsset) {
-            Resource resource = backendContent.LoadNative<Resource>(nameAsset);
+        private static ShaderMaterial LoadMaterial(IContentBackendService serviceContent, string nameAsset) {
+            Resource resource = serviceContent.LoadNative<Resource>(nameAsset);
             ShaderMaterial material = resource as ShaderMaterial;
             if (material != null) {
                 return material;

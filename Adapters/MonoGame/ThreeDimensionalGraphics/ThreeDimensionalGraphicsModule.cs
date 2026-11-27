@@ -50,13 +50,13 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
             if (game == null) {
                 throw new InvalidOperationException("Game service is not registered.");
             }
-            IContentBackend backendContent = builder.GetService<IContentBackend>();
-            if (backendContent == null) {
+            IContentBackendService serviceContent = builder.GetService<IContentBackendService>();
+            if (serviceContent == null) {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
             
-            backendContent.RegisterScoped<IMesh>(new MeshLoader().Load);
-            backendContent.RegisterScoped<IModel>(ThreeDimensionalGraphicsLoaders.Load<IModel>);
+            serviceContent.RegisterScoped<IMesh>(new MeshLoader().Load);
+            serviceContent.RegisterScoped<IModel>(ThreeDimensionalGraphicsLoaders.Load<IModel>);
             ThreeDimensionalViewport viewport = new ThreeDimensionalViewport(game.GraphicsDevice);
             ThreeDimensionalCameraService serviceCamera = new ThreeDimensionalCameraService(viewport);
             _moduleCamera = new ThreeDimensionalCameraModule(
@@ -67,7 +67,12 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
             _moduleCamera.Register(builder);
             IThreeDimensionalCameraService serviceCameraResolved =
                 builder.GetService<IThreeDimensionalCameraService>();
-            _serviceRender = new MeshRenderService(game.GraphicsDevice, serviceCameraResolved);
+            IEnvironmentService serviceEnvironment = builder.GetService<IEnvironmentService>();
+            if (serviceEnvironment == null) {
+                serviceEnvironment = new EnvironmentService();
+                builder.RegisterService<IEnvironmentService>(serviceEnvironment);
+            }
+            _serviceRender = new MeshRenderService(game.GraphicsDevice, serviceCameraResolved, serviceEnvironment);
             builder.RegisterService<IMeshRenderService>(_serviceRender);
             builder.AddModule(
                 this,
@@ -79,7 +84,11 @@ namespace MonoGameLibrary.Adapters.MonoGame.ThreeDimensionalGraphics {
         public void Draw(FrameTime timeFrame) {
             bool flagShouldDraw;
             lock (_lock) {
-                flagShouldDraw = _flagVisible && !_flagDisposed && _serviceRender != null;
+                if (_serviceRender == null) {
+                    flagShouldDraw = false;
+                } else {
+                    flagShouldDraw = _flagVisible && !_flagDisposed;
+                }
             }
             if (flagShouldDraw) {
                 _serviceRender.Draw(timeFrame);

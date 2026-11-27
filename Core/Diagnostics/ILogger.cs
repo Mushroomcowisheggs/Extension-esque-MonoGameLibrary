@@ -18,7 +18,7 @@ namespace MonoGameLibrary.Core.Diagnostics {
         /// <summary>Indicates a critical error that may cause the application to fail.</summary>
         Fatal
     }
-
+    
     /// <summary>
     /// A basic logging interface.
     /// </summary>
@@ -47,7 +47,7 @@ namespace MonoGameLibrary.Core.Diagnostics {
         /// <returns><c>true</c> if the level is enabled; otherwise <c>false</c>. </returns>
         bool IsEnabled(LogLevel level);
     }
-
+    
     /// <summary>
     /// Extension methods for <see cref="ILogger"/> for convenient logging.
     /// </summary>

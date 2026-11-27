@@ -14,6 +14,7 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
     public sealed class MeshRenderService : IMeshRenderService {
         private readonly GraphicsDevice _deviceGraphics;
         private readonly IThreeDimensionalCameraService _serviceCamera;
+        private readonly IEnvironmentService _serviceEnvironment;
         private readonly BasicEffect _effectBasic;
         private readonly ThreeDimensionalRenderQueue _queueRender = new ThreeDimensionalRenderQueue();
         private readonly Dictionary<IMesh, GpuMesh> _dictionaryMeshes = new Dictionary<IMesh, GpuMesh>();
@@ -21,10 +22,12 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
         private bool _flagDisposed;
         
         /// <summary>
-        /// Initializes the renderer.
+        /// Initializes the renderer with the default lighting rig and no environment
+        /// override.
         /// </summary>
         /// <param name="deviceGraphics">The graphics device used for drawing.</param>
         /// <param name="serviceCamera">The camera supplying view and projection matrices.</param>
+        /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
         public MeshRenderService(
             GraphicsDevice deviceGraphics,
             IThreeDimensionalCameraService serviceCamera
@@ -37,11 +40,52 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
             }
             _deviceGraphics = deviceGraphics;
             _serviceCamera = serviceCamera;
-            _effectBasic = new BasicEffect(deviceGraphics);
-            _effectBasic.LightingEnabled = true;
-            _effectBasic.EnableDefaultLighting();
-            _effectBasic.VertexColorEnabled = false;
-            _effectBasic.TextureEnabled = false;
+            _serviceEnvironment = null;
+            _effectBasic = CreateEffect(deviceGraphics);
+        }
+        
+        /// <summary>
+        /// Initializes the renderer with an environment service. While the
+        /// environment is enabled its sun, ambient term and background replace the
+        /// default lighting rig and clear color; while it is disabled the
+        /// renderer behaves as before. Shadows are a Godot-only capability and are not
+        /// drawn here.
+        /// </summary>
+        /// <param name="deviceGraphics">The graphics device used for drawing.</param>
+        /// <param name="serviceCamera">The camera supplying view and projection matrices.</param>
+        /// <param name="serviceEnvironment">The environment description.</param>
+        /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
+        public MeshRenderService(
+            GraphicsDevice deviceGraphics,
+            IThreeDimensionalCameraService serviceCamera,
+            IEnvironmentService serviceEnvironment
+        ) {
+            if (deviceGraphics == null) {
+                throw new ArgumentNullException(nameof(deviceGraphics));
+            }
+            if (serviceCamera == null) {
+                throw new ArgumentNullException(nameof(serviceCamera));
+            }
+            if (serviceEnvironment == null) {
+                throw new ArgumentNullException(nameof(serviceEnvironment));
+            }
+            _deviceGraphics = deviceGraphics;
+            _serviceCamera = serviceCamera;
+            _serviceEnvironment = serviceEnvironment;
+            _effectBasic = CreateEffect(deviceGraphics);
+        }
+        
+        /// <summary>
+        /// Creates the shared basic effect with the default lighting rig enabled.
+        /// </summary>
+        /// <param name="deviceGraphics">The graphics device used for drawing.</param>
+        private static BasicEffect CreateEffect(GraphicsDevice deviceGraphics) {
+            BasicEffect effectBasic = new BasicEffect(deviceGraphics);
+            effectBasic.LightingEnabled = true;
+            effectBasic.EnableDefaultLighting();
+            effectBasic.VertexColorEnabled = true;
+            effectBasic.TextureEnabled = false;
+            return effectBasic;
         }
         
         /// <inheritdoc />
@@ -52,6 +96,17 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
             lock (_lock) {
                 ThrowIfDisposedLocked();
                 _queueRender.Submit(mesh, matrixWorld);
+            }
+        }
+        
+        /// <inheritdoc />
+        public void Submit(IMesh mesh, Matrix4x4 matrixWorld, MeshMaterial material) {
+            if (mesh == null) {
+                throw new ArgumentNullException(nameof(mesh));
+            }
+            lock (_lock) {
+                ThrowIfDisposedLocked();
+                _queueRender.Submit(mesh, matrixWorld, material);
             }
         }
         
@@ -67,11 +122,23 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
         }
         
         /// <inheritdoc />
+        public void Submit(IModel model, Matrix4x4 matrixWorld, MeshMaterial material) {
+            if (model == null) {
+                throw new ArgumentNullException(nameof(model));
+            }
+            lock (_lock) {
+                ThrowIfDisposedLocked();
+                _queueRender.Submit(model, matrixWorld, material);
+            }
+        }
+        
+        /// <inheritdoc />
         public void Draw(FrameTime timeFrame) {
             lock (_lock) {
                 ThrowIfDisposedLocked();
             }
             ThreeDimensionalCameraState stateCamera = _serviceCamera.CameraState;
+            ApplyEnvironment();
             Matrix4x4 matrixViewProjection = stateCamera.ViewMatrix * stateCamera.ProjectionMatrix;
             List<ThreeDimensionalSubmission> listSubmissions = _queueRender.TakeVisible(matrixViewProjection);
             if (listSubmissions.Count == 0) {
@@ -90,8 +157,20 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
                 _deviceGraphics.RasterizerState = RasterizerState.CullCounterClockwise;
                 foreach (ThreeDimensionalSubmission submission in listSubmissions) {
                     if (submission.FlagModel) {
-                        DrawModel(submission.Model, submission.WorldMatrix, matrixViewNative, matrixProjectionNative);
+                        MeshMaterial? materialModel = submission.Material;
+                        if (materialModel == null) {
+                            DrawModel(submission.Model, submission.WorldMatrix, matrixViewNative, matrixProjectionNative);
+                        } else {
+                            DrawModelWithMaterial(submission.Model, submission.WorldMatrix, matrixViewNative, matrixProjectionNative, materialModel.Value);
+                        }
                     } else {
+                        MeshMaterial? materialEffective;
+                        if (submission.Material == null) {
+                            materialEffective = submission.Mesh.Data.Material;
+                        } else {
+                            materialEffective = submission.Material;
+                        }
+                        ApplyRenderState(materialEffective);
                         DrawMesh(submission.Mesh, submission.WorldMatrix, matrixViewNative, matrixProjectionNative);
                     }
                 }
@@ -166,6 +245,164 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
             );
         }
         
+        /// <summary>
+        /// Draws every part of a model with the supplied material applied to its basic
+        /// effect, restoring the default effect parameters afterwards. Parts whose effect
+        /// is not a basic effect keep their own look.
+        /// </summary>
+        private void DrawModelWithMaterial(
+            IModel model,
+            Matrix4x4 matrixWorld,
+            Matrix matrixViewNative,
+            Matrix matrixProjectionNative,
+            MeshMaterial material
+        ) {
+            AdapterModel modelAdapter = model as AdapterModel;
+            if (modelAdapter == null) {
+                throw new NotSupportedException(
+                    "The supplied model is not a FNA AdapterModel."
+                );
+            }
+            ApplyRenderState(material);
+            Model modelNative = modelAdapter.NativeModel;
+            try {
+                Microsoft.Xna.Framework.Matrix[] arrayTransforms =
+                    new Microsoft.Xna.Framework.Matrix[modelNative.Bones.Count];
+                modelNative.CopyAbsoluteBoneTransformsTo(arrayTransforms);
+                foreach (ModelMesh mesh in modelNative.Meshes) {
+                    Microsoft.Xna.Framework.Matrix transformBone;
+                    if (mesh.ParentBone == null) {
+                        transformBone = Microsoft.Xna.Framework.Matrix.Identity;
+                    } else {
+                        transformBone = arrayTransforms[mesh.ParentBone.Index];
+                    }
+                    foreach (ModelMeshPart part in mesh.MeshParts) {
+                        BasicEffect effectBasic = part.Effect as BasicEffect;
+                        if (effectBasic == null) {
+                            continue;
+                        }
+                        ApplyMaterial(effectBasic, material);
+                        effectBasic.World = transformBone * ToNative(matrixWorld);
+                        effectBasic.View = matrixViewNative;
+                        effectBasic.Projection = matrixProjectionNative;
+                        _deviceGraphics.SetVertexBuffer(part.VertexBuffer);
+                        _deviceGraphics.Indices = part.IndexBuffer;
+                        foreach (EffectPass pass in effectBasic.CurrentTechnique.Passes) {
+                            pass.Apply();
+                            _deviceGraphics.DrawIndexedPrimitives(
+                                PrimitiveType.TriangleList,
+                                part.VertexOffset,
+                                0,
+                                part.NumVertices,
+                                part.StartIndex,
+                                part.PrimitiveCount
+                            );
+                        }
+                    }
+                }
+            } finally {
+                foreach (ModelMesh mesh in modelNative.Meshes) {
+                    foreach (ModelMeshPart part in mesh.MeshParts) {
+                        BasicEffect effectBasic = part.Effect as BasicEffect;
+                        if (effectBasic != null) {
+                            ResetMaterial(effectBasic);
+                        }
+                    }
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Applies the environment description for this frame. While it is enabled the
+        /// sun and ambient term replace the default lighting rig and the background
+        /// clears the frame; while disabled the default rig renders as before and the
+        /// background is left to the game. A zero sun direction reported by the
+        /// environment is rejected here with an <see cref="ArgumentException"/> instead
+        /// of being silently replaced, so a custom <see cref="IEnvironmentService"/>
+        /// cannot smuggle an undefined direction in.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown when the sun direction is the zero vector.</exception>
+        private void ApplyEnvironment() {
+            if (_serviceEnvironment == null || !_serviceEnvironment.FlagEnabled) {
+                _effectBasic.EnableDefaultLighting();
+                return;
+            }
+            _effectBasic.LightingEnabled = true;
+            _effectBasic.AmbientLightColor = ToNativeRgb(_serviceEnvironment.AmbientColor);
+            _effectBasic.DirectionalLight0.Enabled = true;
+            System.Numerics.Vector3 direction = _serviceEnvironment.SunDirection;
+            Microsoft.Xna.Framework.Vector3 directionSun = new Microsoft.Xna.Framework.Vector3(
+                direction.X, direction.Y, direction.Z
+            );
+            if (directionSun.LengthSquared() == 0f) {
+                throw new ArgumentException(
+                    "The environment sun direction must not be the zero vector."
+                );
+            }
+            directionSun.Normalize();
+            _effectBasic.DirectionalLight0.Direction = directionSun;
+            Microsoft.Xna.Framework.Vector3 colorSun = ToNativeRgb(_serviceEnvironment.SunColor);
+            _effectBasic.DirectionalLight0.DiffuseColor = colorSun * _serviceEnvironment.SunIntensity;
+            _effectBasic.DirectionalLight0.SpecularColor = Microsoft.Xna.Framework.Vector3.Zero;
+            _effectBasic.DirectionalLight1.Enabled = false;
+            _effectBasic.DirectionalLight2.Enabled = false;
+            MonoGameLibrary.Core.Primitives.Color colorBackground = _serviceEnvironment.BackgroundColor;
+            _deviceGraphics.Clear(new Microsoft.Xna.Framework.Color(
+                colorBackground.R, colorBackground.G, colorBackground.B, colorBackground.A
+            ));
+        }
+        
+        /// <summary>
+        /// Applies the effective material of one submission to the shared effect and to
+        /// the blend and culling state. A null material restores the default look.
+        /// </summary>
+        private void ApplyRenderState(MeshMaterial? material) {
+            if (material == null) {
+                ResetMaterial(_effectBasic);
+                _deviceGraphics.BlendState = BlendState.Opaque;
+                _deviceGraphics.RasterizerState = RasterizerState.CullCounterClockwise;
+                return;
+            }
+            MeshMaterial materialValue = material.Value;
+            ApplyMaterial(_effectBasic, materialValue);
+            _deviceGraphics.BlendState = materialValue.AlbedoColor.A < 255
+                ? BlendState.AlphaBlend
+                : BlendState.Opaque;
+            _deviceGraphics.RasterizerState = ToNative(materialValue.CullMode);
+        }
+        
+        private static void ApplyMaterial(BasicEffect effect, MeshMaterial material) {
+            effect.DiffuseColor = ToNativeRgb(material.AlbedoColor);
+            effect.Alpha = material.AlbedoColor.A / 255f;
+            effect.EmissiveColor = ToNativeRgb(material.EmissionColor);
+            effect.LightingEnabled = !material.UnshadedFlag;
+        }
+        
+        private static void ResetMaterial(BasicEffect effect) {
+            effect.DiffuseColor = Microsoft.Xna.Framework.Vector3.One;
+            effect.Alpha = 1f;
+            effect.EmissiveColor = Microsoft.Xna.Framework.Vector3.Zero;
+            effect.LightingEnabled = true;
+        }
+        
+        private static Microsoft.Xna.Framework.Vector3 ToNativeRgb(
+            MonoGameLibrary.Core.Primitives.Color color
+        ) {
+            return new Microsoft.Xna.Framework.Vector3(
+                color.R / 255f, color.G / 255f, color.B / 255f
+            );
+        }
+        
+        private static RasterizerState ToNative(MeshCullMode cullMode) {
+            if (cullMode == MeshCullMode.None) {
+                return RasterizerState.CullNone;
+            }
+            if (cullMode == MeshCullMode.Front) {
+                return RasterizerState.CullClockwise;
+            }
+            return RasterizerState.CullCounterClockwise;
+        }
+        
         private GpuMesh GetOrCreateGpuMesh(IMesh mesh) {
             lock (_lock) {
                 ThrowIfDisposedLocked();
@@ -202,13 +439,14 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
                 if (data == null) {
                     throw new ArgumentNullException(nameof(data));
                 }
-                VertexPositionNormalTexture[] arrayVertices = new VertexPositionNormalTexture[data.VertexCount];
+                VertexPositionNormalTextureColor[] arrayVertices = new VertexPositionNormalTextureColor[data.VertexCount];
                 for (int index = 0; index < data.VertexCount; index += 1) {
                     MeshVertex vertex = data.Vertices[index];
-                    arrayVertices[index] = new VertexPositionNormalTexture(
+                    arrayVertices[index] = new VertexPositionNormalTextureColor(
                         new Microsoft.Xna.Framework.Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
                         new Microsoft.Xna.Framework.Vector3(vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z),
-                        new Microsoft.Xna.Framework.Vector2(vertex.TextureCoordinate.X, vertex.TextureCoordinate.Y)
+                        new Microsoft.Xna.Framework.Vector2(vertex.TextureCoordinate.X, vertex.TextureCoordinate.Y),
+                        new Microsoft.Xna.Framework.Color(vertex.Color.R, vertex.Color.G, vertex.Color.B, vertex.Color.A)
                     );
                 }
                 int[] arrayIndices = new int[data.IndexCount];
@@ -217,7 +455,7 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
                 }
                 VertexBuffer = new VertexBuffer(
                     deviceGraphics,
-                    VertexPositionNormalTexture.VertexDeclaration,
+                    VertexPositionNormalTextureColor.Declaration,
                     data.VertexCount,
                     BufferUsage.WriteOnly
                 );
@@ -263,6 +501,40 @@ namespace MonoGameLibrary.Adapters.Fna.ThreeDimensionalGraphics {
                     return PrimitiveType.LineList;
                 }
                 return PrimitiveType.LineStrip;
+            }
+            
+            /// <summary>
+            /// One GPU vertex: position, normal, texture coordinate and color, the colored
+            /// counterpart of XNA's position/normal/texture vertex.
+            /// </summary>
+            private struct VertexPositionNormalTextureColor : IVertexType {
+                public Microsoft.Xna.Framework.Vector3 Position;
+                public Microsoft.Xna.Framework.Vector3 Normal;
+                public Microsoft.Xna.Framework.Vector2 TextureCoordinate;
+                public Microsoft.Xna.Framework.Color Color;
+                
+                public VertexPositionNormalTextureColor(
+                    Microsoft.Xna.Framework.Vector3 position,
+                    Microsoft.Xna.Framework.Vector3 normal,
+                    Microsoft.Xna.Framework.Vector2 coordinateTexture,
+                    Microsoft.Xna.Framework.Color color
+                ) {
+                    Position = position;
+                    Normal = normal;
+                    TextureCoordinate = coordinateTexture;
+                    Color = color;
+                }
+                
+                public static readonly VertexDeclaration Declaration = new VertexDeclaration(
+                    new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
+                    new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0),
+                    new VertexElement(24, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0),
+                    new VertexElement(32, VertexElementFormat.Color, VertexElementUsage.Color, 0)
+                );
+                
+                VertexDeclaration IVertexType.VertexDeclaration {
+                    get { return Declaration; }
+                }
             }
         }
     }

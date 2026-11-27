@@ -10,19 +10,19 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
         /// </summary>
         /// <param name="position">The camera position.</param>
         /// <param name="orientation">The camera orientation.</param>
-        /// <param name="aspectRatio">The projection aspect ratio.</param>
+        /// <param name="ratioAspect">The projection aspect ratio.</param>
         /// <param name="matrixView">The view matrix.</param>
         /// <param name="matrixProjection">The projection matrix.</param>
         public ThreeDimensionalCameraState(
             Vector3 position,
             Quaternion orientation,
-            float aspectRatio,
+            float ratioAspect,
             Matrix4x4 matrixView,
             Matrix4x4 matrixProjection
         ) {
             Position = position;
             Orientation = orientation;
-            AspectRatio = aspectRatio;
+            AspectRatio = ratioAspect;
             ViewMatrix = matrixView;
             ProjectionMatrix = matrixProjection;
         }

@@ -104,6 +104,32 @@ namespace MonoGameLibrary.Adapters.Kni.Audio {
         
         /// <inheritdoc />
         public void PlayClipAudio(IClipAudio audioNativeClip, float volume = 1f, float pitch = 0f, float pan = 0f, bool flagLoop = false) {
+            StartPlayback(audioNativeClip, volume, pitch, pan, flagLoop);
+        }
+        
+        /// <inheritdoc />
+        public IAudioPlayback PlayClipAudioWithHandle(IClipAudio audioNativeClip, float volume = 1f, float pitch = 0f, float pan = 0f, bool flagLoop = false) {
+            SoundEffectInstance instance = StartPlayback(audioNativeClip, volume, pitch, pan, flagLoop);
+            return new SoundEffectPlayback(instance);
+        }
+        
+        /// <summary>
+        /// Creates and starts one playback instance. Both playback entry points run
+        /// through here, so a disposed service rejects the request with an
+        /// <see cref="ObjectDisposedException"/> on the void and the handle path alike:
+        /// no silent return and no dead handle is ever produced.
+        /// </summary>
+        /// <param name="audioNativeClip">The clip to play.</param>
+        /// <param name="volume">The volume (0.0 to 1.0).</param>
+        /// <param name="pitch">The pitch adjustment (-1.0 to 1.0).</param>
+        /// <param name="pan">The panning (-1.0 left to 1.0 right).</param>
+        /// <param name="flagLoop">Whether the clip loops.</param>
+        /// <returns>The started native playback instance.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="audioNativeClip"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when the clip is not a ClipAudio.</exception>
+        /// <exception cref="ObjectDisposedException">Thrown when the service has been disposed.</exception>
+        /// <exception cref="AudioDeviceException">Thrown when the audio device fails.</exception>
+        private SoundEffectInstance StartPlayback(IClipAudio audioNativeClip, float volume, float pitch, float pan, bool flagLoop) {
             if (audioNativeClip == null) {
                 throw new ArgumentNullException(nameof(audioNativeClip));
             }
@@ -138,10 +164,11 @@ namespace MonoGameLibrary.Adapters.Kni.Audio {
             lock (_lock) {
                 if (_flagDisposed) {
                     instance.Dispose();
-                    return;
+                    throw new ObjectDisposedException(nameof(AudioService));
                 }
                 _listActiveSoundEffectInstances.Add(instance);
             }
+            return instance;
         }
         
         /// <inheritdoc />
@@ -193,6 +220,114 @@ namespace MonoGameLibrary.Adapters.Kni.Audio {
                 _flagDisposed = true;
             }
             GC.SuppressFinalize(this);
+        }
+        
+        /// <summary>
+        /// One playback handle over a native sound effect instance. The handle turns
+        /// mute once the instance is disposed by the service (after it stopped or when
+        /// the service shuts down), matching the <see cref="IAudioPlayback"/> contract.
+        /// </summary>
+        private sealed class SoundEffectPlayback : IAudioPlayback {
+            private SoundEffectInstance _instance;
+            
+            internal SoundEffectPlayback(SoundEffectInstance instance) {
+                _instance = instance;
+            }
+            
+            /// <inheritdoc />
+            public bool IsPlaying {
+                get {
+                    SoundEffectInstance instance = _instance;
+                    if (instance == null) {
+                        return false;
+                    }
+                    if (instance.IsDisposed) {
+                        return false;
+                    }
+                    return instance.State == SoundState.Playing;
+                }
+            }
+            
+            /// <inheritdoc />
+            public float Volume {
+                get {
+                    SoundEffectInstance instance = _instance;
+                    if (instance == null) {
+                        return 0f;
+                    }
+                    if (instance.IsDisposed) {
+                        return 0f;
+                    }
+                    return instance.Volume;
+                }
+            }
+            
+            /// <inheritdoc />
+            public bool TrySetVolume(float volume) {
+                SoundEffectInstance instance = _instance;
+                if (instance == null || instance.IsDisposed) {
+                    return false;
+                }
+                instance.Volume = Math.Clamp(volume, 0f, 1f);
+                return true;
+            }
+            
+            /// <inheritdoc />
+            public float Pitch {
+                get {
+                    SoundEffectInstance instance = _instance;
+                    if (instance == null) {
+                        return 0f;
+                    }
+                    if (instance.IsDisposed) {
+                        return 0f;
+                    }
+                    return instance.Pitch;
+                }
+            }
+            
+            /// <inheritdoc />
+            public bool TrySetPitch(float pitch) {
+                SoundEffectInstance instance = _instance;
+                if (instance == null || instance.IsDisposed) {
+                    return false;
+                }
+                instance.Pitch = Math.Clamp(pitch, -1f, 1f);
+                return true;
+            }
+            
+            /// <inheritdoc />
+            public float Pan {
+                get {
+                    SoundEffectInstance instance = _instance;
+                    if (instance == null) {
+                        return 0f;
+                    }
+                    if (instance.IsDisposed) {
+                        return 0f;
+                    }
+                    return instance.Pan;
+                }
+            }
+            
+            /// <inheritdoc />
+            public bool TrySetPan(float pan) {
+                SoundEffectInstance instance = _instance;
+                if (instance == null || instance.IsDisposed) {
+                    return false;
+                }
+                instance.Pan = Math.Clamp(pan, -1f, 1f);
+                return true;
+            }
+            
+            /// <inheritdoc />
+            public void Stop() {
+                SoundEffectInstance instance = _instance;
+                if (instance == null || instance.IsDisposed) {
+                    return;
+                }
+                instance.Stop();
+            }
         }
     }
 }

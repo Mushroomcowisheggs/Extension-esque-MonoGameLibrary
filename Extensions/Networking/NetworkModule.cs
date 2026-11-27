@@ -15,7 +15,7 @@ namespace MonoGameLibrary.Extensions.Networking {
     [ModuleRegistration(-180)]
     public sealed class NetworkModule : IModule, IUpdateable, IDisposable {
         private readonly INetworkService _serviceNetwork;
-        private readonly Optional<INetworkProbe> _probeNetwork;
+        private readonly Optional<INetworkProbeService> _probeNetwork;
         private readonly int _order;
         // Read on the frame thread while the application writes it, and elected atomically so the
         // service is released exactly once.
@@ -29,7 +29,7 @@ namespace MonoGameLibrary.Extensions.Networking {
         /// <param name="probeNetwork">The probe capability of the same service, when it offers one.</param>
         /// <param name="order">The update order. The default runs before input and game logic so that a frame reacts to what already arrived.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="serviceNetwork"/> is null.</exception>
-        public NetworkModule(INetworkService serviceNetwork, Optional<INetworkProbe> probeNetwork = default, int order = -128) {
+        public NetworkModule(INetworkService serviceNetwork, Optional<INetworkProbeService> probeNetwork = default, int order = -128) {
             if (serviceNetwork == null) {
                 throw new ArgumentNullException(nameof(serviceNetwork));
             }
@@ -55,7 +55,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             }
             builder.RegisterService<INetworkService>(_serviceNetwork);
             if (_probeNetwork.HasValue) {
-                builder.RegisterService<INetworkProbe>(_probeNetwork.Value);
+                builder.RegisterService<INetworkProbeService>(_probeNetwork.Value);
             }
             builder.AddModule(this, new ScheduleOptions(orderUpdate: _order));
         }

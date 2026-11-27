@@ -169,7 +169,7 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
                     ClipPlayer playerClip = _listActiveClipPlayers[i];
                     // A looping player restarts through its finished signal, so the brief
                     // gap between finish and restart must not be mistaken for a free player.
-                    if (!playerClip.Player.Playing && !playerClip.FlagLoop) {
+                    if (!playerClip.Player.Playing && !playerClip.LoopFlag) {
                         playerClip.Reset();
                         _listActiveClipPlayers.RemoveAt(i);
                         _stackFreeClipPlayers.Push(playerClip);
@@ -180,6 +180,32 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
         
         /// <inheritdoc />
         public void PlayClipAudio(IClipAudio audioNativeClip, float volume = 1f, float pitch = 0f, float pan = 0f, bool flagLoop = false) {
+            StartPlayback(audioNativeClip, volume, pitch, pan, flagLoop);
+        }
+        
+        /// <inheritdoc />
+        public IAudioPlayback PlayClipAudioWithHandle(IClipAudio audioNativeClip, float volume = 1f, float pitch = 0f, float pan = 0f, bool flagLoop = false) {
+            ClipPlayer playerClip = StartPlayback(audioNativeClip, volume, pitch, pan, flagLoop);
+            return new ClipPlayback(playerClip, playerClip.IdPlayback);
+        }
+        
+        /// <summary>
+        /// Creates or reuses one pooled clip player and starts a playback. Both playback
+        /// entry points run through here, so a disposed service rejects the request with
+        /// an <see cref="ObjectDisposedException"/> on the void and the handle path
+        /// alike: no silent return and no dead handle is ever produced.
+        /// </summary>
+        /// <param name="audioNativeClip">The clip to play.</param>
+        /// <param name="volume">The volume (0.0 to 1.0).</param>
+        /// <param name="pitch">The pitch adjustment (-1.0 to 1.0).</param>
+        /// <param name="pan">The panning (-1.0 left to 1.0 right).</param>
+        /// <param name="flagLoop">Whether the clip loops.</param>
+        /// <returns>The pooled clip player running the playback.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="audioNativeClip"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when the clip is not a ClipAudio.</exception>
+        /// <exception cref="ObjectDisposedException">Thrown when the service has been disposed.</exception>
+        /// <exception cref="AudioDeviceException">Thrown when the audio device fails.</exception>
+        private ClipPlayer StartPlayback(IClipAudio audioNativeClip, float volume, float pitch, float pan, bool flagLoop) {
             if (audioNativeClip == null) {
                 throw new ArgumentNullException(nameof(audioNativeClip));
             }
@@ -193,7 +219,7 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
             try {
                 lock (_lock) {
                     if (_flagDisposed) {
-                        return;
+                        throw new ObjectDisposedException(nameof(AudioService));
                     }
                     if (_stackFreeClipPlayers.Count > 0) {
                         playerClip = _stackFreeClipPlayers.Pop();
@@ -205,6 +231,7 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
                             SoundEffectsBusName
                         );
                     }
+                    playerClip.InvalidatePlayback();
                 }
             } catch (Exception exception) when (AudioFailure.IsDeviceFailure(exception)) {
                 throw new AudioDeviceException("The audio device could not create a playback instance.", exception);
@@ -215,7 +242,7 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
                 playerClip.Player.VolumeLinear = Math.Clamp(volume, 0f, 1f);
                 playerClip.Player.PitchScale = MathF.Pow(2f, Math.Clamp(pitch, -1f, 1f));
                 playerClip.Panner.Pan = Math.Clamp(pan, -1f, 1f);
-                playerClip.FlagLoop = flagLoop;
+                playerClip.LoopFlag = flagLoop;
                 playerClip.Player.Play(0f);
             } catch (Exception exception) {
                 // The player never reached the tracking list, so it must be released
@@ -230,10 +257,11 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
             lock (_lock) {
                 if (_flagDisposed) {
                     playerClip.Release();
-                    return;
+                    throw new ObjectDisposedException(nameof(AudioService));
                 }
                 _listActiveClipPlayers.Add(playerClip);
             }
+            return playerClip;
         }
         
         /// <inheritdoc />
@@ -315,6 +343,7 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
             private readonly string _nameBusPan;
             private bool _flagLoop;
             private bool _flagReleased;
+            private int _idPlayback;
             
             internal ClipPlayer(Node nodeParent, string nameBusPan, string nameBusSend) {
                 _nameBusPan = nameBusPan;
@@ -340,13 +369,39 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
                 }
             }
             
-            internal bool FlagLoop {
+            internal bool LoopFlag {
                 get {
                     return _flagLoop;
                 }
                 set {
                     _flagLoop = value;
                 }
+            }
+            
+            /// <summary>
+            /// Gets the identifier of the current playback. It changes whenever the slot
+            /// starts a new playback or is reset or released, which turns handles of
+            /// earlier playbacks mute.
+            /// </summary>
+            internal int IdPlayback {
+                get {
+                    return _idPlayback;
+                }
+            }
+            
+            /// <summary>
+            /// Starts a new playback generation, invalidating handles of earlier ones.
+            /// </summary>
+            internal void InvalidatePlayback() {
+                _idPlayback += 1;
+            }
+            
+            /// <summary>
+            /// Returns true when the supplied playback identifier still identifies the
+            /// playback this slot is running.
+            /// </summary>
+            internal bool MatchesPlayback(int idPlayback) {
+                return !_flagReleased && _idPlayback == idPlayback;
             }
             
             /// <summary>
@@ -362,6 +417,7 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
             /// Returns the player to its idle state for reuse by a later clip.
             /// </summary>
             internal void Reset() {
+                InvalidatePlayback();
                 _flagLoop = false;
                 _player.Stop();
                 _player.Stream = null;
@@ -378,6 +434,7 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
                     return;
                 }
                 _flagReleased = true;
+                InvalidatePlayback();
                 _player.Finished -= HandleFinished;
                 _player.Stop();
                 _player.Stream = null;
@@ -386,6 +443,111 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
                 if (index >= 0) {
                     AudioServer.RemoveBus(index);
                 }
+            }
+        }
+        
+        /// <summary>
+        /// One playback handle over a pooled clip slot. The handle turns mute once the
+        /// slot is reused or released, matching the <see cref="IAudioPlayback"/> contract.
+        /// </summary>
+        private sealed class ClipPlayback : IAudioPlayback {
+            private readonly ClipPlayer _playerClip;
+            private readonly int _idPlayback;
+            
+            internal ClipPlayback(ClipPlayer playerClip, int idPlayback) {
+                _playerClip = playerClip;
+                _idPlayback = idPlayback;
+            }
+            
+            private AudioStreamPlayer GetPlayer() {
+                ClipPlayer playerClip = _playerClip;
+                if (playerClip == null || !playerClip.MatchesPlayback(_idPlayback)) {
+                    return null;
+                }
+                return playerClip.Player;
+            }
+            
+            /// <inheritdoc />
+            public bool IsPlaying {
+                get {
+                    AudioStreamPlayer player = GetPlayer();
+                    if (player == null) {
+                        return false;
+                    }
+                    return player.Playing;
+                }
+            }
+            
+            /// <inheritdoc />
+            public float Volume {
+                get {
+                    AudioStreamPlayer player = GetPlayer();
+                    if (player == null) {
+                        return 0f;
+                    }
+                    return player.VolumeLinear;
+                }
+            }
+            
+            /// <inheritdoc />
+            public bool TrySetVolume(float volume) {
+                AudioStreamPlayer player = GetPlayer();
+                if (player == null) {
+                    return false;
+                }
+                player.VolumeLinear = Math.Clamp(volume, 0f, 1f);
+                return true;
+            }
+            
+            /// <inheritdoc />
+            public float Pitch {
+                get {
+                    AudioStreamPlayer player = GetPlayer();
+                    if (player == null) {
+                        return 0f;
+                    }
+                    return MathF.Log2(player.PitchScale);
+                }
+            }
+            
+            /// <inheritdoc />
+            public bool TrySetPitch(float pitch) {
+                AudioStreamPlayer player = GetPlayer();
+                if (player == null) {
+                    return false;
+                }
+                player.PitchScale = MathF.Pow(2f, Math.Clamp(pitch, -1f, 1f));
+                return true;
+            }
+            
+            /// <inheritdoc />
+            public float Pan {
+                get {
+                    ClipPlayer playerClip = _playerClip;
+                    if (playerClip == null || !playerClip.MatchesPlayback(_idPlayback)) {
+                        return 0f;
+                    }
+                    return playerClip.Panner.Pan;
+                }
+            }
+            
+            /// <inheritdoc />
+            public bool TrySetPan(float pan) {
+                ClipPlayer playerClip = _playerClip;
+                if (playerClip == null || !playerClip.MatchesPlayback(_idPlayback)) {
+                    return false;
+                }
+                playerClip.Panner.Pan = Math.Clamp(pan, -1f, 1f);
+                return true;
+            }
+            
+            /// <inheritdoc />
+            public void Stop() {
+                AudioStreamPlayer player = GetPlayer();
+                if (player == null) {
+                    return;
+                }
+                player.Stop();
             }
         }
     }

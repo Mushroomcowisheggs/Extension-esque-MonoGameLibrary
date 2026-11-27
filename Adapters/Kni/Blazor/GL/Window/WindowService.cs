@@ -116,6 +116,13 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Window {
         }
         
         /// <inheritdoc />
+        public bool IsFullScreen {
+            get {
+                return _managerGraphics.IsFullScreen;
+            }
+        }
+        
+        /// <inheritdoc />
         public bool IsFocused {
             get {
                 return _game.IsActive;
@@ -202,6 +209,19 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Window {
         /// <inheritdoc />
         public void SetBorderless(bool flagBorderless) {
             _game.Window.IsBorderless = flagBorderless;
+        }
+        
+        /// <summary>
+        /// Switches the canvas between full-screen and windowed presentation. The host
+        /// page may refuse the request (for example when the browser blocks fullscreen
+        /// without a user gesture); <see cref="IsFullScreen"/> reports the resulting state.
+        /// </summary>
+        /// <param name="flagFullScreen">True to enter full-screen presentation; false to return to windowed.</param>
+        public void SetFullscreen(bool flagFullScreen) {
+            if (_managerGraphics.IsFullScreen == flagFullScreen) {
+                return;
+            }
+            _managerGraphics.ToggleFullScreen();
         }
         
         /// <summary>

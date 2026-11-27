@@ -38,6 +38,9 @@ namespace MonoGameLibrary.Extensions.Window {
         /// <summary>Gets a value indicating whether the window is drawn without a border.</summary>
         bool IsBorderless { get; }
         
+        /// <summary>Gets a value indicating whether the window is presented full screen.</summary>
+        bool IsFullScreen { get; }
+        
         /// <summary>Gets a value indicating whether the window currently has input focus.</summary>
         bool IsFocused { get; }
         
@@ -88,5 +91,9 @@ namespace MonoGameLibrary.Extensions.Window {
         /// <summary>Switches the window between bordered and borderless presentation.</summary>
         /// <param name="flagBorderless">True to remove the window border; false to restore it.</param>
         void SetBorderless(bool flagBorderless);
+        
+        /// <summary>Switches the window between full-screen and windowed presentation.</summary>
+        /// <param name="flagFullScreen">True to enter full-screen presentation; false to return to windowed.</param>
+        void SetFullscreen(bool flagFullScreen);
     }
 }

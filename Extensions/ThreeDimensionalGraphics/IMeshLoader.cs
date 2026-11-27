@@ -10,9 +10,9 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
         /// <summary>
         /// Loads a mesh by asset name.
         /// </summary>
-        /// <param name="backendContent">The content backend.</param>
+        /// <param name="serviceContent">The content backend.</param>
         /// <param name="nameAsset">The content asset name.</param>
         /// <returns>The loaded mesh.</returns>
-        IMesh Load(IContentBackend backendContent, string nameAsset);
+        IMesh Load(IContentBackendService serviceContent, string nameAsset);
     }
 }

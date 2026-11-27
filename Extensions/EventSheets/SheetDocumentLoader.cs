@@ -251,12 +251,12 @@ namespace MonoGameLibrary.Extensions.EventSheets {
                 );
             }
             
-            string instructionId = ReadRequiredString(element, "id", path + ".id", errors);
+            string idInstruction = ReadRequiredString(element, "id", path + ".id", errors);
             List<SheetValue> listParameters = ReadValues(element, path + ".parameters", errors);
-            if (instructionId.Length == 0) {
-                instructionId = "invalid";
+            if (idInstruction.Length == 0) {
+                idInstruction = "invalid";
             }
-            return new SheetInstructionData(instructionId, listParameters);
+            return new SheetInstructionData(idInstruction, listParameters);
         }
         
         private static List<SheetValue> ReadValues(

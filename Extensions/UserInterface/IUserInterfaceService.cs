@@ -32,8 +32,18 @@ namespace MonoGameLibrary.Extensions.UserInterface {
         /// <summary>
         /// Adds a UI element to the root container.
         /// </summary>
-        /// <param name="element">The element to add. Must be a platform-specific UI element.</param>
+        /// <param name="element">
+        /// The element to add. The accepted element type is defined by the implementation
+        /// (for example a <see cref="UiElement"/> for <see cref="UiService"/>).
+        /// </param>
         void AddToRoot(object element);
+        
+        /// <summary>
+        /// Removes a UI element from the root container.
+        /// </summary>
+        /// <param name="element">The element to remove.</param>
+        /// <returns>True when the element was found and removed.</returns>
+        bool RemoveFromRoot(object element);
         
         /// <summary>
         /// Sets the canvas size and zoom factor.

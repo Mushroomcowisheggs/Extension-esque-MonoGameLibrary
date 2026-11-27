@@ -15,16 +15,16 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
         /// <see cref="GodotMesh"/> resource; both are wrapped into an adapter model.
         /// </summary>
         /// <typeparam name="T">The asset contract.</typeparam>
-        /// <param name="backendContent">The content backend.</param>
+        /// <param name="serviceContent">The content backend.</param>
         /// <param name="nameAsset">The content asset name.</param>
         /// <returns>The loaded asset wrapper.</returns>
-        public static T Load<T>(IContentBackend backendContent, string nameAsset)
+        public static T Load<T>(IContentBackendService serviceContent, string nameAsset)
         where T : class, IAsset {
-            if (backendContent == null) {
-                throw new ArgumentNullException(nameof(backendContent));
+            if (serviceContent == null) {
+                throw new ArgumentNullException(nameof(serviceContent));
             }
             if (typeof(T) == typeof(IModel)) {
-                Resource resource = backendContent.LoadNative<Resource>(nameAsset);
+                Resource resource = serviceContent.LoadNative<Resource>(nameAsset);
                 PackedScene scene = resource as PackedScene;
                 if (scene != null) {
                     return new AdapterModel(scene) as T;

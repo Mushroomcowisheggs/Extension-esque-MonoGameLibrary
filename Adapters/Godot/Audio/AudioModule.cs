@@ -42,12 +42,12 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
                 throw new ArgumentNullException(nameof(builder));
             }
             
-            IContentBackend backendContent = builder.GetService<IContentBackend>();
-            if (backendContent == null) {
+            IContentBackendService serviceContent = builder.GetService<IContentBackendService>();
+            if (serviceContent == null) {
                 throw new InvalidOperationException("Content backend service is not registered.");
             }
-            backendContent.RegisterScoped<IClipAudio>(AudioLoaders.Load<IClipAudio>);
-            backendContent.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
+            serviceContent.RegisterScoped<IClipAudio>(AudioLoaders.Load<IClipAudio>);
+            serviceContent.RegisterScoped<ITrackAudio>(AudioLoaders.Load<ITrackAudio>);
             
             // The Godot anchor node the hosting seam registered; every playback node must
             // be parented under a scene tree node to make a sound.

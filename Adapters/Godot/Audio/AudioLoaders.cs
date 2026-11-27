@@ -12,16 +12,16 @@ namespace MonoGameLibrary.Adapters.Godot.Audio {
         /// stream or loading fails with <see cref="ContentLoadException"/>, and every stream
         /// subtype (WAV, MP3, Ogg Vorbis) is accepted.
         /// </summary>
-        public static T Load<T>(IContentBackend backendContent, string nameAsset)
-            where T : class, IAsset {
-            if (backendContent == null) {
-                throw new ArgumentNullException(nameof(backendContent));
+        public static T Load<T>(IContentBackendService serviceContent, string nameAsset)
+        where T : class, IAsset {
+            if (serviceContent == null) {
+                throw new ArgumentNullException(nameof(serviceContent));
             }
             if (typeof(T) == typeof(IClipAudio)) {
-                return new ClipAudio(backendContent.LoadNative<AudioStream>(nameAsset)) as T;
+                return new ClipAudio(serviceContent.LoadNative<AudioStream>(nameAsset)) as T;
             }
             if (typeof(T) == typeof(ITrackAudio)) {
-                return new TrackAudio(backendContent.LoadNative<AudioStream>(nameAsset)) as T;
+                return new TrackAudio(serviceContent.LoadNative<AudioStream>(nameAsset)) as T;
             }
             throw new NotSupportedException($"Audio loader does not support asset type {typeof(T).FullName}.");
         }

@@ -14,13 +14,13 @@ namespace MonoGameLibrary.Extensions.EventSheets {
         void RegisterAction(SheetInstructionInfo info, SheetActionHandler handler);
         
         bool TryGetCondition(
-            string instructionId,
+            string idInstruction,
             out SheetInstructionInfo info,
             out SheetConditionHandler handler
         );
         
         bool TryGetAction(
-            string instructionId,
+            string idInstruction,
             out SheetInstructionInfo info,
             out SheetActionHandler handler
         );

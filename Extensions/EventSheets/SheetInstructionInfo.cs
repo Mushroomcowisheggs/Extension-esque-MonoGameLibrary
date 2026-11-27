@@ -15,23 +15,23 @@ namespace MonoGameLibrary.Extensions.EventSheets {
     /// </summary>
     public sealed class SheetInstructionInfo {
         /// <summary>Creates instruction metadata.</summary>
-        /// <param name="instructionId">The non-empty identifier used by the document.</param>
+        /// <param name="idInstruction">The non-empty identifier used by the document.</param>
         /// <param name="label">The non-empty author-facing label; <c>{0}</c> stands for the first parameter.</param>
         /// <param name="category">Whether the instruction is a condition or an action.</param>
         /// <param name="listParameters">The listParameters the instruction accepts.</param>
         public SheetInstructionInfo(
-            string instructionId,
+            string idInstruction,
             string label,
             SheetInstructionCategory category,
             IEnumerable<SheetParameterInfo> listParameters = null
         ) {
-            if (string.IsNullOrWhiteSpace(instructionId)) {
-                throw new ArgumentException("A non-empty instruction identifier is required.", nameof(instructionId));
+            if (string.IsNullOrWhiteSpace(idInstruction)) {
+                throw new ArgumentException("A non-empty instruction identifier is required.", nameof(idInstruction));
             }
             if (string.IsNullOrWhiteSpace(label)) {
                 throw new ArgumentException("A non-empty instruction label is required.", nameof(label));
             }
-            InstructionId = instructionId;
+            InstructionId = idInstruction;
             Label = label;
             Category = category;
             Parameters = CopyParameters(listParameters);

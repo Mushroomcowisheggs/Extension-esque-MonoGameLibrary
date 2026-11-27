@@ -112,6 +112,13 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
         }
         
         /// <inheritdoc />
+        public bool IsFullScreen {
+            get {
+                return _managerGraphics.IsFullScreen;
+            }
+        }
+        
+        /// <inheritdoc />
         public bool IsFocused {
             get {
                 return _game.IsActive;
@@ -199,6 +206,14 @@ namespace MonoGameLibrary.Adapters.MonoGame.Window {
         /// <inheritdoc />
         public void SetBorderless(bool flagBorderless) {
             _game.Window.IsBorderless = flagBorderless;
+        }
+        
+        /// <inheritdoc />
+        public void SetFullscreen(bool flagFullScreen) {
+            if (_managerGraphics.IsFullScreen == flagFullScreen) {
+                return;
+            }
+            _managerGraphics.ToggleFullScreen();
         }
         
         /// <summary>

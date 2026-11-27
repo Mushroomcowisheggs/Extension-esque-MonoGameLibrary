@@ -26,5 +26,10 @@ namespace MonoGameLibrary.Adapters.Kni.Blazor.GL.Lifecycle {
         public void Exit() {
             _game.Exit();
         }
+        
+        public void Exit(int codeExit) {
+            Environment.ExitCode = codeExit;
+            _game.Exit();
+        }
     }
 }

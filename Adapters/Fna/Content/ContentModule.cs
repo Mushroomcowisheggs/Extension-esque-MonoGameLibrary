@@ -27,7 +27,7 @@ namespace MonoGameLibrary.Adapters.Fna.Content {
             
             _serviceContent = new ContentService(managerContent, false);
             builder.RegisterService<IContentService>(_serviceContent);
-            builder.RegisterService<IContentBackend>(_serviceContent);
+            builder.RegisterService<IContentBackendService>(_serviceContent);
             builder.RegisterService<IContentServiceFactory>(
                 new ContentServiceFactory(
                     _serviceContent,

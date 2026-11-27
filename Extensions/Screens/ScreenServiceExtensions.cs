@@ -24,7 +24,7 @@ namespace MonoGameLibrary.Extensions.Screens {
             
             return screenCurrent.GetType();
         }
-
+        
         /// <summary>Returns whether the top screen is an instance of <typeparamref name="T"/>.</summary>
         /// <param name="service">The service to inspect; null yields false.</param>
         /// <returns><c>true</c> when the current screen is a <typeparamref name="T"/>; otherwise <c>false</c>.</returns>

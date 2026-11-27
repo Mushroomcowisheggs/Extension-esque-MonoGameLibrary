@@ -12,5 +12,13 @@ namespace MonoGameLibrary.Extensions.ThreeDimensionalGraphics {
         /// <param name="sphereBounds">The sphere to test.</param>
         /// <returns><c>true</c> when the sphere is not fully outside the frustum.</returns>
         bool Intersects(BoundingSphere sphereBounds);
+        
+        /// <summary>
+        /// Tests an axis-aligned bounding box against the frustum with the standard
+        /// six-plane test.
+        /// </summary>
+        /// <param name="aabbBounds">The box to test.</param>
+        /// <returns><c>true</c> when the box is not fully outside the frustum.</returns>
+        bool Intersects(Aabb aabbBounds);
     }
 }

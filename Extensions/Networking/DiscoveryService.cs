@@ -374,7 +374,7 @@ namespace MonoGameLibrary.Extensions.Networking {
             } catch (ObjectDisposedException exception) {
                 // The scope was already released by a concurrent shutdown.
                 _logger.Debug("A recoverable condition was handled: " + exception.Message);
-            
+                
                 // The scope was already released by a concurrent shutdown.
             } catch (AggregateException exception) {
                 // A callback of the scope threw; cancellation itself still completed.

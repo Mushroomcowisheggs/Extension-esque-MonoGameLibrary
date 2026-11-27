@@ -9,7 +9,7 @@ namespace MonoGameLibrary.Core.Time {
         /// Gets the total elapsed time since the start of the game. 
         /// </summary>
         public TimeSpan TotalTimeSpan { get; }
-
+        
         /// <summary>
         /// Gets the elapsed time since the previous frame.
         /// <para>

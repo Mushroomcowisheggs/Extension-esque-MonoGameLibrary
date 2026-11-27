@@ -109,6 +109,14 @@ namespace MonoGameLibrary.Adapters.Godot.Window {
         }
         
         /// <inheritdoc />
+        public bool IsFullScreen {
+            get {
+                return _window.Mode == GodotWindow.ModeEnum.Fullscreen
+                    || _window.Mode == GodotWindow.ModeEnum.ExclusiveFullscreen;
+            }
+        }
+        
+        /// <inheritdoc />
         public bool IsFocused {
             get {
                 return _window.HasFocus();
@@ -197,6 +205,13 @@ namespace MonoGameLibrary.Adapters.Godot.Window {
         /// <inheritdoc />
         public void SetBorderless(bool flagBorderless) {
             _window.Borderless = flagBorderless;
+        }
+        
+        /// <inheritdoc />
+        public void SetFullscreen(bool flagFullScreen) {
+            _window.Mode = flagFullScreen
+                ? GodotWindow.ModeEnum.Fullscreen
+                : GodotWindow.ModeEnum.Windowed;
         }
         
         /// <summary>

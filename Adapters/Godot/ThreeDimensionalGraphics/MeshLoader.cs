@@ -18,11 +18,11 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
     /// </summary>
     public sealed class MeshLoader : IMeshLoader {
         /// <inheritdoc />
-        public IMesh Load(IContentBackend backendContent, string nameAsset) {
-            if (backendContent == null) {
-                throw new ArgumentNullException(nameof(backendContent));
+        public IMesh Load(IContentBackendService serviceContent, string nameAsset) {
+            if (serviceContent == null) {
+                throw new ArgumentNullException(nameof(serviceContent));
             }
-            GodotMesh meshNative = backendContent.LoadNative<GodotMesh>(nameAsset);
+            GodotMesh meshNative = serviceContent.LoadNative<GodotMesh>(nameAsset);
             List<MeshVertex> listVertices = new List<MeshVertex>();
             List<int> listIndices = new List<int>();
             int countSurfaces = meshNative.GetSurfaceCount();

@@ -14,7 +14,7 @@ namespace MonoGameLibrary.Extensions.Scenes {
         /// Gets the currently active scene. 
         /// </summary>
         Scene CurrentScene { get; }
-
+        
         /// <summary>
         /// Switches to the specified scene. 
         /// </summary>

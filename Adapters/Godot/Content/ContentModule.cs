@@ -40,7 +40,7 @@ namespace MonoGameLibrary.Adapters.Godot.Content {
             
             _serviceContent = new ContentService(_directoryRoot);
             builder.RegisterService<IContentService>(_serviceContent);
-            builder.RegisterService<IContentBackend>(_serviceContent);
+            builder.RegisterService<IContentBackendService>(_serviceContent);
             builder.RegisterService<IContentServiceFactory>(
                 new ContentServiceFactory(_serviceContent)
             );

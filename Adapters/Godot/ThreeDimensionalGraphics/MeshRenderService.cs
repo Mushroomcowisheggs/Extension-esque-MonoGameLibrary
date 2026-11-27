@@ -5,6 +5,7 @@ using MonoGameLibrary.Core.Time;
 using MonoGameLibrary.Extensions.ThreeDimensionalGraphics;
 using GodotMesh = global::Godot.Mesh;
 using GodotArray = global::Godot.Collections.Array;
+using GodotEnvironment = global::Godot.Environment;
 
 namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
     /// <summary>
@@ -26,15 +27,23 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
         private readonly IThreeDimensionalCameraService _serviceCamera;
         private readonly ThreeDimensionalRenderQueue _queueRender = new ThreeDimensionalRenderQueue();
         private readonly Dictionary<IMesh, GpuMesh> _dictionaryMeshes = new Dictionary<IMesh, GpuMesh>();
+        private readonly Dictionary<MeshMaterial, StandardMaterial3D> _dictionaryMaterialsBakeAmbient =
+            new Dictionary<MeshMaterial, StandardMaterial3D>();
+        private readonly Dictionary<MeshMaterial, StandardMaterial3D> _dictionaryMaterialsNoBakeAmbient =
+            new Dictionary<MeshMaterial, StandardMaterial3D>();
         private readonly List<MeshInstance3D> _nodesActive = new List<MeshInstance3D>();
         private readonly Stack<MeshInstance3D> _nodesFree = new Stack<MeshInstance3D>();
         private readonly List<DirectionalLight3D> _lights = new List<DirectionalLight3D>();
         private readonly Camera3D _camera;
+        private readonly IEnvironmentService _serviceEnvironment;
+        private DirectionalLight3D _lightSun;
+        private WorldEnvironment _environmentWorld;
         private readonly object _lock = new object();
         private bool _flagDisposed;
         
         /// <summary>
-        /// Initializes the renderer.
+        /// Initializes the renderer with the default lighting rig and no environment
+        /// override.
         /// </summary>
         /// <param name="nodeAnchor">The node that parents the camera, lights and instance pool.</param>
         /// <param name="serviceCamera">The camera supplying view and projection matrices.</param>
@@ -53,13 +62,53 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             }
             _nodeAnchor = nodeAnchor;
             _serviceCamera = serviceCamera;
-            
-            // The rig is the default key/fill/back setup: three directional lights with
-            // fixed directions, colors and specular weights. Ambient light cannot be
-            // scoped to these draws in Godot's shared world; the neutral material bakes it in.
-            _camera = new Camera3D();
-            nodeAnchor.AddChild(_camera);
-            _camera.Current = true;
+            _serviceEnvironment = null;
+            _camera = CreateRig(nodeAnchor);
+        }
+        
+        /// <summary>
+        /// Initializes the renderer with an environment service. While the
+        /// environment is enabled its sun, ambient term, shadows and background replace
+        /// the default lighting rig; while it is disabled the rig renders as before.
+        /// </summary>
+        /// <param name="nodeAnchor">The node that parents the camera, lights and instance pool.</param>
+        /// <param name="serviceCamera">The camera supplying view and projection matrices.</param>
+        /// <param name="serviceEnvironment">The environment description.</param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if <paramref name="nodeAnchor"/>, <paramref name="serviceCamera"/> or
+        /// <paramref name="serviceEnvironment"/> is null.
+        /// </exception>
+        public MeshRenderService(
+            Node nodeAnchor,
+            IThreeDimensionalCameraService serviceCamera,
+            IEnvironmentService serviceEnvironment
+        ) {
+            if (nodeAnchor == null) {
+                throw new ArgumentNullException(nameof(nodeAnchor));
+            }
+            if (serviceCamera == null) {
+                throw new ArgumentNullException(nameof(serviceCamera));
+            }
+            if (serviceEnvironment == null) {
+                throw new ArgumentNullException(nameof(serviceEnvironment));
+            }
+            _nodeAnchor = nodeAnchor;
+            _serviceCamera = serviceCamera;
+            _serviceEnvironment = serviceEnvironment;
+            _camera = CreateRig(nodeAnchor);
+        }
+        
+        /// <summary>
+        /// Creates the default key/fill/back setup: a camera and three directional lights
+        /// with fixed directions, colors and specular weights. Ambient light cannot be
+        /// scoped to these draws in Godot's shared world; the neutral material bakes it in.
+        /// </summary>
+        /// <param name="nodeAnchor">The node that parents the camera, lights and instance pool.</param>
+        /// <returns>The camera composing the scene.</returns>
+        private Camera3D CreateRig(Node nodeAnchor) {
+            Camera3D camera = new Camera3D();
+            nodeAnchor.AddChild(camera);
+            camera.Current = true;
             _lights.Add(CreateLight(
                 nodeAnchor, -0.5265408f, -0.5735765f, -0.6275069f,
                 1f, 0.9607844f, 0.8078432f, 1f
@@ -72,6 +121,7 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
                 nodeAnchor, 0.4545195f, -0.7660444f, 0.4545195f,
                 0.3231373f, 0.3607844f, 0.3937255f, 1f
             ));
+            return camera;
         }
         
         /// <inheritdoc />
@@ -82,6 +132,17 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             lock (_lock) {
                 ThrowIfDisposedLocked();
                 _queueRender.Submit(mesh, matrixWorld);
+            }
+        }
+        
+        /// <inheritdoc />
+        public void Submit(IMesh mesh, System.Numerics.Matrix4x4 matrixWorld, MeshMaterial material) {
+            if (mesh == null) {
+                throw new ArgumentNullException(nameof(mesh));
+            }
+            lock (_lock) {
+                ThrowIfDisposedLocked();
+                _queueRender.Submit(mesh, matrixWorld, material);
             }
         }
         
@@ -97,11 +158,23 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
         }
         
         /// <inheritdoc />
+        public void Submit(IModel model, System.Numerics.Matrix4x4 matrixWorld, MeshMaterial material) {
+            if (model == null) {
+                throw new ArgumentNullException(nameof(model));
+            }
+            lock (_lock) {
+                ThrowIfDisposedLocked();
+                _queueRender.Submit(model, matrixWorld, material);
+            }
+        }
+        
+        /// <inheritdoc />
         public void Draw(FrameTime timeFrame) {
             lock (_lock) {
                 ThrowIfDisposedLocked();
                 RecycleSlotsLocked();
             }
+            ApplyEnvironment();
             ThreeDimensionalCameraState stateCamera = _serviceCamera.CameraState;
             System.Numerics.Vector3 position = stateCamera.Position;
             System.Numerics.Quaternion orientation = stateCamera.Orientation;
@@ -120,11 +193,26 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             if (listSubmissions.Count == 0) {
                 return;
             }
+            // The rig's ambient term is only baked into material emission under the
+            // default rig; an enabled environment supplies ambient through the world
+            // environment, so baking it again would double-count.
+            bool flagBakeAmbient;
+            if (_serviceEnvironment == null) {
+                flagBakeAmbient = true;
+            } else {
+                flagBakeAmbient = !_serviceEnvironment.FlagEnabled;
+            }
             foreach (ThreeDimensionalSubmission submission in listSubmissions) {
                 if (submission.FlagModel) {
-                    DrawModel(submission.Model, submission.WorldMatrix);
+                    DrawModel(submission.Model, submission.WorldMatrix, submission.Material, flagBakeAmbient);
                 } else {
-                    DrawMesh(submission.Mesh, submission.WorldMatrix);
+                    MeshMaterial? materialEffective;
+                    if (submission.Material == null) {
+                        materialEffective = submission.Mesh.Data.Material;
+                    } else {
+                        materialEffective = submission.Material;
+                    }
+                    DrawMesh(submission.Mesh, submission.WorldMatrix, materialEffective, flagBakeAmbient);
                 }
             }
         }
@@ -141,6 +229,14 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
                     meshGpu.Dispose();
                 }
                 _dictionaryMeshes.Clear();
+                foreach (StandardMaterial3D materialNative in _dictionaryMaterialsBakeAmbient.Values) {
+                    materialNative.Dispose();
+                }
+                _dictionaryMaterialsBakeAmbient.Clear();
+                foreach (StandardMaterial3D materialNative in _dictionaryMaterialsNoBakeAmbient.Values) {
+                    materialNative.Dispose();
+                }
+                _dictionaryMaterialsNoBakeAmbient.Clear();
                 foreach (MeshInstance3D node in _nodesActive) {
                     node.QueueFree();
                 }
@@ -154,22 +250,129 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             foreach (DirectionalLight3D light in _lights) {
                 light.QueueFree();
             }
+            if (_lightSun != null) {
+                _lightSun.QueueFree();
+                _lightSun = null;
+            }
+            if (_environmentWorld != null) {
+                _environmentWorld.QueueFree();
+                _environmentWorld = null;
+            }
             GC.SuppressFinalize(this);
+        }
+        
+        /// <summary>
+        /// Applies the environment description for this frame. While it is enabled the
+        /// single sun light and the world environment replace the default three-light rig
+        /// and paint the background; while disabled the rig renders as before. A zero sun
+        /// direction reported by the environment is rejected here with an
+        /// <see cref="ArgumentException"/> instead of being silently replaced, so a
+        /// custom <see cref="IEnvironmentService"/> cannot smuggle an undefined direction
+        /// in.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown when the sun direction is the zero vector.</exception>
+        private void ApplyEnvironment() {
+            if (_serviceEnvironment == null) {
+                return;
+            }
+            if (!_serviceEnvironment.FlagEnabled) {
+                if (_lightSun != null) {
+                    _lightSun.Visible = false;
+                }
+                foreach (DirectionalLight3D light in _lights) {
+                    light.Visible = true;
+                }
+                return;
+            }
+            EnsureEnvironmentNodes();
+            foreach (DirectionalLight3D light in _lights) {
+                light.Visible = false;
+            }
+            _lightSun.Visible = true;
+            System.Numerics.Vector3 direction = _serviceEnvironment.SunDirection;
+            Vector3 directionTravel = new Vector3(direction.X, direction.Y, direction.Z);
+            if (directionTravel.LengthSquared() == 0f) {
+                throw new ArgumentException(
+                    "The environment sun direction must not be the zero vector."
+                );
+            }
+            directionTravel = directionTravel.Normalized();
+            _lightSun.GlobalTransform = new Transform3D(ToLightBasis(directionTravel), Vector3.Zero);
+            MonoGameLibrary.Core.Primitives.Color colorSun = _serviceEnvironment.SunColor;
+            _lightSun.LightColor = new Color(
+                colorSun.R / 255f, colorSun.G / 255f, colorSun.B / 255f, 1f
+            );
+            _lightSun.LightEnergy = _serviceEnvironment.SunIntensity;
+            _lightSun.ShadowEnabled = _serviceEnvironment.FlagShadows;
+            GodotEnvironment environmentResource = _environmentWorld.Environment;
+            MonoGameLibrary.Core.Primitives.Color colorBackground = _serviceEnvironment.BackgroundColor;
+            environmentResource.BackgroundMode = GodotEnvironment.BGMode.Color;
+            environmentResource.BackgroundColor = new Color(
+                colorBackground.R / 255f,
+                colorBackground.G / 255f,
+                colorBackground.B / 255f,
+                colorBackground.A / 255f
+            );
+            MonoGameLibrary.Core.Primitives.Color colorAmbient = _serviceEnvironment.AmbientColor;
+            environmentResource.AmbientLightSource = GodotEnvironment.AmbientSource.Color;
+            environmentResource.AmbientLightColor = new Color(
+                colorAmbient.R / 255f, colorAmbient.G / 255f, colorAmbient.B / 255f, 1f
+            );
+        }
+        
+        private void EnsureEnvironmentNodes() {
+            if (_lightSun != null) {
+                return;
+            }
+            _lightSun = new DirectionalLight3D();
+            _nodeAnchor.AddChild(_lightSun);
+            _environmentWorld = new WorldEnvironment();
+            _environmentWorld.Environment = new GodotEnvironment();
+            _nodeAnchor.AddChild(_environmentWorld);
+        }
+        
+        private static Basis ToLightBasis(Vector3 directionTravel) {
+            // The direction gives the way the light travels; Godot's directional light
+            // emits along its local -Z axis.
+            Vector3 axisZ = -directionTravel;
+            Vector3 axisUp = MathF.Abs(axisZ.Dot(new Vector3(0f, 1f, 0f))) > 0.999f
+                ? new Vector3(1f, 0f, 0f)
+                : new Vector3(0f, 1f, 0f);
+            Vector3 axisX = axisUp.Cross(axisZ).Normalized();
+            Vector3 axisY = axisZ.Cross(axisX);
+            return new Basis(axisX, axisY, axisZ);
         }
         
         private void DrawMesh(
             IMesh mesh,
-            System.Numerics.Matrix4x4 matrixWorld
+            System.Numerics.Matrix4x4 matrixWorld,
+            MeshMaterial? material,
+            bool flagBakeAmbient
         ) {
             GpuMesh meshGpu = GetOrCreateGpuMesh(mesh);
             MeshInstance3D node = AcquireSlot();
             node.Mesh = meshGpu.MeshNative;
+            // A neutral mesh always resolves to an explicit material override: its own
+            // surface material carries the baked rig ambient, which would double-count
+            // where the world environment already supplies ambient. The default material
+            // reproduces the surface material's look under the default rig.
+            MeshMaterial materialEffective;
+            if (material == null) {
+                materialEffective = MeshMaterial.Default;
+            } else {
+                materialEffective = material.Value;
+            }
+            node.MaterialOverride = GetOrCreateMaterialOverride(
+                materialEffective, flagBakeAmbient
+            );
             node.GlobalTransform = ToGodotTransform(matrixWorld);
         }
         
         private void DrawModel(
             IModel model,
-            System.Numerics.Matrix4x4 matrixWorld
+            System.Numerics.Matrix4x4 matrixWorld,
+            MeshMaterial? material,
+            bool flagBakeAmbient
         ) {
             AdapterModel modelAdapter = model as AdapterModel;
             if (modelAdapter == null) {
@@ -181,6 +384,15 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             foreach (AdapterModel.ModelPart part in modelAdapter.Parts) {
                 MeshInstance3D node = AcquireSlot();
                 node.Mesh = part.MeshNative;
+                // A model part overrides only with an explicit material; without one it
+                // keeps the materials of its imported surfaces.
+                if (material == null) {
+                    node.MaterialOverride = null;
+                } else {
+                    node.MaterialOverride = GetOrCreateMaterialOverride(
+                        material.Value, flagBakeAmbient
+                    );
+                }
                 node.GlobalTransform = transformWorld * part.TransformLocal;
             }
         }
@@ -195,6 +407,34 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
                 meshGpu = new GpuMesh(mesh.Data);
                 _dictionaryMeshes.Add(mesh, meshGpu);
                 return meshGpu;
+            }
+        }
+        
+        /// <summary>
+        /// Returns the native material for a neutral material, creating and caching it on
+        /// first use. Submissions share one native material per distinct description and
+        /// ambient-bake mode: the baked variant carries the default rig's ambient term in
+        /// its emission, the plain variant leaves ambient to the world environment.
+        /// </summary>
+        private StandardMaterial3D GetOrCreateMaterialOverride(
+            MeshMaterial material,
+            bool flagBakeAmbient
+        ) {
+            lock (_lock) {
+                ThrowIfDisposedLocked();
+                Dictionary<MeshMaterial, StandardMaterial3D> dictionaryMaterials;
+                if (flagBakeAmbient) {
+                    dictionaryMaterials = _dictionaryMaterialsBakeAmbient;
+                } else {
+                    dictionaryMaterials = _dictionaryMaterialsNoBakeAmbient;
+                }
+                StandardMaterial3D materialNative;
+                if (dictionaryMaterials.TryGetValue(material, out materialNative)) {
+                    return materialNative;
+                }
+                materialNative = ToNativeMaterial(material, flagBakeAmbient);
+                dictionaryMaterials.Add(material, materialNative);
+                return materialNative;
             }
         }
         
@@ -267,6 +507,69 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             return new Transform3D(basis, new Vector3(value.M41, value.M42, value.M43));
         }
         
+        // The ambient term of the key/fill/back rig, baked into material emission only
+        // under the default rig so lit geometry matches the XNA-family default lighting
+        // under Godot's shared world. An enabled environment supplies its ambient through
+        // the world environment instead, so it is never baked then.
+        private const float AmbientRed = 0.05333332f;
+        private const float AmbientGreen = 0.09882354f;
+        private const float AmbientBlue = 0.1819608f;
+        
+        /// <summary>
+        /// Maps a neutral material to a native material. Under the default lighting rig
+        /// lit materials carry the rig's ambient term scaled by the albedo inside their
+        /// emission, mirroring how the XNA-family effect lights the same geometry; with
+        /// the environment enabled the ambient term is left to the world environment and
+        /// the emission carries only the material's own emission color.
+        /// </summary>
+        private static StandardMaterial3D ToNativeMaterial(MeshMaterial material, bool flagBakeAmbient) {
+            StandardMaterial3D materialNative = new StandardMaterial3D();
+            float albedoRed = material.AlbedoColor.R / 255f;
+            float albedoGreen = material.AlbedoColor.G / 255f;
+            float albedoBlue = material.AlbedoColor.B / 255f;
+            float emissionRed = material.EmissionColor.R / 255f;
+            float emissionGreen = material.EmissionColor.G / 255f;
+            float emissionBlue = material.EmissionColor.B / 255f;
+            materialNative.AlbedoColor = new Color(
+                albedoRed, albedoGreen, albedoBlue, material.AlbedoColor.A / 255f
+            );
+            materialNative.VertexColorUseAsAlbedo = true;
+            materialNative.EmissionEnabled = true;
+            if (material.UnshadedFlag) {
+                materialNative.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
+                materialNative.Emission = new Color(
+                    emissionRed, emissionGreen, emissionBlue, 1f
+                );
+            } else {
+                float emissionTotalRed = emissionRed;
+                float emissionTotalGreen = emissionGreen;
+                float emissionTotalBlue = emissionBlue;
+                if (flagBakeAmbient) {
+                    emissionTotalRed = emissionRed + AmbientRed * albedoRed;
+                    emissionTotalGreen = emissionGreen + AmbientGreen * albedoGreen;
+                    emissionTotalBlue = emissionBlue + AmbientBlue * albedoBlue;
+                }
+                materialNative.Emission = new Color(
+                    emissionTotalRed, emissionTotalGreen, emissionTotalBlue, 1f
+                );
+            }
+            if (material.AlbedoColor.A < 255) {
+                materialNative.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+            }
+            materialNative.CullMode = ToNative(material.CullMode);
+            return materialNative;
+        }
+        
+        private static BaseMaterial3D.CullModeEnum ToNative(MeshCullMode cullMode) {
+            if (cullMode == MeshCullMode.None) {
+                return BaseMaterial3D.CullModeEnum.Disabled;
+            }
+            if (cullMode == MeshCullMode.Front) {
+                return BaseMaterial3D.CullModeEnum.Front;
+            }
+            return BaseMaterial3D.CullModeEnum.Back;
+        }
+        
         private sealed class GpuMesh : IDisposable {
             private ArrayMesh _meshNative;
             private StandardMaterial3D _material;
@@ -279,6 +582,7 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
                 Vector3[] arrayPosition = new Vector3[data.VertexCount];
                 Vector3[] arrayNormal = new Vector3[data.VertexCount];
                 Vector2[] arrayTexture = new Vector2[data.VertexCount];
+                Color[] arrayColor = new Color[data.VertexCount];
                 for (int index = 0; index < data.VertexCount; index += 1) {
                     MeshVertex vertex = data.Vertices[index];
                     arrayPosition[index] = new Vector3(
@@ -290,6 +594,12 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
                     arrayTexture[index] = new Vector2(
                         vertex.TextureCoordinate.X, vertex.TextureCoordinate.Y
                     );
+                    arrayColor[index] = new Color(
+                        vertex.Color.R / 255f,
+                        vertex.Color.G / 255f,
+                        vertex.Color.B / 255f,
+                        vertex.Color.A / 255f
+                    );
                 }
                 int[] arrayIndex = new int[data.IndexCount];
                 for (int index = 0; index < data.IndexCount; index += 1) {
@@ -300,17 +610,21 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
                 arrays[(int)GodotMesh.ArrayType.Vertex] = arrayPosition;
                 arrays[(int)GodotMesh.ArrayType.Normal] = arrayNormal;
                 arrays[(int)GodotMesh.ArrayType.TexUV] = arrayTexture;
+                arrays[(int)GodotMesh.ArrayType.Color] = arrayColor;
                 arrays[(int)GodotMesh.ArrayType.Index] = arrayIndex;
                 _meshNative = new ArrayMesh();
                 _meshNative.AddSurfaceFromArrays(
                     ToNative(data.PrimitiveType), arrays, default, default, default
                 );
-                // Untextured geometry renders in white plus the rig's ambient term;
-                // emission carries that ambient into Godot's shared world.
+                // Untextured geometry renders in white times its vertex colors plus the
+                // rig's ambient term; emission carries that ambient into Godot's shared
+                // world. Every neutral draw resolves an explicit material override with
+                // the same look, so this surface material stays a fallback only.
                 _material = new StandardMaterial3D();
                 _material.AlbedoColor = new Color(1f, 1f, 1f, 1f);
+                _material.VertexColorUseAsAlbedo = true;
                 _material.EmissionEnabled = true;
-                _material.Emission = new Color(0.05333332f, 0.09882354f, 0.1819608f, 1f);
+                _material.Emission = new Color(AmbientRed, AmbientGreen, AmbientBlue, 1f);
                 _meshNative.SurfaceSetMaterial(0, _material);
             }
             
