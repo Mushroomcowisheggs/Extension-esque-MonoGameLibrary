@@ -71,8 +71,8 @@ namespace MonoGameLibrary.Adapters.Godot.ThreeDimensionalGraphics {
             _moduleCamera.Register(builder);
             IThreeDimensionalCameraService serviceCameraResolved =
                 builder.GetService<IThreeDimensionalCameraService>();
-            IEnvironmentService serviceEnvironment = builder.GetService<IEnvironmentService>();
-            if (serviceEnvironment == null) {
+            IEnvironmentService serviceEnvironment;
+            if (!builder.TryGetService<IEnvironmentService>(out serviceEnvironment)) {
                 serviceEnvironment = new EnvironmentService();
                 builder.RegisterService<IEnvironmentService>(serviceEnvironment);
             }
